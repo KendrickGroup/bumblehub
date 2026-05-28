@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { CloudSun, Music2 } from "lucide-react";
+import { CloudSun } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Property, Scene } from "@/lib/types";
 import { Clock } from "./Clock";
+import { NowPlayingStrip } from "./NowPlayingStrip";
 import { SceneGrid } from "./SceneGrid";
 
 export default async function DashboardPage() {
@@ -98,18 +99,8 @@ export default async function DashboardPage() {
         </section>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-stone-200/80 bg-white/90 px-6 py-4 backdrop-blur">
-        <div className="flex min-h-[60px] items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100">
-            <Music2 className="h-6 w-6 text-stone-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-stone-500">Now playing</p>
-            <p className="truncate text-base font-medium text-stone-800">
-              Nothing playing
-            </p>
-          </div>
-        </div>
+      <footer className="sticky bottom-0 border-t border-stone-200/80 bg-[#FAF8F3]/95 px-6 py-4 backdrop-blur">
+        <NowPlayingStrip />
       </footer>
     </div>
   );
