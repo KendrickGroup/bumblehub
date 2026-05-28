@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getOriginFromHeaders } from "@/lib/site";
 
 export type LoginResult = { ok: false; error: string };
 export type MagicLinkResult = { ok: true; message: string } | LoginResult;
@@ -56,7 +57,7 @@ export async function sendMagicLink(
   }
 
   const supabase = await createClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = await getOriginFromHeaders();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {

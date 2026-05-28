@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
+import { getOriginFromRequest } from "@/lib/site";
 import {
   getSpotifyClientId,
   getSpotifyRedirectUri,
@@ -28,11 +29,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const origin = getOriginFromRequest(request);
+  const redirectUri = getSpotifyRedirectUri(origin);
   const state = randomBytes(32).toString("hex");
   const authorizeUrl = new URL("https://accounts.spotify.com/authorize");
   authorizeUrl.searchParams.set("client_id", getSpotifyClientId());
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("redirect_uri", getSpotifyRedirectUri());
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("scope", SPOTIFY_SCOPES);
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("show_dialog", "true");

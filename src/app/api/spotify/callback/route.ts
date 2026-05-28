@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getOriginFromRequest } from "@/lib/site";
 import {
+  getSpotifyRedirectUri,
   SPOTIFY_OAUTH_PROPERTY_COOKIE,
   SPOTIFY_OAUTH_STATE_COOKIE,
 } from "@/lib/spotify/config";
@@ -58,7 +60,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const credentials = await exchangeSpotifyCode(code);
+    const redirectUri = getSpotifyRedirectUri(getOriginFromRequest(request));
+    const credentials = await exchangeSpotifyCode(code, redirectUri);
     await saveSpotifyCredentials(propertyId, credentials);
 
     const response = dashboardRedirect(request, { spotify: "connected" });

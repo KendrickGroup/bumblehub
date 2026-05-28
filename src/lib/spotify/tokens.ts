@@ -5,11 +5,7 @@ import {
   type SpotifyCredentials,
   type SpotifyTokenResponse,
 } from "./credentials";
-import {
-  getSpotifyClientId,
-  getSpotifyClientSecret,
-  getSpotifyRedirectUri,
-} from "./config";
+import { getSpotifyClientId, getSpotifyClientSecret } from "./config";
 
 const EXPIRY_MARGIN_SECONDS = 60;
 
@@ -52,11 +48,12 @@ async function fetchSpotifyTokens(
 
 export async function exchangeSpotifyCode(
   code: string,
+  redirectUri: string,
 ): Promise<SpotifyCredentials> {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: getSpotifyRedirectUri(),
+    redirect_uri: redirectUri,
   });
 
   return credentialsFromTokenResponse(await fetchSpotifyTokens(params));

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { DEFAULT_SITE_URL, getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,6 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl() || DEFAULT_SITE_URL),
   title: {
     default: "BumbleHub",
     template: "%s · BumbleHub",
