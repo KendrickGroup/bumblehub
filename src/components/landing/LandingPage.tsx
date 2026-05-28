@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { BeeDefs, BeeIcon } from "./BeeLogo";
 
 export function LandingPage() {
@@ -21,7 +20,7 @@ export function LandingPage() {
             <a className="nav-link hide-sm" href="#how">
               How it works
             </a>
-            <a className="btn btn-primary" href="/dashboard">
+            <a className="btn btn-primary" href="/login">
               Log in
             </a>
           </div>
@@ -48,7 +47,7 @@ export function LandingPage() {
               apps.
             </p>
             <div className="hero-cta reveal d4">
-              <a className="btn btn-honey" href="/dashboard">
+              <a className="btn btn-honey" href="/login">
                 Open my Hive
               </a>
               <a className="btn btn-primary" href="#features">
@@ -61,14 +60,7 @@ export function LandingPage() {
             </p>
           </div>
           <div className="hero-art reveal d2">
-            <Image
-              src="/bumblehub-logo.png"
-              alt="BumbleHub — your whole home, one warm little screen"
-              width={1024}
-              height={512}
-              className="hero-logo"
-              priority
-            />
+            <BeeIcon className="hero-bee" />
           </div>
         </section>
 
@@ -239,7 +231,7 @@ export function LandingPage() {
             background, so walking through the door always feels like coming
             home.
           </p>
-          <a className="btn btn-honey btn-honey-lg" href="/dashboard">
+          <a className="btn btn-honey btn-honey-lg" href="/login">
             Log in &amp; set up my home
           </a>
         </section>

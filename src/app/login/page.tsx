@@ -1,10 +1,21 @@
+import { redirect } from "next/navigation";
 import { LoginForm } from "./LoginForm";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/dashboard");
+  }
+
   const { next = "/dashboard" } = await searchParams;
   const configured =
     !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
