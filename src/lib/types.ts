@@ -15,3 +15,15 @@ export type Scene = {
   display_order: number;
   is_favorite: boolean;
 };
+
+export type Photo = {
+  id: string;
+  property_id: string | null;
+  url: string;
+  caption: string | null;
+  taken_at: string | null;
+  category: string | null;
+  is_curated: boolean;
+  created_by: string | null;
+  created_at: string;
+};
