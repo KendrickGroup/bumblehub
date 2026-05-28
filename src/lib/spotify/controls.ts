@@ -87,14 +87,16 @@ export async function executeSpotifyCommand(
       });
       await assertPlayerOk(response, "previous");
       return;
-    case "setVolume":
+    case "setVolume": {
+      const deviceId = await resolveSpotifyPlaybackDeviceId(propertyId);
       response = await spotifyPlayerFetch(
         accessToken,
-        `/volume?volume_percent=${cmd.volume}`,
+        `/volume?volume_percent=${cmd.volume}&device_id=${encodeURIComponent(deviceId)}`,
         { method: "PUT" },
       );
       await assertPlayerOk(response, "setVolume");
       return;
+    }
     case "setShuffle":
       response = await spotifyPlayerFetch(
         accessToken,

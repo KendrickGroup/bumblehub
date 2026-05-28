@@ -8,8 +8,8 @@ export type NowPlayingTrack = {
 
 export type NowPlayingResponse =
   | { status: "not_connected" }
-  | { status: "idle" }
-  | { status: "playing"; track: NowPlayingTrack };
+  | { status: "idle"; volume: number | null }
+  | { status: "playing"; track: NowPlayingTrack; volume: number | null };
 
 export type PlaybackCommand =
   | { command: "play" }

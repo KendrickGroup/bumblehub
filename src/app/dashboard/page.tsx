@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Property, Scene } from "@/lib/types";
 import { Clock } from "./Clock";
-import { MusicTile } from "./MusicTile";
 import { NowPlayingStrip } from "./NowPlayingStrip";
 import { SceneGrid } from "./SceneGrid";
 import { WeatherChip } from "./WeatherChip";
@@ -85,15 +84,6 @@ export default async function DashboardPage() {
             account.
           </p>
         )}
-
-        <section>
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
-            Music
-          </h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <MusicTile />
-          </div>
-        </section>
 
         <section>
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
