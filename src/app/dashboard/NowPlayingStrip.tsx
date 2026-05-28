@@ -10,6 +10,7 @@ import {
   SkipBack,
   SkipForward,
 } from "lucide-react";
+import { MUSIC_UPDATED_EVENT } from "@/lib/music/events";
 import type { NowPlayingResponse, PlaybackCommand } from "@/lib/music/types";
 
 const POLL_MS = 5000;
@@ -55,7 +56,15 @@ export function NowPlayingStrip() {
   useEffect(() => {
     load();
     const id = setInterval(load, POLL_MS);
-    return () => clearInterval(id);
+    const onMusicUpdated = () => {
+      load();
+      window.setTimeout(load, REFRESH_AFTER_COMMAND_MS);
+    };
+    window.addEventListener(MUSIC_UPDATED_EVENT, onMusicUpdated);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener(MUSIC_UPDATED_EVENT, onMusicUpdated);
+    };
   }, [load]);
 
   if (!state || state.status === "not_connected") {

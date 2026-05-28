@@ -1,4 +1,5 @@
 import type { PlaybackCommand } from "@/lib/music/types";
+import { resolveSpotifyPlaybackDeviceId } from "./devices";
 import { getValidSpotifyAccessToken, SpotifyNotConnectedError } from "./tokens";
 
 async function spotifyPlayerFetch(
@@ -55,13 +56,19 @@ export async function executeSpotifyCommand(
   let response: Response;
 
   switch (cmd.command) {
-    case "play":
-      response = await spotifyPlayerFetch(accessToken, "/play", {
-        method: "PUT",
-        body: JSON.stringify({}),
-      });
+    case "play": {
+      const deviceId = await resolveSpotifyPlaybackDeviceId(propertyId);
+      response = await spotifyPlayerFetch(
+        accessToken,
+        `/play?device_id=${encodeURIComponent(deviceId)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({}),
+        },
+      );
       await assertPlayerOk(response, "play");
       return;
+    }
     case "pause":
       response = await spotifyPlayerFetch(accessToken, "/pause", {
         method: "PUT",

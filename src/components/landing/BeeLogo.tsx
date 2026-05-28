@@ -1,0 +1,74 @@
+import type { SVGProps } from "react";
+
+/** Inline bee artwork used on the landing page and app icons. */
+export function BeeSymbolPaths() {
+  return (
+    <>
+      <ellipse cx="34" cy="58" rx="30" ry="20" fill="#F4B400" />
+      <ellipse cx="86" cy="58" rx="30" ry="20" fill="#F4B400" />
+      <path
+        d="M40 40 Q60 28 80 40 L80 78 Q80 96 60 104 Q40 96 40 78 Z"
+        fill="#1A1714"
+      />
+      <rect x="40" y="62" width="40" height="9" fill="#F4B400" />
+      <rect x="44" y="80" width="32" height="8" fill="#F4B400" />
+      <path d="M60 50 L78 64 L78 88 L42 88 L42 64 Z" fill="#FBF7EF" />
+      <rect x="53" y="70" width="14" height="14" rx="2" fill="#1A1714" />
+      <line x1="58" y1="74" x2="58" y2="80" stroke="#FBF7EF" strokeWidth="1.6" />
+      <line x1="62" y1="74" x2="62" y2="80" stroke="#FBF7EF" strokeWidth="1.6" />
+      <line x1="55" y1="77" x2="65" y2="77" stroke="#FBF7EF" strokeWidth="1.6" />
+      <circle cx="60" cy="34" r="16" fill="#1A1714" />
+      <path
+        d="M52 22 Q46 10 40 8"
+        stroke="#1A1714"
+        strokeWidth="3.4"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M68 22 Q74 10 80 8"
+        stroke="#1A1714"
+        strokeWidth="3.4"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <circle cx="40" cy="8" r="3.4" fill="#F4B400" />
+      <circle cx="80" cy="8" r="3.4" fill="#F4B400" />
+      <circle cx="55" cy="33" r="1.8" fill="#FBF7EF" />
+      <circle cx="65" cy="33" r="1.8" fill="#FBF7EF" />
+      <path
+        d="M55 38 Q60 42 65 38"
+        stroke="#FBF7EF"
+        strokeWidth="1.8"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </>
+  );
+}
+
+export function BeeDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
+      <symbol id="bee" viewBox="0 0 120 120">
+        <BeeSymbolPaths />
+      </symbol>
+    </svg>
+  );
+}
+
+export function BeeIcon({
+  className,
+  ...props
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 120 120"
+      aria-hidden
+      {...props}
+    >
+      <use href="#bee" />
+    </svg>
+  );
+}
