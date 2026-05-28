@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { CloudSun } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Property, Scene } from "@/lib/types";
 import { Clock } from "./Clock";
 import { MusicTile } from "./MusicTile";
 import { NowPlayingStrip } from "./NowPlayingStrip";
 import { SceneGrid } from "./SceneGrid";
+import { WeatherChip } from "./WeatherChip";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -74,13 +74,7 @@ export default async function DashboardPage() {
       <main className="flex flex-1 flex-col gap-8 px-6 pb-10">
         <section className="flex flex-wrap items-start justify-between gap-6">
           <Clock timezone={timezone} />
-          <div className="flex min-h-[60px] items-center gap-3 rounded-[20px] bg-white px-5 py-4 shadow-sm">
-            <CloudSun className="h-8 w-8 text-stone-400" strokeWidth={1.5} />
-            <div>
-              <p className="text-sm text-stone-500">Weather</p>
-              <p className="text-lg font-medium text-stone-800">— °</p>
-            </div>
-          </div>
+          <WeatherChip />
         </section>
 
         {!settings?.default_property_id && (
