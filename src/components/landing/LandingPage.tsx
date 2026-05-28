@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { BeeDefs, BeeIcon } from "./BeeLogo";
 
 export function LandingPage() {
@@ -59,8 +60,15 @@ export function LandingPage() {
               on the way home.
             </p>
           </div>
-          <div className="hero-art">
-            <BeeIcon className="hero-bee" />
+          <div className="hero-art reveal d2">
+            <Image
+              src="/bumblehub-logo.png"
+              alt="BumbleHub — your whole home, one warm little screen"
+              width={1024}
+              height={512}
+              className="hero-logo"
+              priority
+            />
           </div>
         </section>
 
