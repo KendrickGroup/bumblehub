@@ -8,7 +8,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BumbleHub",
+  title: {
+    default: "BumbleHub",
+    template: "%s · BumbleHub",
+  },
   description: "Touch-first smart home dashboard",
 };
 
