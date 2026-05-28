@@ -58,22 +58,17 @@
   gap: 11px;
 }
 
-.landing-page .brand svg {
-  width: 38px;
-  height: 38px;
+.landing-page .brand-logo {
+  width: auto;
   display: block;
 }
 
-.landing-page .brand-name {
-  font-family: var(--sans);
-  font-weight: 700;
-  font-size: 21px;
-  letter-spacing: -0.02em;
-  color: var(--charcoal);
+.landing-page .brand-logo-nav {
+  height: 48px;
 }
 
-.landing-page .brand-name .hub {
-  color: var(--honey-deep);
+.landing-page .brand-logo-foot {
+  height: 32px;
 }
 
 .landing-page .nav-actions {
@@ -564,10 +559,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 14px;
-}
-
-.landing-page .foot .brand-name {
-  font-size: 17px;
 }
 
 .landing-page .foot small {

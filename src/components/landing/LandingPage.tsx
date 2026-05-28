@@ -8,10 +8,11 @@ export function LandingPage() {
       <header>
         <div className="nav">
           <a className="brand" href="#top">
-            <BeeIcon />
-            <span className="brand-name">
-              Bumble<span className="hub">Hub</span>
-            </span>
+            <img
+              src="/logo.png"
+              alt="BumbleHub"
+              className="brand-logo brand-logo-nav"
+            />
           </a>
           <div className="nav-actions">
             <a className="nav-link hide-sm" href="#features">
@@ -240,10 +241,11 @@ export function LandingPage() {
       <footer>
         <div className="foot">
           <a className="brand" href="#top">
-            <BeeIcon style={{ width: 30, height: 30 }} />
-            <span className="brand-name">
-              Bumble<span className="hub">Hub</span>
-            </span>
+            <img
+              src="/logo.png"
+              alt="BumbleHub"
+              className="brand-logo brand-logo-foot"
+            />
           </a>
           <small>
             © 2026 BumbleHub · A calmer way to run the house · bumblehub.dev
