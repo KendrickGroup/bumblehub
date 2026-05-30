@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene } from "@/lib/types";
 import { Clock } from "./Clock";
 import { NowPlayingStrip } from "./NowPlayingStrip";
@@ -50,6 +51,11 @@ export default async function DashboardPage() {
 
   const timezone = property?.timezone ?? "America/Chicago";
 
+  let recipeCount = 0;
+  if (property) {
+    recipeCount = await countRecipesForProperty(property.id);
+  }
+
   return (
     <div className="flex min-h-full flex-col bg-[#FAF8F3]">
       <header className="flex items-center justify-between px-6 pt-8 pb-4">
@@ -85,6 +91,28 @@ export default async function DashboardPage() {
             account.
           </p>
         )}
+
+        <section>
+          <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
+            Recipes
+          </h2>
+          <Link
+            href="/recipes"
+            className="flex min-h-[88px] items-center gap-4 rounded-[20px] bg-white px-6 py-5 shadow-sm transition hover:shadow-md active:scale-[0.99]"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#F4B400]/15 text-3xl">
+              🍳
+            </span>
+            <div className="flex-1">
+              <p className="text-lg font-semibold text-stone-900">Recipes</p>
+              <p className="text-sm text-stone-500">
+                {recipeCount === 0
+                  ? "Cook-mode recipes for your hive"
+                  : `${recipeCount} recipe${recipeCount === 1 ? "" : "s"} ready to cook`}
+              </p>
+            </div>
+          </Link>
+        </section>
 
         <section>
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
