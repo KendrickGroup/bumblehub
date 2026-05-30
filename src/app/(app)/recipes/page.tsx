@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Clock, ChevronLeft } from "lucide-react";
+import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { fetchRecipesForProperty } from "@/lib/recipes/queries";
@@ -65,11 +64,9 @@ export default async function RecipesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login?next=/recipes");
-  }
-
-  const propertyId = await getDefaultPropertyIdForUser(user.id);
+  const propertyId = user
+    ? await getDefaultPropertyIdForUser(user.id)
+    : null;
   let recipes: Recipe[] = [];
 
   if (propertyId) {
@@ -77,16 +74,9 @@ export default async function RecipesPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6 py-8">
-      <header className="mb-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-800"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-          Dashboard
-        </Link>
-        <p className="mt-4 text-sm font-medium uppercase tracking-widest text-[#F4B400]">
+    <div className="py-4">
+      <header className="mb-8 px-2 sm:px-0">
+        <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
           Recipes
         </p>
         <h1

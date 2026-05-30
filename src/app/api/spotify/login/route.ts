@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const propertyId = await getDefaultPropertyIdForUser(user.id);
   if (!propertyId) {
     return NextResponse.redirect(
-      new URL("/dashboard?spotify=missing_property", request.url),
+      new URL("/home?spotify=missing_property", request.url),
     );
   }
 

@@ -220,10 +220,10 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
       <div className="flex min-h-full flex-col bg-[#FAF8F3] px-6 py-10">
         <header className="mb-8">
           <Link
-            href="/dashboard"
+            href="/home"
             className="text-sm font-medium text-stone-500 hover:text-stone-800"
           >
-            ← Dashboard
+            ← Home
           </Link>
           <h1 className="mt-4 text-3xl font-semibold text-stone-900">
             Guestbook
@@ -243,10 +243,10 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
       <header className="flex items-center justify-between px-6 pt-8 pb-4">
         <div>
           <Link
-            href="/dashboard"
+            href="/home"
             className="text-sm font-medium text-stone-500 hover:text-stone-800"
           >
-            ← Dashboard
+            ← Home
           </Link>
           <p className="mt-3 text-sm font-medium uppercase tracking-widest text-[#F4B400]">
             Guestbook
@@ -280,10 +280,10 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
                 Take another photo
               </button>
               <Link
-                href="/dashboard"
+                href="/home"
                 className="min-h-[56px] rounded-[18px] border border-stone-200 bg-white px-6 py-4 text-lg font-medium text-stone-800 transition hover:bg-stone-50"
               >
-                Back to dashboard
+                Back to home
               </Link>
             </div>
           </div>

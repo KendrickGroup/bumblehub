@@ -75,7 +75,7 @@ export function CookModeView({ recipe, initialChats }: Props) {
   };
 
   return (
-    <div className="relative min-h-full">
+    <div className="relative -mx-4 sm:mx-0">
       {toast && (
         <div
           className="fixed left-1/2 top-6 z-[60] -translate-x-1/2 rounded-[18px] border border-[#F4B400]/40 bg-[#FBF0D0] px-5 py-3 text-sm font-medium text-stone-900 shadow-md"

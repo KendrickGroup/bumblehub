@@ -13,10 +13,10 @@ export default async function LoginPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect("/home");
   }
 
-  const { next = "/dashboard" } = await searchParams;
+  const { next = "/home" } = await searchParams;
   const configured =
     !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
     !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

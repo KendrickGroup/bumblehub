@@ -30,11 +30,9 @@ export default async function RecipeCookPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect(`/login?next=/recipes/${id}`);
-  }
-
-  const propertyId = await getDefaultPropertyIdForUser(user.id);
+  const propertyId = user
+    ? await getDefaultPropertyIdForUser(user.id)
+    : null;
   if (!propertyId) {
     redirect("/recipes");
   }

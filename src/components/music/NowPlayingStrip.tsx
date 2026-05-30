@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { MUSIC_UPDATED_EVENT } from "@/lib/music/events";
 import type { NowPlayingResponse, PlaybackCommand } from "@/lib/music/types";
-import { PlaylistPickerModal } from "./PlaylistPickerModal";
+import { PlaylistPickerModal } from "@/components/music/PlaylistPickerModal";
 
 const POLL_MS = 5000;
 const REFRESH_AFTER_COMMAND_MS = 400;
@@ -24,7 +24,22 @@ type ConnectedState = Extract<
   { status: "idle" } | { status: "playing" }
 >;
 
-export function NowPlayingStrip() {
+type NowPlayingStripProps = {
+  /** When false and Spotify is not connected, the strip is hidden entirely. */
+  allowConnectPrompt?: boolean;
+};
+
+function ShellChrome({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-t border-stone-200/60 bg-[#FAF8F3]/95 px-4 py-3 backdrop-blur">
+      <div className="mx-auto max-w-[1200px]">{children}</div>
+    </div>
+  );
+}
+
+export function NowPlayingStrip({
+  allowConnectPrompt = true,
+}: NowPlayingStripProps) {
   const [state, setState] = useState<NowPlayingResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
@@ -106,25 +121,34 @@ export function NowPlayingStrip() {
     };
   }, [load]);
 
-  if (!state || state.status === "not_connected") {
+  if (!state) {
+    return null;
+  }
+
+  if (state.status === "not_connected") {
+    if (!allowConnectPrompt) {
+      return null;
+    }
     return (
-      <div className="flex min-h-[72px] items-center gap-4 rounded-[18px] border-2 border-[#F4B400]/30 bg-white px-5 py-4 shadow-sm">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F4B400]/15">
-          <Music2 className="h-7 w-7 text-[#F4B400]" strokeWidth={1.75} />
+      <ShellChrome>
+        <div className="flex min-h-[72px] items-center gap-4 rounded-[18px] border-2 border-[#F4B400]/30 bg-white px-5 py-4 shadow-sm">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F4B400]/15">
+            <Music2 className="h-7 w-7 text-[#F4B400]" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-stone-500">Music</p>
+            <p className="text-base font-medium text-stone-800">
+              Connect Spotify to play music
+            </p>
+          </div>
+          <Link
+            href="/api/spotify/login"
+            className="min-h-[48px] shrink-0 rounded-[18px] bg-[#F4B400] px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800]"
+          >
+            Connect
+          </Link>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-stone-500">Music</p>
-          <p className="text-base font-medium text-stone-800">
-            Connect Spotify to play music
-          </p>
-        </div>
-        <Link
-          href="/api/spotify/login"
-          className="min-h-[48px] shrink-0 rounded-[18px] bg-[#F4B400] px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800]"
-        >
-          Connect
-        </Link>
-      </div>
+      </ShellChrome>
     );
   }
 
@@ -134,7 +158,7 @@ export function NowPlayingStrip() {
   const track = connected.status === "playing" ? connected.track : null;
 
   return (
-    <>
+    <ShellChrome>
       <div
         className={`flex min-h-[88px] flex-col gap-4 rounded-[18px] bg-white px-5 py-4 shadow-sm sm:min-h-[72px] sm:flex-row sm:flex-wrap sm:items-center ${
           isPlaying ? "ring-2 ring-[#F4B400]/40" : ""
@@ -208,7 +232,7 @@ export function NowPlayingStrip() {
         open={playlistsOpen}
         onClose={() => setPlaylistsOpen(false)}
       />
-    </>
+    </ShellChrome>
   );
 }
 

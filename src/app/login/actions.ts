@@ -21,7 +21,7 @@ export async function signInWithPassword(
 ): Promise<LoginResult> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/dashboard");
+  const next = String(formData.get("next") ?? "/home");
 
   if (!email || !password) {
     return { ok: false, error: "Email and password are required." };
@@ -46,7 +46,7 @@ export async function sendMagicLink(
   formData: FormData,
 ): Promise<MagicLinkResult> {
   const email = String(formData.get("email") ?? "").trim();
-  const next = String(formData.get("next") ?? "/dashboard");
+  const next = String(formData.get("next") ?? "/home");
 
   if (!email) {
     return { ok: false, error: "Email is required." };

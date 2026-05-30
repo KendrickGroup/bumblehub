@@ -15,7 +15,7 @@ function dashboardRedirect(
   request: NextRequest,
   query: Record<string, string>,
 ) {
-  const url = new URL("/dashboard", request.url);
+  const url = new URL("/home", request.url);
   for (const [key, value] of Object.entries(query)) {
     url.searchParams.set(key, value);
   }

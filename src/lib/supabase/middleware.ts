@@ -43,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   const isPublic = isPublicPath(pathname);
 
   if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   if (!user && !isPublic) {
