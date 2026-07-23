@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
+import { isPropertyOwner } from "@/lib/photos";
 import {
   DEFAULT_IDLE_DRIFT_SETTINGS,
   parseIdleDriftSettings,
@@ -9,6 +10,12 @@ import {
   DEFAULT_SLIDESHOW_STYLE,
   parseSlideshowStyle,
 } from "@/lib/hive/slideshow-style";
+import {
+  DEFAULT_HOUSE_GREETING,
+  parseHouseModeSettings,
+} from "@/lib/house-mode/settings";
+import { SettingsGate } from "@/components/house-mode/SettingsGate";
+import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSettingsPanel";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 
 export const metadata: Metadata = {
@@ -36,6 +43,11 @@ export default async function SettingsPage() {
 
   let idleSettings = DEFAULT_IDLE_DRIFT_SETTINGS;
   let slideshowStyle = DEFAULT_SLIDESHOW_STYLE;
+  let houseGreeting = DEFAULT_HOUSE_GREETING;
+  let hasPin = false;
+  let propertyName: string | null = null;
+  let isOwner = false;
+
   if (propertyId) {
     const { data } = await supabase
       .from("property_settings")
@@ -44,51 +56,76 @@ export default async function SettingsPage() {
       .maybeSingle();
     idleSettings = parseIdleDriftSettings(data?.dashboard_layout);
     slideshowStyle = parseSlideshowStyle(data?.dashboard_layout);
+    const house = parseHouseModeSettings(data?.dashboard_layout);
+    houseGreeting = house.greeting;
+    hasPin = Boolean(house.pinHash);
+    isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
+
+    const { data: property } = await supabase
+      .from("properties")
+      .select("name")
+      .eq("id", propertyId)
+      .maybeSingle();
+    propertyName = property?.name ?? null;
   }
 
   return (
-    <div className="px-2 py-6 sm:px-0">
-      <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
-        BumbleHub
-      </p>
-      <h1
-        className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900"
-        style={{ fontVariationSettings: '"opsz" 72' }}
-      >
-        Settings
-      </h1>
+    <SettingsGate>
+      <div className="px-2 py-6 sm:px-0">
+        <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
+          BumbleHub
+        </p>
+        <h1
+          className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900"
+          style={{ fontVariationSettings: '"opsz" 72' }}
+        >
+          Settings
+        </h1>
 
-      <section className="mt-8 rounded-[20px] bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">
-          Account
-        </h2>
-        <p className="mt-3 text-base text-stone-800">{user?.email}</p>
-        <form action="/auth/signout" method="post" className="mt-6">
-          <button
-            type="submit"
-            className="min-h-[56px] w-full rounded-[18px] border border-stone-200 bg-white text-base font-semibold text-stone-800 transition hover:bg-stone-50 sm:w-auto sm:px-8"
-          >
-            Sign out
-          </button>
-        </form>
-      </section>
+        <section className="mt-8 rounded-[20px] bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">
+            Account
+          </h2>
+          <p className="mt-3 text-base text-stone-800">{user?.email}</p>
+          <form action="/auth/signout" method="post" className="mt-6">
+            <button
+              type="submit"
+              className="min-h-[56px] w-full rounded-[18px] border border-stone-200 bg-white text-base font-semibold text-stone-800 transition hover:bg-stone-50 sm:w-auto sm:px-8"
+            >
+              Sign out
+            </button>
+          </form>
+        </section>
 
-      <div className="mt-6">
-        <IdleDriftSettingsPanel
-          initialSettings={idleSettings}
-          initialSlideshowStyle={slideshowStyle}
-          hasProperty={!!propertyId}
-        />
+        <div className="mt-6">
+          <HouseModeSettingsPanel
+            initial={{
+              hasProperty: !!propertyId,
+              hasPin,
+              greeting: houseGreeting,
+              propertyName,
+              isOwner,
+            }}
+          />
+        </div>
+
+        <div className="mt-6">
+          <IdleDriftSettingsPanel
+            initialSettings={idleSettings}
+            initialSlideshowStyle={slideshowStyle}
+            hasProperty={!!propertyId}
+          />
+        </div>
+
+        <section className="mt-6 space-y-3">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">
+            More
+          </h2>
+          <ComingSoonRow title="Themes" />
+          <ComingSoonRow title="Integrations" />
+          <ComingSoonRow title="Property" />
+        </section>
       </div>
-
-      <section className="mt-6 space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">
-          More
-        </h2>
-        <ComingSoonRow title="Themes" />
-        <ComingSoonRow title="Integrations" />
-        <ComingSoonRow title="Property" />
-      </section>
-    </div>
+    </SettingsGate>
   );
 }

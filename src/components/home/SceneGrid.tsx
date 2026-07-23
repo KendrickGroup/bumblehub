@@ -59,9 +59,16 @@ export function SceneGrid({ scenes }: { scenes: Scene[] }) {
               className={`h-7 w-7 ${active ? "text-[#F4B400]" : "text-stone-500"}`}
               strokeWidth={1.75}
             />
-            <span className="mt-4 text-lg font-medium text-stone-900">
-              {scene.name}
-            </span>
+            <div className="mt-4">
+              <span className="block text-lg font-medium text-stone-900">
+                {scene.name}
+              </span>
+              {scene.description ? (
+                <span className="mt-1 block text-sm leading-snug text-stone-500">
+                  {scene.description}
+                </span>
+              ) : null}
+            </div>
           </button>
         );
       })}

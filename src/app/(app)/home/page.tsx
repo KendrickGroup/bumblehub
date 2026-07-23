@@ -3,8 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene } from "@/lib/types";
 import { Clock } from "@/components/home/Clock";
+import { HomeGreeting } from "@/components/home/HomeGreeting";
 import { SceneGrid } from "@/components/home/SceneGrid";
 import { WeatherChip } from "@/components/home/WeatherChip";
+import {
+  DEFAULT_HOUSE_GREETING,
+  firstNameFromUser,
+  parseHouseModeSettings,
+} from "@/lib/house-mode/settings";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -20,6 +26,7 @@ export default async function HomePage() {
 
   let property: Property | null = null;
   let scenes: Scene[] = [];
+  let houseGreeting = DEFAULT_HOUSE_GREETING;
 
   if (settings?.default_property_id) {
     const { data: propertyRow } = await supabase
@@ -40,10 +47,23 @@ export default async function HomePage() {
         .order("display_order", { ascending: true });
 
       scenes = sceneRows ?? [];
+
+      const { data: propertySettings } = await supabase
+        .from("property_settings")
+        .select("dashboard_layout")
+        .eq("property_id", property.id)
+        .maybeSingle();
+      houseGreeting = parseHouseModeSettings(
+        propertySettings?.dashboard_layout,
+      ).greeting;
     }
   }
 
   const timezone = property?.timezone ?? "America/Chicago";
+  const firstName = firstNameFromUser({
+    email: user?.email,
+    user_metadata: user?.user_metadata as Record<string, unknown> | null,
+  });
 
   let recipeCount = 0;
   if (property) {
@@ -53,10 +73,12 @@ export default async function HomePage() {
   return (
     <>
       <header className="px-2 pt-6 pb-4 sm:px-0">
-        <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
-          BumbleHub
-        </p>
-        <h1 className="text-2xl font-semibold text-stone-900">Home</h1>
+        <HomeGreeting
+          propertyName={property?.name ?? null}
+          houseGreeting={houseGreeting}
+          firstName={firstName}
+          timezone={timezone}
+        />
       </header>
 
       <div className="flex flex-col gap-8">
