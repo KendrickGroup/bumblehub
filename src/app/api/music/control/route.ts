@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parsePlaybackCommand } from "@/lib/music/commands";
 import { getMusicProvider } from "@/lib/music/provider";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
+import { SpotifyNoActiveDeviceError } from "@/lib/spotify/controls";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -39,6 +40,16 @@ export async function POST(request: Request) {
     await provider.sendCommand(propertyId, command);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof SpotifyNoActiveDeviceError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: "NO_ACTIVE_DEVICE",
+        },
+        { status: 404 },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : "Playback command failed";
     const status = message.includes("not connected") ? 400 : 502;

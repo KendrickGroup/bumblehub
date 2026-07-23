@@ -17,7 +17,7 @@ import type { NowPlayingResponse, PlaybackCommand } from "@/lib/music/types";
 import { PlaylistPickerModal } from "@/components/music/PlaylistPickerModal";
 
 const POLL_MS = 5000;
-const REFRESH_AFTER_COMMAND_MS = 400;
+const REFRESH_AFTER_COMMAND_MS = 350;
 
 type ConnectedState = Extract<
   NowPlayingResponse,
@@ -44,7 +44,15 @@ export function NowPlayingStrip({
   const [busy, setBusy] = useState(false);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [localVolume, setLocalVolume] = useState(50);
+  const [toast, setToast] = useState<string | null>(null);
   const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -80,7 +88,28 @@ export function NowPlayingStrip({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!response.ok) return;
+
+        if (!response.ok) {
+          let code: string | undefined;
+          let errorMessage: string | undefined;
+          try {
+            const errBody = (await response.json()) as {
+              code?: string;
+              error?: string;
+            };
+            code = errBody.code;
+            errorMessage = errBody.error;
+          } catch {
+            // ignore parse errors
+          }
+
+          if (code === "NO_ACTIVE_DEVICE" || response.status === 404) {
+            showToast("Open Spotify on a device to start playback.");
+          } else if (errorMessage) {
+            showToast(errorMessage);
+          }
+          return;
+        }
 
         await load();
         window.setTimeout(load, REFRESH_AFTER_COMMAND_MS);
@@ -88,7 +117,7 @@ export function NowPlayingStrip({
         setBusy(false);
       }
     },
-    [load],
+    [load, showToast],
   );
 
   const setVolume = useCallback(
@@ -117,6 +146,9 @@ export function NowPlayingStrip({
       window.removeEventListener(MUSIC_UPDATED_EVENT, onMusicUpdated);
       if (volumeDebounceRef.current) {
         clearTimeout(volumeDebounceRef.current);
+      }
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
       }
     };
   }, [load]);
@@ -159,6 +191,15 @@ export function NowPlayingStrip({
 
   return (
     <ShellChrome>
+      {toast && (
+        <div
+          className="mb-3 rounded-[16px] border border-[#F4B400]/40 bg-[#FBF0D0] px-4 py-3 text-sm font-medium text-stone-900 shadow-sm"
+          role="status"
+        >
+          {toast}
+        </div>
+      )}
+
       <div
         className={`flex min-h-[88px] flex-col gap-4 rounded-[18px] bg-white px-5 py-4 shadow-sm sm:min-h-[72px] sm:flex-row sm:flex-wrap sm:items-center ${
           isPlaying ? "ring-2 ring-[#F4B400]/40" : ""
@@ -194,9 +235,7 @@ export function NowPlayingStrip({
               {track?.name ?? "Nothing playing"}
             </p>
             {track?.artists ? (
-              <p className="truncate text-sm text-stone-500">
-                {track.artists}
-              </p>
+              <p className="truncate text-sm text-stone-500">{track.artists}</p>
             ) : (
               <p className="text-sm text-stone-500">Pick a playlist to start</p>
             )}
@@ -222,9 +261,11 @@ export function NowPlayingStrip({
         <PlaybackControls
           busy={busy}
           isPlaying={isPlaying}
-          onPrevious={() => sendCommand("previous")}
-          onPlayPause={() => sendCommand(isPlaying ? "pause" : "play")}
-          onNext={() => sendCommand("next")}
+          onPrevious={() => void sendCommand("previous")}
+          onPlayPause={() =>
+            void sendCommand(isPlaying ? "pause" : "play")
+          }
+          onNext={() => void sendCommand("next")}
         />
       </div>
 
@@ -290,9 +331,9 @@ function PlaybackControls({
         label="Previous"
         disabled={disabled}
         onClick={onPrevious}
-        className="text-stone-700 hover:bg-stone-100"
+        className="bg-stone-100 text-stone-600 hover:bg-stone-200"
       >
-        <SkipBack className="h-6 w-6" strokeWidth={2} />
+        <SkipBack className="h-5 w-5" strokeWidth={2.25} />
       </ControlButton>
 
       <ControlButton
@@ -306,9 +347,9 @@ function PlaybackControls({
         }
       >
         {isPlaying ? (
-          <Pause className="h-6 w-6" strokeWidth={2} fill="currentColor" />
+          <Pause className="h-5 w-5" strokeWidth={2.25} fill="currentColor" />
         ) : (
-          <Play className="h-6 w-6" strokeWidth={2} fill="currentColor" />
+          <Play className="h-5 w-5" strokeWidth={2.25} fill="currentColor" />
         )}
       </ControlButton>
 
@@ -316,9 +357,9 @@ function PlaybackControls({
         label="Next"
         disabled={disabled}
         onClick={onNext}
-        className="text-stone-700 hover:bg-stone-100"
+        className="bg-stone-100 text-stone-600 hover:bg-stone-200"
       >
-        <SkipForward className="h-6 w-6" strokeWidth={2} />
+        <SkipForward className="h-5 w-5" strokeWidth={2.25} />
       </ControlButton>
     </div>
   );
@@ -343,7 +384,7 @@ function ControlButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex min-h-[52px] min-w-[52px] items-center justify-center rounded-[18px] transition disabled:opacity-50 ${className}`}
+      className={`flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
