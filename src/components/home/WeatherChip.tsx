@@ -34,9 +34,15 @@ export function WeatherChip() {
   const load = useCallback(async () => {
     try {
       const response = await fetch("/api/weather", { cache: "no-store" });
-      const body = (await response.json()) as WeatherState & {
-        error?: string;
+      const body = (await response.json()) as {
         status?: string;
+        error?: string;
+        temperature?: number;
+        bucket?: WeatherBucket;
+        label?: string;
+        isDay?: boolean;
+        unitSymbol?: string;
+        locationLabel?: string | null;
       };
       if (!response.ok) {
         setWeather({
@@ -45,14 +51,26 @@ export function WeatherChip() {
         });
         return;
       }
-      if (body.status === "ok") {
-        setWeather(body as WeatherOk);
+      if (
+        body.status === "ok" &&
+        typeof body.temperature === "number" &&
+        body.bucket &&
+        body.label &&
+        typeof body.isDay === "boolean" &&
+        body.unitSymbol
+      ) {
+        setWeather({
+          status: "ok",
+          temperature: body.temperature,
+          bucket: body.bucket,
+          label: body.label,
+          isDay: body.isDay,
+          unitSymbol: body.unitSymbol,
+          locationLabel: body.locationLabel ?? null,
+        });
         return;
       }
-      if (
-        body.status === "no_location" ||
-        body.status === "no_property"
-      ) {
+      if (body.status === "no_location" || body.status === "no_property") {
         setWeather({ status: "no_location" });
         return;
       }
