@@ -24,26 +24,92 @@ type KenBurns = {
   to: string;
 };
 
-function nextKenBurns(): KenBurns {
-  const variants: KenBurns[] = [
-    {
-      from: "scale(1) translate(0%, 0%)",
-      to: "scale(1.08) translate(-1.5%, -1%)",
-    },
-    {
-      from: "scale(1.06) translate(-2%, 1%)",
-      to: "scale(1) translate(0.5%, 0%)",
-    },
-    {
-      from: "scale(1) translate(1%, -1%)",
-      to: "scale(1.07) translate(-1%, 1.5%)",
-    },
-    {
-      from: "scale(1.05) translate(0%, 0%)",
-      to: "scale(1) translate(-1.5%, -0.5%)",
-    },
-  ];
-  return variants[Math.floor(Math.random() * variants.length)]!;
+type DocWithWebkit = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  webkitCancelFullScreen?: () => Promise<void> | void;
+};
+
+type ElWithWebkit = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  webkitRequestFullScreen?: () => Promise<void> | void;
+};
+
+const PAN_DRIFTS: Array<[number, number]> = [
+  [3.2, 0],
+  [-3.2, 0],
+  [0, 2.8],
+  [0, -2.8],
+  [2.6, 2.2],
+  [-2.6, 2.2],
+  [2.6, -2.2],
+  [-2.6, -2.2],
+  [3.5, 1.2],
+  [-3.5, -1.2],
+];
+
+function buildKenBurns(zoomIn: boolean): KenBurns {
+  const [dx, dy] =
+    PAN_DRIFTS[Math.floor(Math.random() * PAN_DRIFTS.length)]!;
+  // Keep pan within the overscan created by scale so letterbox edges stay hidden.
+  const scaleMin = 1.0;
+  const scaleMax = 1.12;
+
+  if (zoomIn) {
+    return {
+      from: `scale(${scaleMin}) translate(0%, 0%)`,
+      to: `scale(${scaleMax}) translate(${dx}%, ${dy}%)`,
+    };
+  }
+
+  return {
+    from: `scale(${scaleMax}) translate(${dx}%, ${dy}%)`,
+    to: `scale(${scaleMin}) translate(0%, 0%)`,
+  };
+}
+
+function isFullscreenActive(): boolean {
+  const doc = document as DocWithWebkit;
+  return Boolean(document.fullscreenElement || doc.webkitFullscreenElement);
+}
+
+async function requestFullscreen(el: HTMLElement): Promise<void> {
+  const node = el as ElWithWebkit;
+  try {
+    if (typeof node.requestFullscreen === "function") {
+      await node.requestFullscreen();
+      return;
+    }
+    if (typeof node.webkitRequestFullscreen === "function") {
+      await node.webkitRequestFullscreen();
+      return;
+    }
+    if (typeof node.webkitRequestFullScreen === "function") {
+      await node.webkitRequestFullScreen();
+    }
+  } catch {
+    // Denied or unavailable — stay in full-viewport mode.
+  }
+}
+
+async function exitFullscreenIfNeeded(): Promise<void> {
+  if (!isFullscreenActive()) return;
+  const doc = document as DocWithWebkit;
+  try {
+    if (typeof document.exitFullscreen === "function") {
+      await document.exitFullscreen();
+      return;
+    }
+    if (typeof doc.webkitExitFullscreen === "function") {
+      await doc.webkitExitFullscreen();
+      return;
+    }
+    if (typeof doc.webkitCancelFullScreen === "function") {
+      await doc.webkitCancelFullScreen();
+    }
+  } catch {
+    // Ignore exit failures.
+  }
 }
 
 function Clock() {
@@ -66,17 +132,33 @@ function Clock() {
 
 export function GuestbookSlideshow({ initialPhotos }: Props) {
   const router = useRouter();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [queue, setQueue] = useState(() => shuffleInPlace([...initialPhotos]));
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
-  const [kenBurns, setKenBurns] = useState<KenBurns>(() => nextKenBurns());
+  const zoomInRef = useRef(true);
+  const [kenBurns, setKenBurns] = useState<KenBurns>(() =>
+    buildKenBurns(true),
+  );
   const preloaded = useRef(new Set<string>());
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const queueRef = useRef(queue);
   queueRef.current = queue;
+  const exitingRef = useRef(false);
+
+  const advanceKenBurns = useCallback(() => {
+    const zoomIn = zoomInRef.current;
+    zoomInRef.current = !zoomIn;
+    return buildKenBurns(zoomIn);
+  }, []);
 
   const exit = useCallback(() => {
-    router.push("/hive");
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+    void (async () => {
+      await exitFullscreenIfNeeded();
+      router.push("/hive");
+    })();
   }, [router]);
 
   const preload = useCallback((url: string) => {
@@ -93,8 +175,24 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
   }, [queue.length, router]);
 
   useEffect(() => {
+    const el = rootRef.current;
+    if (el) {
+      void requestFullscreen(el);
+    }
+
+    return () => {
+      void exitFullscreenIfNeeded();
+    };
+  }, []);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") exit();
+      if (event.key === "Escape") {
+        // If still in fullscreen, the browser may consume Escape first.
+        // Always leave the slideshow on Escape.
+        event.preventDefault();
+        exit();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -160,11 +258,12 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
               };
               const next = body.photos ?? [];
               if (next.length === 0) {
+                await exitFullscreenIfNeeded();
                 router.replace("/hive");
                 return;
               }
               setQueue(shuffleInPlace([...next]));
-              setKenBurns(nextKenBurns());
+              setKenBurns(advanceKenBurns());
               setIndex(0);
               setVisible(true);
               return;
@@ -174,7 +273,7 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
           }
         }
 
-        setKenBurns(nextKenBurns());
+        setKenBurns(advanceKenBurns());
         setIndex((i) => (i + 1) % queueRef.current.length);
         setVisible(true);
       })();
@@ -184,7 +283,7 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(advanceTimer);
     };
-  }, [index, queue, preload, router]);
+  }, [index, queue, preload, router, advanceKenBurns]);
 
   const photo = queue[index];
   if (!photo) return null;
@@ -193,6 +292,7 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
 
   return (
     <div
+      ref={rootRef}
       role="button"
       tabIndex={0}
       onClick={exit}
@@ -222,7 +322,8 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
           style={{
             ["--kb-from" as string]: kenBurns.from,
             ["--kb-to" as string]: kenBurns.to,
-            animation: `guestbookKenBurns ${SLIDE_MS}ms ease-in-out forwards`,
+            transform: kenBurns.from,
+            animation: `guestbookKenBurns ${SLIDE_MS}ms linear forwards`,
           }}
           draggable={false}
         />

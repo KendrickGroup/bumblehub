@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Camera, Images, Plus } from "lucide-react";
+import { Camera, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import {
@@ -8,6 +8,7 @@ import {
   isPropertyOwner,
 } from "@/lib/photos";
 import { GuestbookCard } from "./GuestbookCard";
+import { StartSlideshowButton } from "./StartSlideshowButton";
 
 export const metadata: Metadata = {
   title: "Guestbook",
@@ -62,13 +63,7 @@ export default async function HivePage() {
               <Plus className="h-5 w-5" strokeWidth={2.25} />
               Add to the guestbook
             </Link>
-            <Link
-              href="/hive/slideshow"
-              className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[18px] bg-stone-900 px-5 text-base font-semibold text-white transition hover:bg-stone-800"
-            >
-              <Images className="h-5 w-5" strokeWidth={2} />
-              Start slideshow
-            </Link>
+            <StartSlideshowButton />
           </div>
 
           {photos.length === 0 ? (
