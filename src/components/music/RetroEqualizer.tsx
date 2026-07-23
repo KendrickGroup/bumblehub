@@ -305,7 +305,7 @@ export function RetroEqualizer({ isPlaying, trackId }: RetroEqualizerProps) {
         style={{
           maxHeight: open ? EQ_HEIGHT_PX : 0,
           opacity: open ? 1 : 0,
-          marginTop: open ? 20 : 0,
+          marginTop: open ? 0 : 0,
           marginBottom: open ? 0 : 0,
           transitionDuration: `${HIDE_MS}ms`,
           pointerEvents: open ? "auto" : "none",
@@ -356,7 +356,7 @@ export function RetroEqualizer({ isPlaying, trackId }: RetroEqualizerProps) {
         onClick={() => void persistVisible(!visible)}
         className={`absolute z-10 flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B400]/40 ${
           open
-            ? "top-5 right-0 opacity-35 group-hover/eq:opacity-80"
+            ? "top-0 right-0 opacity-35 group-hover/eq:opacity-80"
             : "top-1 right-0 opacity-55"
         }`}
         aria-label={visible ? "Hide equalizer" : "Show equalizer"}

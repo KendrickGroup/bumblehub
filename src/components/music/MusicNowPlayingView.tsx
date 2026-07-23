@@ -136,10 +136,15 @@ function PlayingLayout({
   const progressRatio = Math.min(1, progressMs / durationMs);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center gap-10 min-[900px]:min-h-[min(70vh,640px)] min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-14">
-      <AlbumArtStage artUrl={track.albumArtUrl} trackId={track.id} />
+    <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center gap-10 min-[900px]:min-h-[min(78vh,720px)] min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-14">
+      <div className="flex w-full max-w-[70vw] shrink-0 flex-col items-stretch overflow-visible min-[900px]:max-w-none min-[900px]:w-[min(48%,520px)]">
+        <AlbumArtStage artUrl={track.albumArtUrl} trackId={track.id} />
+        <div className="relative z-10 mt-5 w-full">
+          <RetroEqualizer isPlaying={isPlaying} trackId={track.id} />
+        </div>
+      </div>
 
-      <div className="flex w-full max-w-lg flex-1 flex-col items-center text-center min-[900px]:items-start min-[900px]:text-left">
+      <div className="relative z-10 flex w-full max-w-lg flex-1 flex-col items-center text-center min-[900px]:items-start min-[900px]:text-left">
         <h1 className="font-[family-name:var(--font-fraunces)] text-[34px] font-semibold leading-tight tracking-tight text-stone-900 min-[900px]:text-[40px]">
           {track.name}
         </h1>
@@ -152,9 +157,7 @@ function PlayingLayout({
           </p>
         ) : null}
 
-        <RetroEqualizer isPlaying={isPlaying} trackId={track.id} />
-
-        <div className="mt-6 w-full">
+        <div className="mt-8 w-full">
           <div
             className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200/80"
             role="progressbar"
@@ -298,32 +301,35 @@ function AlbumArtStage({
   const { current, outgoing } = layers;
 
   return (
-    <div className="relative flex w-full max-w-[70vw] shrink-0 items-center justify-center min-[900px]:max-w-none min-[900px]:w-[min(48%,520px)]">
-      <div className="relative aspect-square w-full min-w-[220px] min-[900px]:min-h-[420px] min-[900px]:min-w-[420px]">
-        <div
-          className="pointer-events-none absolute inset-[-18%] overflow-hidden"
-          aria-hidden
-        >
-          {outgoing?.url ? (
-            <GlowLayer url={outgoing.url} fadingOut />
-          ) : null}
-          {current.url ? <GlowLayer url={current.url} /> : null}
-        </div>
+    <div className="relative aspect-square w-full min-w-[220px] min-[900px]:min-h-[420px] min-[900px]:min-w-[420px]">
+      {/* Soft ambient glow — masked so edges dissolve before the text column */}
+      <div
+        className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2"
+        aria-hidden
+        style={{
+          WebkitMaskImage:
+            "radial-gradient(circle at center, black 0%, black 28%, transparent 72%)",
+          maskImage:
+            "radial-gradient(circle at center, black 0%, black 28%, transparent 72%)",
+        }}
+      >
+        {outgoing?.url ? <GlowLayer url={outgoing.url} fadingOut /> : null}
+        {current.url ? <GlowLayer url={current.url} /> : null}
+      </div>
 
-        <div className="relative z-10 aspect-square w-full overflow-hidden rounded-[24px] bg-stone-100 shadow-[0_24px_60px_rgba(40,30,10,0.18)]">
-          {outgoing ? (
-            <ArtLayer
-              key={`out-${outgoing.id}`}
-              url={outgoing.url}
-              className="music-art-out"
-            />
-          ) : null}
+      <div className="relative z-10 aspect-square w-full overflow-hidden rounded-[24px] bg-stone-100 shadow-[0_24px_60px_rgba(40,30,10,0.18)]">
+        {outgoing ? (
           <ArtLayer
-            key={`in-${current.id}`}
-            url={current.url}
-            className={outgoing ? "music-art-in" : undefined}
+            key={`out-${outgoing.id}`}
+            url={outgoing.url}
+            className="music-art-out"
           />
-        </div>
+        ) : null}
+        <ArtLayer
+          key={`in-${current.id}`}
+          url={current.url}
+          className={outgoing ? "music-art-in" : undefined}
+        />
       </div>
     </div>
   );
@@ -341,8 +347,8 @@ function GlowLayer({
     <img
       src={url}
       alt=""
-      className={`absolute inset-0 h-full w-full scale-125 object-cover blur-[80px] transition-opacity duration-[400ms] ease-out ${
-        fadingOut ? "opacity-0" : "opacity-[0.35]"
+      className={`absolute inset-0 h-full w-full scale-110 object-cover blur-[80px] transition-opacity duration-[400ms] ease-out ${
+        fadingOut ? "opacity-0" : "opacity-30"
       }`}
     />
   );
