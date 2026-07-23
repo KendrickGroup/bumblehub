@@ -14,6 +14,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { PlaylistPickerModal } from "@/components/music/PlaylistPickerModal";
+import { RetroEqualizer } from "@/components/music/RetroEqualizer";
 import type { NowPlayingTrack } from "@/lib/music/types";
 import { useNowPlaying } from "@/lib/music/use-now-playing";
 import {
@@ -151,7 +152,9 @@ function PlayingLayout({
           </p>
         ) : null}
 
-        <div className="mt-8 w-full">
+        <RetroEqualizer isPlaying={isPlaying} trackId={track.id} />
+
+        <div className="mt-6 w-full">
           <div
             className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200/80"
             role="progressbar"
