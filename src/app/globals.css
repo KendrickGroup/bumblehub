@@ -53,3 +53,36 @@ body {
 .music-art-out {
   animation: music-art-out 400ms ease forwards;
 }
+
+@keyframes corkboard-drop-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.15) rotate(var(--cork-rot, 0deg));
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.97) rotate(var(--cork-rot, 0deg));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(var(--cork-rot, 0deg));
+  }
+}
+
+@keyframes corkboard-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.corkboard-drop-in {
+  --cork-rot: 0deg;
+  animation: corkboard-drop-in 650ms cubic-bezier(0.22, 1.2, 0.36, 1) forwards;
+}
+
+.corkboard-fade-out {
+  animation: corkboard-fade-out 700ms ease forwards;
+}

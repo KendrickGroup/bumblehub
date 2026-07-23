@@ -7,6 +7,11 @@ import {
   fetchGuestbookPhotos,
   isPropertyOwner,
 } from "@/lib/photos";
+import {
+  DEFAULT_SLIDESHOW_STYLE,
+  parseSlideshowStyle,
+} from "@/lib/hive/slideshow-style";
+import { SlideshowStyleSwitcher } from "@/components/hive/SlideshowStyleSwitcher";
 import { GuestbookCard } from "./GuestbookCard";
 import { StartSlideshowButton } from "./StartSlideshowButton";
 
@@ -29,6 +34,16 @@ export default async function HivePage() {
     !!user && !!propertyId
       ? await isPropertyOwner(propertyId, user.id)
       : false;
+
+  let slideshowStyle = DEFAULT_SLIDESHOW_STYLE;
+  if (propertyId) {
+    const { data } = await supabase
+      .from("property_settings")
+      .select("dashboard_layout")
+      .eq("property_id", propertyId)
+      .maybeSingle();
+    slideshowStyle = parseSlideshowStyle(data?.dashboard_layout);
+  }
 
   return (
     <div className="px-2 py-6 sm:px-0">
@@ -55,7 +70,7 @@ export default async function HivePage() {
         </p>
       ) : (
         <>
-          <div className="mb-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/guestbook"
               className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[18px] bg-[#F4B400] px-5 text-base font-semibold text-stone-900 transition hover:bg-[#e0a800]"
@@ -64,6 +79,13 @@ export default async function HivePage() {
               Add to the guestbook
             </Link>
             <StartSlideshowButton />
+          </div>
+
+          <div className="mb-8 rounded-[18px] bg-white px-4 py-3 shadow-sm sm:px-5">
+            <SlideshowStyleSwitcher
+              initialStyle={slideshowStyle}
+              compact
+            />
           </div>
 
           {photos.length === 0 ? (

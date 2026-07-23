@@ -5,6 +5,10 @@ import {
   DEFAULT_IDLE_DRIFT_SETTINGS,
   parseIdleDriftSettings,
 } from "@/lib/idle/settings";
+import {
+  DEFAULT_SLIDESHOW_STYLE,
+  parseSlideshowStyle,
+} from "@/lib/hive/slideshow-style";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 
 export const metadata: Metadata = {
@@ -31,6 +35,7 @@ export default async function SettingsPage() {
     : null;
 
   let idleSettings = DEFAULT_IDLE_DRIFT_SETTINGS;
+  let slideshowStyle = DEFAULT_SLIDESHOW_STYLE;
   if (propertyId) {
     const { data } = await supabase
       .from("property_settings")
@@ -38,6 +43,7 @@ export default async function SettingsPage() {
       .eq("property_id", propertyId)
       .maybeSingle();
     idleSettings = parseIdleDriftSettings(data?.dashboard_layout);
+    slideshowStyle = parseSlideshowStyle(data?.dashboard_layout);
   }
 
   return (
@@ -70,6 +76,7 @@ export default async function SettingsPage() {
       <div className="mt-6">
         <IdleDriftSettingsPanel
           initialSettings={idleSettings}
+          initialSlideshowStyle={slideshowStyle}
           hasProperty={!!propertyId}
         />
       </div>

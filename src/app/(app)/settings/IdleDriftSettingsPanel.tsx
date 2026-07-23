@@ -8,14 +8,18 @@ import {
   type IdleDriftMinutes,
   type IdleDriftSettings,
 } from "@/lib/idle/settings";
+import type { SlideshowStyle } from "@/lib/hive/slideshow-style";
+import { SlideshowStyleSwitcher } from "@/components/hive/SlideshowStyleSwitcher";
 
 type Props = {
   initialSettings: IdleDriftSettings;
+  initialSlideshowStyle: SlideshowStyle;
   hasProperty: boolean;
 };
 
 export function IdleDriftSettingsPanel({
   initialSettings,
+  initialSlideshowStyle,
   hasProperty,
 }: Props) {
   const [settings, setSettings] = useState(initialSettings);
@@ -115,6 +119,8 @@ export function IdleDriftSettingsPanel({
           })}
         </div>
       </div>
+
+      <SlideshowStyleSwitcher initialStyle={initialSlideshowStyle} />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {saving && (
