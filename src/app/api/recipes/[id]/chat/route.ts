@@ -5,8 +5,29 @@ import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { fetchRecipeChats, fetchRecipeDetail } from "@/lib/recipes/queries";
 import { buildRecipeSystemPrompt } from "@/lib/recipes/system-prompt";
 
-const CHAT_MODEL =
+const PRIMARY_MODEL =
   process.env.ANTHROPIC_RECIPE_MODEL ?? "claude-opus-4-5";
+const FALLBACK_MODELS = [
+  "claude-opus-4-6",
+  "claude-opus-4-5",
+  "claude-sonnet-4-5",
+];
+
+function modelsToTry(): string[] {
+  const ordered = [PRIMARY_MODEL, ...FALLBACK_MODELS];
+  return [...new Set(ordered)];
+}
+
+function isModelError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes("model") ||
+    msg.includes("not_found") ||
+    msg.includes("404") ||
+    msg.includes("invalid")
+  );
+}
 
 export async function POST(
   request: Request,
@@ -70,39 +91,53 @@ export async function POST(
   }
 
   const anthropic = new Anthropic({ apiKey });
-  const stream = anthropic.messages.stream({
-    model: CHAT_MODEL,
-    max_tokens: 2048,
-    system: buildRecipeSystemPrompt(recipe),
-    messages: anthropicMessages,
-  });
+  const system = buildRecipeSystemPrompt(recipe);
+  const candidates = modelsToTry();
 
   const encoder = new TextEncoder();
   let fullText = "";
 
   const readable = new ReadableStream({
     async start(controller) {
-      try {
-        stream.on("text", (delta) => {
-          fullText += delta;
-          controller.enqueue(encoder.encode(delta));
-        });
-        await stream.finalMessage();
+      let lastError: unknown;
 
-        if (fullText.trim()) {
-          await supabase.from("recipe_chats").insert({
-            recipe_id: recipeId,
-            role: "assistant",
-            content: fullText.trim(),
+      for (const model of candidates) {
+        try {
+          const stream = anthropic.messages.stream({
+            model,
+            max_tokens: 2048,
+            system,
+            messages: anthropicMessages,
           });
-        }
 
-        controller.close();
-      } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : "Chat stream failed";
-        controller.error(new Error(msg));
+          stream.on("text", (delta) => {
+            fullText += delta;
+            controller.enqueue(encoder.encode(delta));
+          });
+          await stream.finalMessage();
+
+          if (fullText.trim()) {
+            await supabase.from("recipe_chats").insert({
+              recipe_id: recipeId,
+              role: "assistant",
+              content: fullText.trim(),
+            });
+          }
+
+          controller.close();
+          return;
+        } catch (error) {
+          lastError = error;
+          if (!isModelError(error) || model === candidates[candidates.length - 1]) {
+            break;
+          }
+          fullText = "";
+        }
       }
+
+      const msg =
+        lastError instanceof Error ? lastError.message : "Chat stream failed";
+      controller.error(new Error(msg));
     },
   });
 
