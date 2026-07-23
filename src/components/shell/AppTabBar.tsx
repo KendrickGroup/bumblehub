@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChefHat,
+  Hexagon,
   Home,
   Music,
   Settings,
-  Users,
 } from "lucide-react";
 
 const TABS = [
@@ -27,7 +27,7 @@ const TABS = [
   {
     href: "/hive",
     label: "Hive",
-    icon: Users,
+    icon: Hexagon,
     match: (p: string) =>
       p === "/hive" || p === "/guestbook" || p.startsWith("/guestbook/"),
   },
