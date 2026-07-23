@@ -31,7 +31,7 @@ export async function deleteGuestbookPhoto(
   }
 
   if (!(await isPropertyOwner(propertyId, user.id))) {
-    return { ok: false, error: "Only the hive owner can remove guestbook photos." };
+    return { ok: false, error: "Only the home owner can remove guestbook photos." };
   }
 
   const { data: photo, error: fetchError } = await supabase

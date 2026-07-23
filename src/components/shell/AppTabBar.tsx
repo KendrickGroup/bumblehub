@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookImage,
   ChefHat,
-  Hexagon,
   Home,
   Music,
   Settings,
@@ -26,10 +26,13 @@ const TABS = [
   },
   {
     href: "/hive",
-    label: "Hive",
-    icon: Hexagon,
+    label: "Guestbook",
+    icon: BookImage,
     match: (p: string) =>
-      p === "/hive" || p === "/guestbook" || p.startsWith("/guestbook/"),
+      p === "/hive" ||
+      p.startsWith("/hive/") ||
+      p === "/guestbook" ||
+      p.startsWith("/guestbook/"),
   },
   {
     href: "/settings",

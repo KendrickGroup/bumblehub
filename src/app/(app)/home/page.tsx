@@ -112,7 +112,7 @@ export default async function HomePage() {
                 Add a guestbook photo
               </p>
               <p className="text-sm text-stone-500">
-                Snap a selfie for the hive slideshow
+                Snap a selfie for the guestbook slideshow
               </p>
             </div>
           </Link>

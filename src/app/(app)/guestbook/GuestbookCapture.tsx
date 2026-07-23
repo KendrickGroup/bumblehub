@@ -268,7 +268,7 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
                 You&apos;re in the guestbook!
               </h2>
               <p className="mt-2 text-stone-600">
-                Your photo will show up in the hive slideshow.
+                Your photo will show up in the guestbook slideshow.
               </p>
             </div>
             <div className="flex w-full max-w-md flex-col gap-3">

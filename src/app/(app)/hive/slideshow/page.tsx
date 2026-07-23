@@ -6,7 +6,7 @@ import { fetchGuestbookPhotos } from "@/lib/photos";
 import { GuestbookSlideshow } from "./GuestbookSlideshow";
 
 export const metadata: Metadata = {
-  title: "Slideshow",
+  title: "Guestbook slideshow",
 };
 
 export default async function HiveSlideshowPage() {
