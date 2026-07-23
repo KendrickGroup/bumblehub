@@ -92,7 +92,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      weather: { ...weather, unitSymbol, locationLabel: displayName ?? context.locationLabel },
+      weather: {
+        status: "ok",
+        ...weather,
+        unitSymbol,
+        locationLabel: displayName ?? context.locationLabel,
+      },
     });
   } catch (error) {
     const message =

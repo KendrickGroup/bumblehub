@@ -34,7 +34,7 @@ export function weatherLabel(
     case "clear":
       return isDay ? "Sunny" : "Clear";
     case "partly_cloudy":
-      return "Partly cloudy";
+      return "Partly";
     case "cloudy":
       return "Cloudy";
     case "fog":

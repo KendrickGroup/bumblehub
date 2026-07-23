@@ -68,7 +68,6 @@ export async function savePropertyLocation(
     .update({
       location_lat: latitude,
       location_lng: longitude,
-      ...(displayName ? { address: displayName } : {}),
       updated_at: now,
     })
     .eq("id", propertyId);
@@ -77,33 +76,35 @@ export async function savePropertyLocation(
     throw new Error(`Failed to save location: ${propertyError.message}`);
   }
 
-  if (displayName) {
-    const { data: settings } = await supabase
-      .from("property_settings")
-      .select("dashboard_layout")
-      .eq("property_id", propertyId)
-      .maybeSingle();
+  if (!displayName) return;
 
-    const layout =
-      settings?.dashboard_layout &&
-      typeof settings.dashboard_layout === "object"
-        ? { ...(settings.dashboard_layout as Record<string, unknown>) }
-        : {};
+  const { data: settings } = await supabase
+    .from("property_settings")
+    .select("dashboard_layout")
+    .eq("property_id", propertyId)
+    .maybeSingle();
 
-    layout.weatherLocationLabel = displayName;
+  const layout =
+    settings?.dashboard_layout && typeof settings.dashboard_layout === "object"
+      ? { ...(settings.dashboard_layout as Record<string, unknown>) }
+      : {};
 
-    const { error: settingsError } = await supabase
-      .from("property_settings")
-      .update({
+  layout.weatherLocationLabel = displayName;
+
+  const { error: settingsError } = await supabase
+    .from("property_settings")
+    .upsert(
+      {
+        property_id: propertyId,
         dashboard_layout: layout,
         updated_at: now,
-      })
-      .eq("property_id", propertyId);
+      },
+      { onConflict: "property_id" },
+    );
 
-    if (settingsError) {
-      throw new Error(
-        `Failed to save location label: ${settingsError.message}`,
-      );
-    }
+  if (settingsError) {
+    throw new Error(
+      `Failed to save location label: ${settingsError.message}`,
+    );
   }
 }
