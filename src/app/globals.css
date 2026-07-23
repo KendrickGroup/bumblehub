@@ -18,3 +18,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+@keyframes guestbookKenBurns {
+  from {
+    transform: var(--kb-from);
+  }
+  to {
+    transform: var(--kb-to);
+  }
+}

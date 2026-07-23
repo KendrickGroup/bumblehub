@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: "mosaic.scdn.co",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "fvsxemuaxbpakaiyvujq.supabase.co",
+        pathname: "/storage/v1/object/**",
+      },
     ],
   },
 };
