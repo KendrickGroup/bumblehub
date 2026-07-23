@@ -9,7 +9,14 @@ export const metadata: Metadata = {
   title: "Guestbook slideshow",
 };
 
-export default async function HiveSlideshowPage() {
+type Props = {
+  searchParams: Promise<{ drift?: string }>;
+};
+
+export default async function HiveSlideshowPage({ searchParams }: Props) {
+  const { drift } = await searchParams;
+  const driftMode = drift === "1";
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,16 +28,17 @@ export default async function HiveSlideshowPage() {
 
   const propertyId = await getDefaultPropertyIdForUser(user.id);
   if (!propertyId) {
-    redirect("/hive");
+    redirect(driftMode ? "/home" : "/hive");
   }
 
   const photos = await fetchGuestbookPhotos(propertyId);
   if (photos.length === 0) {
-    redirect("/hive");
+    redirect(driftMode ? "/home" : "/hive");
   }
 
   return (
     <GuestbookSlideshow
+      driftMode={driftMode}
       initialPhotos={photos.map((p) => ({
         id: p.id,
         displayUrl: p.displayUrl,

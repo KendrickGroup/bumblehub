@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useIdleGate } from "@/lib/idle/gates";
 
 function playChime() {
   try {
@@ -36,6 +37,8 @@ export function RecipeTimer({ timerSeconds }: Props) {
   const [done, setDone] = useState(false);
   const [pulse, setPulse] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useIdleGate("recipe-timer", running && !done);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {

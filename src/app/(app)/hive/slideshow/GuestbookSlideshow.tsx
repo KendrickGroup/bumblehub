@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatSlideshowDate, shuffleInPlace } from "@/lib/hive/format";
+import {
+  IDLE_RETURN_PATH_KEY,
+  isSafeReturnPath,
+} from "@/lib/idle/settings";
 
 const SLIDE_MS = 8000;
 const FADE_MS = 1000;
@@ -17,6 +21,7 @@ export type SlideshowPhoto = {
 
 type Props = {
   initialPhotos: SlideshowPhoto[];
+  driftMode?: boolean;
 };
 
 type KenBurns = {
@@ -130,7 +135,10 @@ function Clock() {
   );
 }
 
-export function GuestbookSlideshow({ initialPhotos }: Props) {
+export function GuestbookSlideshow({
+  initialPhotos,
+  driftMode = false,
+}: Props) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const [queue, setQueue] = useState(() => shuffleInPlace([...initialPhotos]));
@@ -152,14 +160,24 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
     return buildKenBurns(zoomIn);
   }, []);
 
+  const resolveExitPath = useCallback(() => {
+    if (!driftMode) return "/hive";
+    const stored = sessionStorage.getItem(IDLE_RETURN_PATH_KEY);
+    sessionStorage.removeItem(IDLE_RETURN_PATH_KEY);
+    if (stored && isSafeReturnPath(stored)) return stored;
+    return "/home";
+  }, [driftMode]);
+
   const exit = useCallback(() => {
     if (exitingRef.current) return;
     exitingRef.current = true;
     void (async () => {
-      await exitFullscreenIfNeeded();
-      router.push("/hive");
+      if (!driftMode) {
+        await exitFullscreenIfNeeded();
+      }
+      router.push(resolveExitPath());
     })();
-  }, [router]);
+  }, [router, driftMode, resolveExitPath]);
 
   const preload = useCallback((url: string) => {
     if (!url || preloaded.current.has(url)) return;
@@ -170,11 +188,12 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
 
   useEffect(() => {
     if (queue.length === 0) {
-      router.replace("/hive");
+      router.replace(driftMode ? resolveExitPath() : "/hive");
     }
-  }, [queue.length, router]);
+  }, [queue.length, router, driftMode, resolveExitPath]);
 
   useEffect(() => {
+    if (driftMode) return;
     const el = rootRef.current;
     if (el) {
       void requestFullscreen(el);
@@ -183,7 +202,7 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
     return () => {
       void exitFullscreenIfNeeded();
     };
-  }, []);
+  }, [driftMode]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -258,8 +277,10 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
               };
               const next = body.photos ?? [];
               if (next.length === 0) {
-                await exitFullscreenIfNeeded();
-                router.replace("/hive");
+                if (!driftMode) {
+                  await exitFullscreenIfNeeded();
+                }
+                router.replace(driftMode ? resolveExitPath() : "/hive");
                 return;
               }
               setQueue(shuffleInPlace([...next]));
@@ -283,7 +304,7 @@ export function GuestbookSlideshow({ initialPhotos }: Props) {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(advanceTimer);
     };
-  }, [index, queue, preload, router, advanceKenBurns]);
+  }, [index, queue, preload, router, advanceKenBurns, driftMode, resolveExitPath]);
 
   const photo = queue[index];
   if (!photo) return null;

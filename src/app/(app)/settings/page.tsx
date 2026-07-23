@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getDefaultPropertyIdForUser } from "@/lib/property";
+import {
+  DEFAULT_IDLE_DRIFT_SETTINGS,
+  parseIdleDriftSettings,
+} from "@/lib/idle/settings";
+import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -19,6 +25,20 @@ export default async function SettingsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const propertyId = user
+    ? await getDefaultPropertyIdForUser(user.id)
+    : null;
+
+  let idleSettings = DEFAULT_IDLE_DRIFT_SETTINGS;
+  if (propertyId) {
+    const { data } = await supabase
+      .from("property_settings")
+      .select("dashboard_layout")
+      .eq("property_id", propertyId)
+      .maybeSingle();
+    idleSettings = parseIdleDriftSettings(data?.dashboard_layout);
+  }
 
   return (
     <div className="px-2 py-6 sm:px-0">
@@ -46,6 +66,13 @@ export default async function SettingsPage() {
           </button>
         </form>
       </section>
+
+      <div className="mt-6">
+        <IdleDriftSettingsPanel
+          initialSettings={idleSettings}
+          hasProperty={!!propertyId}
+        />
+      </div>
 
       <section className="mt-6 space-y-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">

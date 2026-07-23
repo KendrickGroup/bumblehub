@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useIdleGate } from "@/lib/idle/gates";
 import { saveGuestbookPhoto } from "./actions";
 
 type Step =
@@ -81,6 +82,16 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
   const [captureBlob, setCaptureBlob] = useState<Blob | null>(null);
   const [caption, setCaption] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const captureActive =
+    hasProperty &&
+    (step === "camera-loading" ||
+      step === "camera-ready" ||
+      step === "camera-error" ||
+      step === "countdown" ||
+      step === "review" ||
+      step === "saving");
+  useIdleGate("guestbook-capture", captureActive);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
