@@ -2,9 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ListMusic,
   Music2,
   Pause,
   Play,
@@ -12,12 +10,8 @@ import {
   SkipForward,
   Volume2,
 } from "lucide-react";
-import { MUSIC_UPDATED_EVENT } from "@/lib/music/events";
-import type { NowPlayingResponse, PlaybackCommand } from "@/lib/music/types";
-import { PlaylistPickerModal } from "@/components/music/PlaylistPickerModal";
-
-const POLL_MS = 5000;
-const REFRESH_AFTER_COMMAND_MS = 350;
+import type { NowPlayingResponse } from "@/lib/music/types";
+import { useNowPlaying } from "@/lib/music/use-now-playing";
 
 type ConnectedState = Extract<
   NowPlayingResponse,
@@ -40,118 +34,8 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
 export function NowPlayingStrip({
   allowConnectPrompt = true,
 }: NowPlayingStripProps) {
-  const [state, setState] = useState<NowPlayingResponse | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [playlistsOpen, setPlaylistsOpen] = useState(false);
-  const [localVolume, setLocalVolume] = useState(50);
-  const [toast, setToast] = useState<string | null>(null);
-  const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
-  }, []);
-
-  const load = useCallback(async () => {
-    try {
-      const response = await fetch("/api/music/now-playing", {
-        cache: "no-store",
-      });
-      if (!response.ok) return;
-      const body = (await response.json()) as NowPlayingResponse;
-      setState(body);
-      if (body.status === "idle" || body.status === "playing") {
-        if (body.volume != null) {
-          setLocalVolume(body.volume);
-        }
-      }
-    } catch {
-      // Keep last known state on transient errors.
-    }
-  }, []);
-
-  const sendCommand = useCallback(
-    async (
-      command: PlaybackCommand["command"],
-      payload?: { volume?: number },
-    ) => {
-      setBusy(true);
-      try {
-        const body: Record<string, unknown> = { command };
-        if (payload?.volume != null) {
-          body.volume = payload.volume;
-        }
-        const response = await fetch("/api/music/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          let code: string | undefined;
-          let errorMessage: string | undefined;
-          try {
-            const errBody = (await response.json()) as {
-              code?: string;
-              error?: string;
-            };
-            code = errBody.code;
-            errorMessage = errBody.error;
-          } catch {
-            // ignore parse errors
-          }
-
-          if (code === "NO_ACTIVE_DEVICE" || response.status === 404) {
-            showToast("Open Spotify on a device to start playback.");
-          } else if (errorMessage) {
-            showToast(errorMessage);
-          }
-          return;
-        }
-
-        await load();
-        window.setTimeout(load, REFRESH_AFTER_COMMAND_MS);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [load, showToast],
-  );
-
-  const setVolume = useCallback(
-    (volume: number) => {
-      setLocalVolume(volume);
-      if (volumeDebounceRef.current) {
-        clearTimeout(volumeDebounceRef.current);
-      }
-      volumeDebounceRef.current = setTimeout(() => {
-        void sendCommand("setVolume", { volume });
-      }, 350);
-    },
-    [sendCommand],
-  );
-
-  useEffect(() => {
-    load();
-    const id = setInterval(load, POLL_MS);
-    const onMusicUpdated = () => {
-      load();
-      window.setTimeout(load, REFRESH_AFTER_COMMAND_MS);
-    };
-    window.addEventListener(MUSIC_UPDATED_EVENT, onMusicUpdated);
-    return () => {
-      clearInterval(id);
-      window.removeEventListener(MUSIC_UPDATED_EVENT, onMusicUpdated);
-      if (volumeDebounceRef.current) {
-        clearTimeout(volumeDebounceRef.current);
-      }
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, [load]);
+  const { state, busy, toast, localVolume, setVolume, sendCommand } =
+    useNowPlaying();
 
   if (!state) {
     return null;
@@ -240,16 +124,6 @@ export function NowPlayingStrip({
               <p className="text-sm text-stone-500">Pick a playlist to start</p>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setPlaylistsOpen(true)}
-            disabled={busy}
-            className="flex min-h-[52px] shrink-0 items-center gap-2 rounded-[18px] border-2 border-[#F4B400]/40 bg-[#F4B400]/10 px-4 text-sm font-semibold text-stone-900 transition hover:border-[#F4B400] hover:bg-[#F4B400]/20 disabled:opacity-50"
-          >
-            <ListMusic className="h-5 w-5 text-[#F4B400]" strokeWidth={2} />
-            <span className="hidden sm:inline">Playlists</span>
-          </button>
         </div>
 
         <VolumeControl
@@ -261,18 +135,13 @@ export function NowPlayingStrip({
         <PlaybackControls
           busy={busy}
           isPlaying={isPlaying}
-          onPrevious={() => void sendCommand("previous")}
+          onPrevious={() => void sendCommand({ command: "previous" })}
           onPlayPause={() =>
-            void sendCommand(isPlaying ? "pause" : "play")
+            void sendCommand({ command: isPlaying ? "pause" : "play" })
           }
-          onNext={() => void sendCommand("next")}
+          onNext={() => void sendCommand({ command: "next" })}
         />
       </div>
-
-      <PlaylistPickerModal
-        open={playlistsOpen}
-        onClose={() => setPlaylistsOpen(false)}
-      />
     </ShellChrome>
   );
 }

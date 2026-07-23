@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { StubPage } from "@/components/shell/StubPage";
+import { MusicNowPlayingView } from "@/components/music/MusicNowPlayingView";
 
 export const metadata: Metadata = {
   title: "Music",
@@ -7,9 +7,8 @@ export const metadata: Metadata = {
 
 export default function MusicPage() {
   return (
-    <StubPage
-      title="Music"
-      description="Playlist browsing, devices, and full playback controls will live here."
-    />
+    <div className="px-4 pb-6 pt-2 sm:px-6 sm:pt-4">
+      <MusicNowPlayingView />
+    </div>
   );
 }

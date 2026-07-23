@@ -27,3 +27,29 @@ body {
     transform: var(--kb-to);
   }
 }
+
+@keyframes music-art-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes music-art-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.music-art-in {
+  animation: music-art-in 400ms ease forwards;
+}
+
+.music-art-out {
+  animation: music-art-out 400ms ease forwards;
+}

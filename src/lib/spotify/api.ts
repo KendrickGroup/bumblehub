@@ -7,20 +7,24 @@ type SpotifyArtist = { name: string };
 type SpotifyTrack = {
   id: string;
   name: string;
+  duration_ms: number;
   artists: SpotifyArtist[];
-  album: { images: SpotifyImage[] };
+  album: { name: string; images: SpotifyImage[] };
 };
 
 type SpotifyPlayerState = {
   is_playing: boolean;
+  progress_ms: number | null;
+  shuffle_state?: boolean;
   item: SpotifyTrack | null;
   device?: { volume_percent: number | null };
 };
 
+/** Prefer the largest image Spotify returns (typically 640px). */
 function pickAlbumArt(images: SpotifyImage[]): string | null {
   if (images.length === 0) return null;
-  const sorted = [...images].sort((a, b) => a.width - b.width);
-  return sorted[Math.floor(sorted.length / 2)]?.url ?? images[0]?.url ?? null;
+  const sorted = [...images].sort((a, b) => b.width - a.width);
+  return sorted[0]?.url ?? null;
 }
 
 function toNowPlayingTrack(payload: SpotifyPlayerState): NowPlayingTrack | null {
@@ -30,8 +34,11 @@ function toNowPlayingTrack(payload: SpotifyPlayerState): NowPlayingTrack | null 
     id: payload.item.id,
     name: payload.item.name,
     artists: payload.item.artists.map((a) => a.name).join(", "),
+    album: payload.item.album.name,
     albumArtUrl: pickAlbumArt(payload.item.album.images),
     isPlaying: payload.is_playing,
+    progressMs: Math.max(0, payload.progress_ms ?? 0),
+    durationMs: Math.max(0, payload.item.duration_ms ?? 0),
   };
 }
 
@@ -50,7 +57,7 @@ export async function fetchSpotifyNowPlaying(
   const response = await spotifyApiFetch(propertyId, "/me/player");
 
   if (response.status === 204 || response.status === 202) {
-    return { status: "idle", volume: null };
+    return { status: "idle", volume: null, shuffle: false };
   }
 
   if (response.status === 401) {
@@ -69,11 +76,12 @@ export async function fetchSpotifyNowPlaying(
     typeof payload.device?.volume_percent === "number"
       ? payload.device.volume_percent
       : null;
+  const shuffle = Boolean(payload.shuffle_state);
   const track = toNowPlayingTrack(payload);
 
   if (!track) {
-    return { status: "idle", volume };
+    return { status: "idle", volume, shuffle };
   }
 
-  return { status: "playing", track, volume };
+  return { status: "playing", track, volume, shuffle };
 }

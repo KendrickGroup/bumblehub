@@ -2,14 +2,22 @@ export type NowPlayingTrack = {
   id: string;
   name: string;
   artists: string;
+  album: string;
   albumArtUrl: string | null;
   isPlaying: boolean;
+  progressMs: number;
+  durationMs: number;
 };
 
 export type NowPlayingResponse =
   | { status: "not_connected" }
-  | { status: "idle"; volume: number | null }
-  | { status: "playing"; track: NowPlayingTrack; volume: number | null };
+  | { status: "idle"; volume: number | null; shuffle: boolean }
+  | {
+      status: "playing";
+      track: NowPlayingTrack;
+      volume: number | null;
+      shuffle: boolean;
+    };
 
 export type PlaybackCommand =
   | { command: "play" }
