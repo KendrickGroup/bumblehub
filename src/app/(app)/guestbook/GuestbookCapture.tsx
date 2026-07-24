@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIdleGate } from "@/lib/idle/gates";
+import {
+  BUILTIN_BACKDROPS,
+  type CustomBackdrop,
+  type GuestbookBackdrop,
+} from "@/lib/guestbook/backdrops";
+import {
+  blobToImage,
+  compositeWithBackdrop,
+  loadSelfieSegmenter,
+  segmentPersonMask,
+} from "@/lib/guestbook/segmentation";
 import { saveGuestbookPhoto } from "./actions";
 
 type Step =
@@ -17,6 +28,7 @@ type Step =
 type Props = {
   propertyName: string;
   hasProperty: boolean;
+  customBackdrops?: CustomBackdrop[];
 };
 
 function playTick() {
@@ -69,10 +81,17 @@ function cameraErrorMessage(error: unknown): string {
   return "Could not start the camera. Check permissions and try again.";
 }
 
-export function GuestbookCapture({ propertyName, hasProperty }: Props) {
+export function GuestbookCapture({
+  propertyName,
+  hasProperty,
+  customBackdrops = [],
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const originalBlobRef = useRef<Blob | null>(null);
+  const originalImageRef = useRef<HTMLImageElement | null>(null);
+  const personMaskRef = useRef<ImageData | null>(null);
 
   const [step, setStep] = useState<Step>("camera-loading");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -82,6 +101,20 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
   const [captureBlob, setCaptureBlob] = useState<Blob | null>(null);
   const [caption, setCaption] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [segmentReady, setSegmentReady] = useState(false);
+  const [maskReady, setMaskReady] = useState(false);
+  const [originalPreviewUrl, setOriginalPreviewUrl] = useState<string | null>(
+    null,
+  );
+  const [selectedBackdropId, setSelectedBackdropId] = useState<string | null>(
+    null,
+  );
+  const [compositing, setCompositing] = useState(false);
+
+  const backdrops: GuestbookBackdrop[] = [
+    ...BUILTIN_BACKDROPS,
+    ...customBackdrops,
+  ];
 
   const captureActive =
     hasProperty &&
@@ -105,6 +138,11 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
     setStep("camera-loading");
     setCameraError(null);
     stopCamera();
+
+    // Warm the segmenter in the background — silent if it fails.
+    void loadSelfieSegmenter().then((seg) => {
+      setSegmentReady(!!seg);
+    });
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("Camera is not supported in this browser.");
@@ -144,10 +182,35 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (originalPreviewUrl) URL.revokeObjectURL(originalPreviewUrl);
+    };
+  }, [originalPreviewUrl]);
+
+  const setPreviewFromBlob = (blob: Blob) => {
+    setCaptureBlob(blob);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(blob);
+    });
+  };
+
   const clearCapture = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setOriginalPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setCaptureBlob(null);
+    originalBlobRef.current = null;
+    originalImageRef.current = null;
+    personMaskRef.current = null;
+    setMaskReady(false);
+    setSelectedBackdropId(null);
     setCaption("");
     setSaveError(null);
   };
@@ -187,12 +250,68 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
     }
 
     stopCamera();
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setCaptureBlob(blob);
-    setPreviewUrl(URL.createObjectURL(blob));
+    originalBlobRef.current = blob;
+    personMaskRef.current = null;
+    setMaskReady(false);
+    setSelectedBackdropId(null);
+    setPreviewFromBlob(blob);
+    setOriginalPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(blob);
+    });
     setCaption("");
     setSaveError(null);
     setStep("review");
+
+    // Segment once in the background; strip appears when ready.
+    if (segmentReady || (await loadSelfieSegmenter())) {
+      try {
+        const img = await blobToImage(blob);
+        originalImageRef.current = img;
+        const mask = await segmentPersonMask(img);
+        if (mask) {
+          personMaskRef.current = mask;
+          setSegmentReady(true);
+          setMaskReady(true);
+        }
+      } catch {
+        // Graceful: backdrops stay hidden.
+      }
+    }
+  };
+
+  const applyBackdrop = async (backdropId: string | null) => {
+    const original = originalBlobRef.current;
+    if (!original) return;
+
+    setSelectedBackdropId(backdropId);
+    if (!backdropId) {
+      setPreviewFromBlob(original);
+      return;
+    }
+
+    const backdrop = backdrops.find((b) => b.id === backdropId);
+    const mask = personMaskRef.current;
+    let image = originalImageRef.current;
+    if (!backdrop || !mask) return;
+
+    setCompositing(true);
+    try {
+      if (!image) {
+        image = await blobToImage(original);
+        originalImageRef.current = image;
+      }
+      const composited = await compositeWithBackdrop(
+        image,
+        mask,
+        backdrop.url,
+      );
+      if (composited) setPreviewFromBlob(composited);
+    } catch {
+      // Keep current preview.
+    } finally {
+      setCompositing(false);
+    }
   };
 
   const retake = () => {
@@ -225,6 +344,9 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
     clearCapture();
     void startCamera();
   };
+
+  const showBackdropStrip =
+    (step === "review" || step === "saving") && maskReady;
 
   if (!hasProperty) {
     return (
@@ -309,7 +431,69 @@ export function GuestbookCapture({ propertyName, hasProperty }: Props) {
                   className="h-full w-full object-cover"
                 />
               )}
+              {compositing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-900/30">
+                  <p className="rounded-full bg-black/50 px-4 py-2 text-sm text-white">
+                    Applying…
+                  </p>
+                </div>
+              )}
             </div>
+
+            {showBackdropStrip && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-stone-600">
+                  Backdrop
+                </p>
+                <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    disabled={step === "saving" || compositing}
+                    onClick={() => void applyBackdrop(null)}
+                    className={`relative h-20 w-16 shrink-0 overflow-hidden rounded-[14px] border-2 transition disabled:opacity-50 ${
+                      selectedBackdropId === null
+                        ? "border-[#F4B400]"
+                        : "border-stone-200"
+                    }`}
+                  >
+                    {originalPreviewUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={originalPreviewUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                    <span className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-center text-[10px] font-semibold text-white">
+                      Original
+                    </span>
+                  </button>
+                  {backdrops.map((bd) => (
+                    <button
+                      key={bd.id}
+                      type="button"
+                      disabled={step === "saving" || compositing}
+                      onClick={() => void applyBackdrop(bd.id)}
+                      className={`relative h-20 w-16 shrink-0 overflow-hidden rounded-[14px] border-2 transition disabled:opacity-50 ${
+                        selectedBackdropId === bd.id
+                          ? "border-[#F4B400]"
+                          : "border-stone-200"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={bd.url}
+                        alt={bd.label}
+                        className="h-full w-full object-cover"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-0.5 py-0.5 text-center text-[10px] font-semibold text-white">
+                        {bd.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <label className="block">
               <span className="text-sm font-medium text-stone-600">

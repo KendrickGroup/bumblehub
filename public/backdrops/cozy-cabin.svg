@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1600" viewBox="0 0 1280 1600">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3A2A1E"/>
+      <stop offset="100%" stop-color="#2A1C14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="70%" r="50%">
+      <stop offset="0%" stop-color="#F4B400" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#F4B400" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="10"/></filter>
+  </defs>
+  <rect width="1280" height="1600" fill="url(#wall)"/>
+  <rect x="0" y="80" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="190" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="300" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="410" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="520" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="630" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="740" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="850" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="960" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="1070" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="1180" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="1290" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="1400" width="1280" height="18" fill="#4A3728" opacity="0.45"/>\n  <rect x="0" y="1510" width="1280" height="18" fill="#4A3728" opacity="0.45"/>
+  <ellipse cx="640" cy="1180" rx="420" ry="260" fill="url(#glow)" filter="url(#soft)"/>
+  <rect x="520" y="980" width="240" height="180" rx="8" fill="#1A120C" opacity="0.7"/>
+  <rect x="545" y="1005" width="190" height="130" fill="#E0972B" opacity="0.55" filter="url(#soft)"/>
+</svg>

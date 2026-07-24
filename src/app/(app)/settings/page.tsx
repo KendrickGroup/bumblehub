@@ -15,12 +15,14 @@ import {
   parseHouseModeSettings,
 } from "@/lib/house-mode/settings";
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
+import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { SettingsGate } from "@/components/house-mode/SettingsGate";
 import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSettingsPanel";
 import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
+import { GuestbookBackdropsPanel } from "./GuestbookBackdropsPanel";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -52,6 +54,7 @@ export default async function SettingsPage() {
   let propertyName: string | null = null;
   let isOwner = false;
   let homeAssistantUrl = "";
+  let customBackdrops = parseCustomBackdrops(null);
   let spotify = {
     connected: false,
     displayName: null as string | null,
@@ -70,6 +73,7 @@ export default async function SettingsPage() {
     houseGreeting = house.greeting;
     hasPin = Boolean(house.pinHash);
     homeAssistantUrl = parseHomeAssistantUrl(data?.dashboard_layout);
+    customBackdrops = parseCustomBackdrops(data?.dashboard_layout);
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
 
     const { data: property } = await supabase
@@ -149,6 +153,13 @@ export default async function SettingsPage() {
             hasProperty={!!propertyId}
             initialHomeAssistantUrl={homeAssistantUrl}
             initialSpotify={spotify}
+          />
+        </div>
+
+        <div className="mt-6">
+          <GuestbookBackdropsPanel
+            hasProperty={!!propertyId}
+            initialBackdrops={customBackdrops}
           />
         </div>
 
