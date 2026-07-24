@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Plus, Upload } from "lucide-react";
+import { Camera, Images, Plus, Upload } from "lucide-react";
 import type { GuestbookPhoto } from "@/lib/photos";
 import { downscaleImageFile } from "@/lib/images/downscale";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
@@ -19,6 +19,21 @@ function isImageFile(file: File): boolean {
   return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name);
 }
 
+/** True when the device likely supports file drag-and-drop. */
+function useFinePointerDrag() {
+  const [fine, setFine] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setFine(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return fine;
+}
+
 export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
   const [photos, setPhotos] = useState(initialPhotos);
   const [caption, setCaption] = useState("");
@@ -31,10 +46,15 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
+  const canDragDrop = useFinePointerDrag();
 
   useEffect(() => {
     setPhotos(initialPhotos);
   }, [initialPhotos]);
+
+  const openPicker = useCallback(() => {
+    fileRef.current?.click();
+  }, []);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -212,7 +232,7 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
         <button
           type="button"
           disabled={uploading}
-          onClick={() => fileRef.current?.click()}
+          onClick={openPicker}
           className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[18px] border-2 border-[#F4B400]/50 bg-white px-5 text-base font-semibold text-stone-900 transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
         >
           <Upload className="h-5 w-5 text-[#F4B400]" strokeWidth={2.25} />
@@ -260,8 +280,35 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
         </p>
       )}
 
+      {/* Desktop drop invitation — hidden on touch (Upload button is enough) */}
+      {canDragDrop && photos.length > 0 && (
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={openPicker}
+          className="mb-5 flex w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-5 py-5 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
+        >
+          <Images
+            className="mb-1 h-6 w-6 text-[#E0972B]"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          <span className="text-sm font-semibold text-stone-800">
+            Drag photos here to add them
+          </span>
+          <span className="text-xs text-stone-500">
+            or use Upload photos above
+          </span>
+        </button>
+      )}
+
       {photos.length === 0 ? (
-        <div className="flex min-h-[220px] flex-col items-center rounded-[20px] bg-white px-6 py-14 text-center shadow-sm">
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={openPicker}
+          className="flex min-h-[220px] w-full flex-col items-center rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-6 py-14 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
+        >
           <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#F4B400]/15 text-[#F4B400]">
             <Camera className="h-8 w-8" strokeWidth={1.75} />
           </span>
@@ -269,9 +316,11 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
             The guestbook is empty. Be the first!
           </p>
           <p className="mt-2 max-w-sm text-sm text-stone-500">
-            Snap a selfie, upload photos, or drop them here for the slideshow.
+            {canDragDrop
+              ? "Take a photo, upload from your device, or drag pictures right here."
+              : "Take a photo or tap Upload photos to add pictures from your library."}
           </p>
-        </div>
+        </button>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {photos.map((photo) => (
