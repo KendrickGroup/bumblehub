@@ -1,12 +1,12 @@
-import { BrandMark } from "@/components/brand/BrandMark";
+import { LandingWordmark } from "./LandingWordmark";
 
 export function LandingPage() {
   return (
     <>
       <header>
         <div className="nav">
-          <a className="brand" href="#top" aria-label="BumbleHub">
-            <BrandMark beeHeight={40} wordmarkHeight={26} />
+          <a className="brand" href="/" aria-label="BumbleHub">
+            <LandingWordmark size={22} />
           </a>
           <div className="nav-actions">
             <a className="nav-link hide-sm" href="#features">
@@ -58,7 +58,7 @@ export function LandingPage() {
             <div className="hero-logo-wrap">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/brand/lockup.png"
+                src="/brand/hero-logo.png"
                 alt="BumbleHub"
                 className="hero-logo"
               />
@@ -247,13 +247,8 @@ export function LandingPage() {
 
       <footer>
         <div className="foot">
-          <a className="brand" href="#top" aria-label="BumbleHub home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/lockup.png"
-              alt="BumbleHub"
-              className="brand-logo brand-logo-foot"
-            />
+          <a className="brand" href="/" aria-label="BumbleHub home">
+            <LandingWordmark size={20} />
           </a>
           <small>
             © 2026 BumbleHub · A calmer way to run the house · bumblehub.dev

@@ -55,22 +55,6 @@
 .landing-page .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.landing-page .brand-logo {
-  width: auto;
-  height: auto;
-  display: block;
-  object-fit: contain;
-  background: none;
-  border: none;
-  box-shadow: none;
-}
-
-.landing-page .brand-logo-foot {
-  height: 34px;
-  width: auto;
 }
 
 .landing-page .nav-actions {
@@ -200,33 +184,24 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .landing-page .hero-logo-wrap {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: min(540px, 90%);
-  background: var(--cream);
-  /* Soft peripheral fade so any cream mismatch never reads as a box */
-  -webkit-mask-image: radial-gradient(
-    ellipse 88% 82% at 50% 50%,
-    #000 58%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    ellipse 88% 82% at 50% 50%,
-    #000 58%,
-    transparent 100%
-  );
+  justify-content: flex-end;
+  width: min(660px, 46vw);
+  background: transparent;
 }
 
 .landing-page .hero-logo {
   width: 100%;
   height: auto;
   display: block;
+  /* White baked-in bg multiplies away against flat cream */
+  mix-blend-mode: multiply;
   animation: landing-floaty 6s ease-in-out infinite;
 }
 
@@ -626,7 +601,13 @@
     order: -1;
   }
   .landing-page .hero-logo-wrap {
-    width: min(420px, 90%);
+    width: 92%;
+    max-width: 520px;
+    margin-inline: auto;
+    justify-content: center;
+  }
+  .landing-page .hero-art {
+    justify-content: center;
   }
   .landing-page .dash {
     grid-template-columns: 1fr 1fr;
