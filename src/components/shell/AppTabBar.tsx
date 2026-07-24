@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookImage,
+  BookOpen,
   ChefHat,
   Home,
   Music,
@@ -33,6 +34,12 @@ const TABS = [
       p.startsWith("/hive/") ||
       p === "/guestbook" ||
       p.startsWith("/guestbook/"),
+  },
+  {
+    href: "/info",
+    label: "Info",
+    icon: BookOpen,
+    match: (p: string) => p === "/info" || p.startsWith("/info/"),
   },
   {
     href: "/settings",
@@ -73,7 +80,7 @@ export function AppTabBar() {
                   />
                 </span>
                 <span
-                  className={`text-[11px] font-medium leading-none ${
+                  className={`text-[10px] font-medium leading-none sm:text-[11px] ${
                     active ? "text-[#F4B400]" : "text-[#7A7066]"
                   }`}
                 >
