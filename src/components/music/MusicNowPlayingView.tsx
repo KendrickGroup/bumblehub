@@ -136,28 +136,37 @@ function PlayingLayout({
   const progressRatio = Math.min(1, progressMs / durationMs);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center gap-10 min-[900px]:min-h-[min(78vh,720px)] min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-14">
-      <div className="flex w-full max-w-[70vw] shrink-0 flex-col items-stretch overflow-visible min-[900px]:max-w-none min-[900px]:w-[min(48%,520px)]">
+    <div className="mx-auto flex w-full max-w-[600px] flex-col items-center text-center">
+      {/*
+        Art width caps by column max and by leftover viewport height so the
+        full stack (art → volume) fits above the tab bar without scrolling.
+        ~30rem reserves EQ, meta, progress, transport, volume, and chrome.
+      */}
+      <div
+        className="flex w-full shrink-0 flex-col items-stretch overflow-visible"
+        style={{
+          width:
+            "min(100%, 36rem, max(12.5rem, calc(100dvh - 30rem)))",
+        }}
+      >
         <AlbumArtStage artUrl={track.albumArtUrl} trackId={track.id} />
         <div className="relative z-10 mt-5 w-full">
           <RetroEqualizer isPlaying={isPlaying} trackId={track.id} />
         </div>
       </div>
 
-      <div className="relative z-10 flex w-full max-w-lg flex-1 flex-col items-center text-center min-[900px]:items-start min-[900px]:text-left">
-        <h1 className="font-[family-name:var(--font-fraunces)] text-[34px] font-semibold leading-tight tracking-tight text-stone-900 min-[900px]:text-[40px]">
+      <div className="relative z-10 mt-6 flex w-full flex-col items-center">
+        <h1 className="font-[family-name:var(--font-fraunces)] text-[clamp(1.75rem,4vw,2.125rem)] font-semibold leading-tight tracking-tight text-stone-900">
           {track.name}
         </h1>
-        <p className="mt-2 font-[family-name:var(--font-bricolage)] text-lg text-stone-500 min-[900px]:text-xl">
+        <p className="mt-2 font-[family-name:var(--font-bricolage)] text-lg text-stone-500">
           {track.artists}
         </p>
         {track.album ? (
-          <p className="mt-1 text-sm text-stone-400 min-[900px]:text-base">
-            {track.album}
-          </p>
+          <p className="mt-1 text-sm text-stone-400">{track.album}</p>
         ) : null}
 
-        <div className="mt-8 w-full">
+        <div className="mt-7 w-full">
           <div
             className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200/80"
             role="progressbar"
@@ -177,7 +186,7 @@ function PlayingLayout({
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-3 min-[900px]:justify-start">
+        <div className="mt-7 flex items-center justify-center gap-3">
           <TransportButton
             label="Previous"
             disabled={busy}
@@ -217,7 +226,7 @@ function PlayingLayout({
           </TransportButton>
         </div>
 
-        <div className="mt-8 flex w-full flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+        <div className="mt-7 flex w-full flex-col items-stretch gap-4 sm:flex-row sm:items-center">
           <div className="flex min-h-[52px] flex-1 items-center gap-3">
             <Volume2
               className="h-5 w-5 shrink-0 text-stone-400"
@@ -301,8 +310,8 @@ function AlbumArtStage({
   const { current, outgoing } = layers;
 
   return (
-    <div className="relative aspect-square w-full min-w-[220px] min-[900px]:min-h-[420px] min-[900px]:min-w-[420px]">
-      {/* Soft ambient glow — masked so edges dissolve before the text column */}
+    <div className="relative aspect-square w-full min-w-0">
+      {/* Soft ambient glow — edges dissolve via radial mask */}
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2"
         aria-hidden
@@ -370,7 +379,7 @@ function ArtLayer({
           fill
           priority
           className="object-cover"
-          sizes="(max-width: 899px) 70vw, 520px"
+          sizes="(max-width: 640px) 90vw, 600px"
           unoptimized
         />
       ) : (
