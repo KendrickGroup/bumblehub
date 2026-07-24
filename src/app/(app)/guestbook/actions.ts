@@ -4,11 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import {
   GUESTBOOK_BUCKET,
   guestbookStoragePath,
+  isGuestbookBucketPublic,
+  type GuestbookPhoto,
 } from "@/lib/photos";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
+import type { Photo } from "@/lib/types";
 
 export type SaveGuestbookResult =
-  | { ok: true; url: string }
+  | { ok: true; url: string; photo: GuestbookPhoto }
   | { ok: false; error: string };
 
 export async function saveGuestbookPhoto(
@@ -49,19 +52,40 @@ export async function saveGuestbookPhoto(
     data: { publicUrl },
   } = supabase.storage.from(GUESTBOOK_BUCKET).getPublicUrl(path);
 
-  const { error: insertError } = await supabase.from("photos").insert({
-    property_id: propertyId,
-    url: publicUrl,
-    caption,
-    category: "guestbook",
-    taken_at: new Date().toISOString(),
-    created_by: user.id,
-  });
+  const now = new Date().toISOString();
+  const { data: inserted, error: insertError } = await supabase
+    .from("photos")
+    .insert({
+      id: photoId,
+      property_id: propertyId,
+      url: publicUrl,
+      caption,
+      category: "guestbook",
+      taken_at: now,
+      created_by: user.id,
+    })
+    .select(
+      "id, property_id, url, caption, taken_at, category, is_curated, created_by, created_at",
+    )
+    .single();
 
-  if (insertError) {
+  if (insertError || !inserted) {
     await supabase.storage.from(GUESTBOOK_BUCKET).remove([path]);
-    return { ok: false, error: insertError.message };
+    return { ok: false, error: insertError?.message ?? "Failed to save photo." };
   }
 
-  return { ok: true, url: publicUrl };
+  const row = inserted as Photo;
+  let displayUrl = row.url;
+  if (!isGuestbookBucketPublic()) {
+    const { data } = await supabase.storage
+      .from(GUESTBOOK_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 6);
+    if (data?.signedUrl) displayUrl = data.signedUrl;
+  }
+
+  return {
+    ok: true,
+    url: publicUrl,
+    photo: { ...row, displayUrl },
+  };
 }

@@ -11,9 +11,10 @@ import { deleteGuestbookPhoto } from "./actions";
 type Props = {
   photo: GuestbookPhoto;
   canDelete: boolean;
+  onDeleted?: (id: string) => void;
 };
 
-export function GuestbookCard({ photo, canDelete }: Props) {
+export function GuestbookCard({ photo, canDelete, onDeleted }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -49,6 +50,7 @@ export function GuestbookCard({ photo, canDelete }: Props) {
       }
       setMenuOpen(false);
       setConfirming(false);
+      onDeleted?.(photo.id);
       router.refresh();
     });
   };
