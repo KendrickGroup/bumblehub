@@ -129,7 +129,7 @@ export function RecipeEditorForm({
   const displayError = error ?? localError;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-16">
+    <div className="mx-auto max-w-3xl space-y-8 pb-4">
       {/* Hero image */}
       <section className="overflow-hidden rounded-[20px] bg-white shadow-sm">
         <div className="relative aspect-[16/10] bg-[#FBF0D0]">

@@ -104,13 +104,13 @@ export function IdleDriftWatcher() {
     };
 
     for (const name of ACTIVITY_EVENTS) {
-      window.addEventListener(name, onActivity, { passive: true });
+      window.addEventListener(name, onActivity, { passive: true, capture: true });
     }
 
     return () => {
       if (moveTimeout) clearTimeout(moveTimeout);
       for (const name of ACTIVITY_EVENTS) {
-        window.removeEventListener(name, onActivity);
+        window.removeEventListener(name, onActivity, { capture: true });
       }
     };
   }, [markActivity]);

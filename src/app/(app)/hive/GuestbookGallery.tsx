@@ -69,14 +69,29 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       for (let i = 0; i < images.length; i++) {
         const file = images[i]!;
         try {
-          const blob = await downscaleImageFile(file);
+          let blob: Blob;
+          try {
+            blob = await downscaleImageFile(file);
+          } catch {
+            failCount += 1;
+            setError(
+              "Couldn’t read that image. Try JPEG or PNG (some HEIC files need converting first).",
+            );
+            setProgress({ done: i + 1, total: images.length });
+            continue;
+          }
+
           const formData = new FormData();
-          formData.append("photo", blob, "guestbook.jpg");
+          formData.append(
+            "photo",
+            new File([blob], "guestbook.jpg", { type: "image/jpeg" }),
+          );
           if (batchCaption) formData.append("caption", batchCaption);
 
           const result = await saveGuestbookPhoto(formData);
           if (!result.ok) {
             failCount += 1;
+            setError(result.error);
           } else {
             okCount += 1;
             setPhotos((prev) => {
@@ -170,7 +185,7 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
           className="hidden"
           onChange={(e) => {

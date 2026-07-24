@@ -19,12 +19,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {immersive ? (
         <div className="min-h-full bg-[#141210]">{children}</div>
       ) : (
-        <div className="flex min-h-full flex-col bg-[#FAF8F3]">
-          <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pb-6 pt-2 sm:px-6 sm:pb-8 sm:pt-4">
+        <div className="flex h-dvh flex-col overflow-hidden bg-[#FAF8F3]">
+          <main className="mx-auto min-h-0 w-full max-w-[1200px] flex-1 overflow-y-auto overscroll-y-contain px-4 pb-6 pt-2 sm:px-6 sm:pb-8 sm:pt-4">
             {children}
           </main>
 
-          <div className="sticky bottom-0 z-40 shrink-0">
+          <div className="z-40 shrink-0">
             <ShellNowPlaying />
             <AppTabBar />
           </div>

@@ -104,7 +104,7 @@ export function CookModeView({
 
       <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid gap-6 max-[899px]:grid-cols-1 min-[900px]:grid-cols-[280px_1fr_320px] min-[900px]:items-start">
-          <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100vh-3rem)] min-[900px]:overflow-y-auto">
+          <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100dvh-12rem)] min-[900px]:overflow-y-auto">
             <div className="rounded-[20px] border border-stone-200/80 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <Link
@@ -276,7 +276,7 @@ export function CookModeView({
             </button>
           </section>
 
-          <div className="hidden min-[900px]:block min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100vh-3rem)]">
+          <div className="hidden min-[900px]:block min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100dvh-12rem)]">
             <RecipeChat
               recipeId={recipe.id}
               initialMessages={initialChats}

@@ -47,7 +47,7 @@ export function AppTabBar() {
 
   return (
     <nav
-      className="border-t border-stone-200/90 bg-white shadow-[0_-4px_24px_rgba(42,37,32,0.06)]"
+      className="border-t border-stone-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(42,37,32,0.06)]"
       aria-label="Main"
     >
       <ul className="mx-auto flex max-w-[1200px]">
