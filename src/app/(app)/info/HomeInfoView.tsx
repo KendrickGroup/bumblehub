@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -36,6 +43,8 @@ type Props = {
   propertyName: string | null;
   initialSections: InfoSection[];
 };
+
+const TEXT_DEBOUNCE_MS = 600;
 
 function sectionAnchorId(id: string) {
   return `info-section-${id}`;
@@ -101,7 +110,6 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
   );
   const [savedFlash, setSavedFlash] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const stickyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,7 +200,6 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
     const stickyH = stickyRef.current?.offsetHeight ?? 0;
     const top =
       el.getBoundingClientRect().top + window.scrollY - stickyH - 12;
-    // App shell scrolls <main>, not window
     const main = el.closest("main");
     if (main) {
       const mainTop =
@@ -208,42 +215,68 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
     setActiveId(id);
   };
 
-  const scheduleSave = (
-    id: string,
-    patch: { title?: string; body?: string; icon?: string | null },
-  ) => {
-    if (saveTimers.current[id]) clearTimeout(saveTimers.current[id]);
-    saveTimers.current[id] = setTimeout(() => {
-      void (async () => {
-        setBusyId(id);
-        const result = await updateInfoSection({ id, ...patch });
-        setBusyId(null);
-        if (result.ok && "section" in result && result.section) {
-          setSections((prev) =>
-            prev.map((s) => (s.id === id ? result.section : s)),
-          );
-          flashSaved();
-        }
-      })();
-    }, 450);
-  };
+  const persistPatch = useCallback(
+    async (
+      id: string,
+      patch: { title?: string; body?: string; icon?: string | null },
+    ) => {
+      setBusyId(id);
+      const result = await updateInfoSection({ id, ...patch });
+      setBusyId(null);
+      if (result.ok && "section" in result && result.section) {
+        setSections((prev) =>
+          prev.map((s) => (s.id === id ? result.section : s)),
+        );
+        flashSaved();
+      }
+    },
+    [flashSaved],
+  );
 
-  const moveSection = async (id: string, direction: -1 | 1) => {
-    const index = sections.findIndex((s) => s.id === id);
-    const next = index + direction;
-    if (index < 0 || next < 0 || next >= sections.length) return;
+  const commitText = useCallback(
+    (id: string, title: string, body: string) => {
+      setSections((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, title, body } : s)),
+      );
+      void persistPatch(id, { title, body });
+    },
+    [persistPatch],
+  );
 
-    const reordered = [...sections];
-    const [item] = reordered.splice(index, 1);
-    reordered.splice(next, 0, item!);
-    setSections(reordered);
+  const commitIcon = useCallback(
+    (id: string, icon: string | null) => {
+      setSections((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, icon } : s)),
+      );
+      void persistPatch(id, { icon });
+    },
+    [persistPatch],
+  );
 
-    const result = await reorderInfoSections(reordered.map((s) => s.id));
-    if (result.ok && "sections" in result && result.sections) {
-      setSections(result.sections);
-      flashSaved();
-    }
-  };
+  const moveSection = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      setSections((prev) => {
+        const index = prev.findIndex((s) => s.id === id);
+        const next = index + direction;
+        if (index < 0 || next < 0 || next >= prev.length) return prev;
+
+        const reordered = [...prev];
+        const [item] = reordered.splice(index, 1);
+        reordered.splice(next, 0, item!);
+
+        void (async () => {
+          const result = await reorderInfoSections(reordered.map((s) => s.id));
+          if (result.ok && "sections" in result && result.sections) {
+            setSections(result.sections);
+            flashSaved();
+          }
+        })();
+
+        return reordered;
+      });
+    },
+    [flashSaved],
+  );
 
   const addSection = async () => {
     const result = await createInfoSection({ title: "New section", body: "" });
@@ -254,14 +287,17 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
     }
   };
 
-  const removeSection = async (id: string) => {
-    if (!window.confirm("Delete this section?")) return;
-    const result = await deleteInfoSection(id);
-    if (result.ok) {
-      setSections((prev) => prev.filter((s) => s.id !== id));
-      flashSaved();
-    }
-  };
+  const removeSection = useCallback(
+    async (id: string) => {
+      if (!window.confirm("Delete this section?")) return;
+      const result = await deleteInfoSection(id);
+      if (result.ok) {
+        setSections((prev) => prev.filter((s) => s.id !== id));
+        flashSaved();
+      }
+    },
+    [flashSaved],
+  );
 
   if (needsPin) {
     return (
@@ -334,14 +370,14 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
         </div>
       </header>
 
-      {sections.length > 0 && !editing && (
+      {sections.length > 0 && (
         <div
           ref={stickyRef}
           className="sticky top-0 z-20 -mx-2 mb-6 bg-[#FAF8F3]/95 px-2 py-3 backdrop-blur-md sm:mx-0 sm:px-0"
         >
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sections.map((section) => {
-              const active = activeId === section.id;
+              const active = !editing && activeId === section.id;
               return (
                 <button
                   key={section.id}
@@ -398,37 +434,18 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
             >
               {editing ? (
                 <EditCard
-                  section={section}
+                  sectionId={section.id}
+                  initialTitle={section.title}
+                  initialBody={section.body}
+                  icon={section.icon}
                   isFirst={index === 0}
                   isLast={index === sections.length - 1}
                   busy={busyId === section.id}
-                  onTitleChange={(title) => {
-                    setSections((prev) =>
-                      prev.map((s) =>
-                        s.id === section.id ? { ...s, title } : s,
-                      ),
-                    );
-                    scheduleSave(section.id, { title });
-                  }}
-                  onBodyChange={(body) => {
-                    setSections((prev) =>
-                      prev.map((s) =>
-                        s.id === section.id ? { ...s, body } : s,
-                      ),
-                    );
-                    scheduleSave(section.id, { body });
-                  }}
-                  onIconChange={(icon) => {
-                    setSections((prev) =>
-                      prev.map((s) =>
-                        s.id === section.id ? { ...s, icon } : s,
-                      ),
-                    );
-                    scheduleSave(section.id, { icon });
-                  }}
-                  onMoveUp={() => void moveSection(section.id, -1)}
-                  onMoveDown={() => void moveSection(section.id, 1)}
-                  onDelete={() => void removeSection(section.id)}
+                  onCommitText={commitText}
+                  onIconChange={commitIcon}
+                  onMoveUp={moveSection}
+                  onMoveDown={moveSection}
+                  onDelete={removeSection}
                 />
               ) : (
                 <>
@@ -463,37 +480,122 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
   );
 }
 
-function EditCard({
-  section,
+type EditCardProps = {
+  sectionId: string;
+  initialTitle: string;
+  initialBody: string;
+  icon: string | null;
+  isFirst: boolean;
+  isLast: boolean;
+  busy: boolean;
+  onCommitText: (id: string, title: string, body: string) => void;
+  onIconChange: (id: string, icon: string | null) => void;
+  onMoveUp: (id: string, direction: -1 | 1) => void;
+  onMoveDown: (id: string, direction: -1 | 1) => void;
+  onDelete: (id: string) => void;
+};
+
+const EditCard = memo(function EditCard({
+  sectionId,
+  initialTitle,
+  initialBody,
+  icon,
   isFirst,
   isLast,
   busy,
-  onTitleChange,
-  onBodyChange,
+  onCommitText,
   onIconChange,
   onMoveUp,
   onMoveDown,
   onDelete,
-}: {
-  section: InfoSection;
-  isFirst: boolean;
-  isLast: boolean;
-  busy: boolean;
-  onTitleChange: (title: string) => void;
-  onBodyChange: (body: string) => void;
-  onIconChange: (icon: string | null) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onDelete: () => void;
-}) {
+}: EditCardProps) {
+  const [title, setTitle] = useState(initialTitle);
+  const [body, setBody] = useState(initialBody);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRef = useRef({ title: initialTitle, body: initialBody });
+  const committedRef = useRef({ title: initialTitle, body: initialBody });
 
   useEffect(() => {
+    latestRef.current = { title, body };
+  }, [title, body]);
+
+  // Remount-safe: only reset local fields when switching to a different section id.
+  useEffect(() => {
+    setTitle(initialTitle);
+    setBody(initialBody);
+    latestRef.current = { title: initialTitle, body: initialBody };
+    committedRef.current = { title: initialTitle, body: initialBody };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ignore prop churn while typing
+  }, [sectionId]);
+
+  const flushCommit = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const next = latestRef.current;
+    if (
+      next.title === committedRef.current.title &&
+      next.body === committedRef.current.body
+    ) {
+      return;
+    }
+    committedRef.current = next;
+    onCommitText(sectionId, next.title, next.body);
+  }, [onCommitText, sectionId]);
+
+  const scheduleCommit = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      flushCommit();
+    }, TEXT_DEBOUNCE_MS);
+  }, [flushCommit]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      const next = latestRef.current;
+      if (
+        next.title !== committedRef.current.title ||
+        next.body !== committedRef.current.body
+      ) {
+        committedRef.current = next;
+        onCommitText(sectionId, next.title, next.body);
+      }
+    };
+  }, [onCommitText, sectionId]);
+
+  const growTextarea = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.max(120, el.scrollHeight)}px`;
-  }, [section.body]);
+    const main = el.closest("main");
+    const prevScroll = main?.scrollTop ?? window.scrollY;
+    const next = Math.max(120, el.scrollHeight);
+    if (next > el.clientHeight + 1) {
+      el.style.height = `${next}px`;
+      if (main) main.scrollTop = prevScroll;
+      else window.scrollTo({ top: prevScroll });
+    }
+  }, []);
+
+  useEffect(() => {
+    growTextarea();
+  }, [body, growTextarea]);
+
+  const onTitleInput = (e: FormEvent<HTMLInputElement>) => {
+    setTitle(e.currentTarget.value);
+    scheduleCommit();
+  };
+
+  const onBodyInput = (e: FormEvent<HTMLTextAreaElement>) => {
+    setBody(e.currentTarget.value);
+    scheduleCommit();
+  };
 
   return (
     <div className="space-y-4">
@@ -501,7 +603,10 @@ function EditCard({
         <button
           type="button"
           disabled={isFirst || busy}
-          onClick={onMoveUp}
+          onClick={() => {
+            flushCommit();
+            onMoveUp(sectionId, -1);
+          }}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition hover:bg-stone-200 disabled:opacity-40"
           aria-label="Move up"
         >
@@ -510,7 +615,10 @@ function EditCard({
         <button
           type="button"
           disabled={isLast || busy}
-          onClick={onMoveDown}
+          onClick={() => {
+            flushCommit();
+            onMoveDown(sectionId, 1);
+          }}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition hover:bg-stone-200 disabled:opacity-40"
           aria-label="Move down"
         >
@@ -519,7 +627,10 @@ function EditCard({
         <button
           type="button"
           disabled={busy}
-          onClick={onDelete}
+          onClick={() => {
+            flushCommit();
+            onDelete(sectionId);
+          }}
           className="ml-auto flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-40"
           aria-label="Delete section"
         >
@@ -535,9 +646,9 @@ function EditCard({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => onIconChange(null)}
+            onClick={() => onIconChange(sectionId, null)}
             className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
-              !section.icon
+              !icon
                 ? "bg-[#F4B400] text-stone-900"
                 : "border border-stone-200 bg-white text-stone-500"
             }`}
@@ -546,12 +657,12 @@ function EditCard({
           </button>
           {INFO_ICONS.map((name) => {
             const Icon = INFO_ICON_MAP[name];
-            const active = section.icon === name;
+            const active = icon === name;
             return (
               <button
                 key={name}
                 type="button"
-                onClick={() => onIconChange(name)}
+                onClick={() => onIconChange(sectionId, name)}
                 aria-label={name}
                 className={`flex h-11 w-11 items-center justify-center rounded-full transition ${
                   active
@@ -568,8 +679,9 @@ function EditCard({
 
       <input
         type="text"
-        value={section.title}
-        onChange={(e) => onTitleChange(e.target.value)}
+        value={title}
+        onChange={onTitleInput}
+        onBlur={flushCommit}
         maxLength={120}
         placeholder="Section title"
         className="w-full rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 py-3 font-[family-name:var(--font-fraunces)] text-2xl font-semibold text-stone-900 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
@@ -577,13 +689,15 @@ function EditCard({
 
       <textarea
         ref={textareaRef}
-        value={section.body}
-        onChange={(e) => onBodyChange(e.target.value)}
+        value={body}
+        onChange={onBodyInput}
+        onBlur={flushCommit}
         placeholder={
           'Write plain text. Use blank lines for paragraphs, "- " for bullets, "1. " for numbered lists.'
         }
-        className="w-full resize-none rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 py-3 font-[family-name:var(--font-bricolage)] text-[16.5px] leading-[1.6] text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        style={{ minHeight: 120 }}
+        className="w-full resize-none overflow-hidden rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 py-3 font-[family-name:var(--font-bricolage)] text-[16.5px] leading-[1.6] text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
       />
     </div>
   );
-}
+});
