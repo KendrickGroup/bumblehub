@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { isPropertyOwner } from "@/lib/photos";
 import {
@@ -14,10 +14,13 @@ import {
   DEFAULT_HOUSE_GREETING,
   parseHouseModeSettings,
 } from "@/lib/house-mode/settings";
+import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
+import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { SettingsGate } from "@/components/house-mode/SettingsGate";
 import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSettingsPanel";
 import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
+import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -48,6 +51,12 @@ export default async function SettingsPage() {
   let hasPin = false;
   let propertyName: string | null = null;
   let isOwner = false;
+  let homeAssistantUrl = "";
+  let spotify = {
+    connected: false,
+    displayName: null as string | null,
+    lastSyncedAt: null as string | null,
+  };
 
   if (propertyId) {
     const { data } = await supabase
@@ -60,6 +69,7 @@ export default async function SettingsPage() {
     const house = parseHouseModeSettings(data?.dashboard_layout);
     houseGreeting = house.greeting;
     hasPin = Boolean(house.pinHash);
+    homeAssistantUrl = parseHomeAssistantUrl(data?.dashboard_layout);
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
 
     const { data: property } = await supabase
@@ -68,6 +78,24 @@ export default async function SettingsPage() {
       .eq("id", propertyId)
       .maybeSingle();
     propertyName = property?.name ?? null;
+
+    try {
+      const connected = await isSpotifyConnected(propertyId);
+      const service = createServiceClient();
+      const { data: row } = await service
+        .from("integrations")
+        .select("display_name, last_synced_at")
+        .eq("property_id", propertyId)
+        .eq("integration_type", "spotify")
+        .maybeSingle();
+      spotify = {
+        connected,
+        displayName: row?.display_name ?? "Spotify",
+        lastSyncedAt: row?.last_synced_at ?? null,
+      };
+    } catch {
+      // Service role missing in some envs — leave disconnected.
+    }
   }
 
   return (
@@ -116,12 +144,19 @@ export default async function SettingsPage() {
           />
         </div>
 
+        <div className="mt-6">
+          <IntegrationsSettingsPanel
+            hasProperty={!!propertyId}
+            initialHomeAssistantUrl={homeAssistantUrl}
+            initialSpotify={spotify}
+          />
+        </div>
+
         <section className="mt-6 space-y-3">
           <h2 className="text-sm font-medium uppercase tracking-wide text-stone-500">
             More
           </h2>
           <ComingSoonRow title="Themes" />
-          <ComingSoonRow title="Integrations" />
           <ComingSoonRow title="Property" />
         </section>
       </div>
