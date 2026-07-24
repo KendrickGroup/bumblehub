@@ -15,6 +15,15 @@ export const metadata: Metadata = {
     template: "%s · BumbleHub",
   },
   description: "Touch-first smart home dashboard",
+  applicationName: "BumbleHub",
+  appleWebApp: {
+    capable: true,
+    title: "BumbleHub",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

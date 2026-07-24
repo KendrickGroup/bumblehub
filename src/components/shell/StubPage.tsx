@@ -1,3 +1,5 @@
+import { BrandMark } from "@/components/brand/BrandMark";
+
 type StubPageProps = {
   title: string;
   description: string;
@@ -6,9 +8,7 @@ type StubPageProps = {
 export function StubPage({ title, description }: StubPageProps) {
   return (
     <div className="px-2 py-6 sm:px-0">
-      <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
-        BumbleHub
-      </p>
+      <BrandMark beeHeight={28} wordmarkHeight={18} />
       <h1
         className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900"
         style={{ fontVariationSettings: '"opsz" 72' }}

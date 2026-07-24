@@ -243,7 +243,14 @@ export function GuestbookSlideshow({
       className="fixed inset-0 z-[100] cursor-pointer outline-none"
       aria-label="Exit slideshow"
     >
-      <div className="absolute top-0 right-0 z-30 p-6 sm:p-8">
+      <div className="absolute top-0 right-0 z-30 flex items-center gap-3 p-6 sm:p-8">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/bee.png"
+          alt=""
+          aria-hidden
+          className="h-7 w-auto object-contain opacity-25"
+        />
         <Clock />
       </div>
 

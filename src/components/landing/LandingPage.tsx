@@ -1,18 +1,12 @@
-import { BeeDefs, BeeIcon } from "./BeeLogo";
+import { BrandMark } from "@/components/brand/BrandMark";
 
 export function LandingPage() {
   return (
     <>
-      <BeeDefs />
-
       <header>
         <div className="nav">
-          <a className="brand" href="#top">
-            <img
-              src="/logo.png"
-              alt="BumbleHub"
-              className="brand-logo brand-logo-nav"
-            />
+          <a className="brand" href="#top" aria-label="BumbleHub">
+            <BrandMark beeHeight={40} wordmarkHeight={26} />
           </a>
           <div className="nav-actions">
             <a className="nav-link hide-sm" href="#features">
@@ -62,8 +56,9 @@ export function LandingPage() {
           </div>
           <div className="hero-art reveal d2">
             <div className="hero-logo-wrap">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo.png"
+                src="/brand/lockup.png"
                 alt="BumbleHub"
                 className="hero-logo"
               />
@@ -231,7 +226,13 @@ export function LandingPage() {
         </div>
 
         <section className="closer">
-          <BeeIcon className="hero-bee-sm" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/bee.png"
+            alt=""
+            className="closer-bee"
+            aria-hidden
+          />
           <h2>Come on in. The Hive&apos;s ready.</h2>
           <p>
             Put your home on BumbleHub and let it hum along quietly in the
@@ -246,9 +247,10 @@ export function LandingPage() {
 
       <footer>
         <div className="foot">
-          <a className="brand" href="#top">
+          <a className="brand" href="#top" aria-label="BumbleHub home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.png"
+              src="/brand/lockup.png"
               alt="BumbleHub"
               className="brand-logo brand-logo-foot"
             />

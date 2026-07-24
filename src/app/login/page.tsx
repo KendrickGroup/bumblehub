@@ -24,15 +24,7 @@ export default async function LoginPage({
 
   return (
     <div className="relative flex min-h-full flex-col bg-[#FAF8F3] px-6 py-12">
-      <div className="absolute top-5 left-5 z-10 flex items-center gap-4 sm:top-6 sm:left-6">
-        <Link href="/" className="block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="BumbleHub"
-            className="h-9 w-auto"
-          />
-        </Link>
+      <div className="absolute top-5 left-5 z-10 sm:top-6 sm:left-6">
         <Link
           href="/"
           className="text-sm font-medium text-stone-500 transition hover:text-stone-800"
@@ -44,10 +36,15 @@ export default async function LoginPage({
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
-              BumbleHub
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-stone-900">
+            <Link href="/" className="inline-block" aria-label="BumbleHub home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/bee.png"
+                alt=""
+                className="mx-auto h-12 w-auto object-contain"
+              />
+            </Link>
+            <h1 className="mt-4 text-3xl font-semibold text-stone-900">
               Sign in
             </h1>
             <p className="mt-1 text-sm text-stone-500">

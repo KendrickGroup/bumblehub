@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/brand/BrandMark";
 import {
   hourInTimezone,
   isHouseModeDevice,
@@ -45,9 +46,7 @@ export function HomeGreeting({
 
   return (
     <>
-      <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
-        BumbleHub
-      </p>
+      <BrandMark beeHeight={28} wordmarkHeight={18} />
       <h1
         className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900 sm:text-4xl"
         style={{ fontVariationSettings: '"opsz" 72' }}
