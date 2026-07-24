@@ -11,7 +11,7 @@ function missingConfig(): LoginResult {
   return {
     ok: false,
     error:
-      "Supabase not configured — set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local",
+      "Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local",
   };
 }
 

@@ -124,7 +124,7 @@ export function NewRecipeFlow() {
           Add a recipe
         </h1>
         <p className="mt-2 text-base text-stone-600">
-          Paste text, drop a link, or describe what you make — we&apos;ll
+          Paste text, drop a link, or describe what you make. We&apos;ll
           structure it for cook mode.
         </p>
       </header>

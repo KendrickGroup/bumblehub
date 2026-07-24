@@ -166,7 +166,10 @@ export function CookModeView({
                       <span className="text-stone-900">
                         {ing.name}
                         {ing.notes ? (
-                          <span className="text-stone-500"> — {ing.notes}</span>
+                          <span className="text-stone-500">
+                            {" "}
+                            ({ing.notes})
+                          </span>
                         ) : null}
                       </span>
                     ) : ing.unit ? (
@@ -183,7 +186,10 @@ export function CookModeView({
                       <span className="text-stone-900">
                         {formatIngredientAmount(ing.scaled, null)} {ing.name}
                         {ing.notes ? (
-                          <span className="text-stone-500"> — {ing.notes}</span>
+                          <span className="text-stone-500">
+                            {" "}
+                            ({ing.notes})
+                          </span>
                         ) : null}
                       </span>
                     )}

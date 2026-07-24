@@ -38,7 +38,7 @@ export function LandingPage() {
               BumbleHub is the calm dashboard for your house. Set the lights and
               the vibe with one tap, follow recipes with a cooking helper that
               actually answers questions, and let the place feel ready the
-              moment anyone walks in — no phones, no juggling five different
+              moment anyone walks in. No phones, no juggling five different
               apps.
             </p>
             <div className="hero-cta reveal d4">
@@ -50,7 +50,7 @@ export function LandingPage() {
               </a>
             </div>
             <p className="hero-note reveal d4">
-              Made for the screen on your wall — and your phone when you&apos;re
+              Made for the screen on your wall, and your phone when you&apos;re
               on the way home.
             </p>
           </div>
@@ -132,7 +132,7 @@ export function LandingPage() {
           </h2>
           <p className="section-lead">
             One screen for the things you reach for every day. Tap a scene,
-            start the music, pull up dinner — and never go hunting through a
+            start the music, pull up dinner, and never go hunting through a
             drawer of single-purpose apps again.
           </p>
 
@@ -158,7 +158,7 @@ export function LandingPage() {
               <div className="fic">🍳</div>
               <h3>Recipes that talk back</h3>
               <p>
-                Follow a recipe step by step with big, hands-free text — and ask
+                Follow a recipe step by step with big, hands-free text, and ask
                 it anything. &quot;No buttermilk?&quot; &quot;Halve this?&quot;
                 It answers.
               </p>
@@ -184,7 +184,7 @@ export function LandingPage() {
               <h3>A frame when it&apos;s idle</h3>
               <p>
                 When no one&apos;s tapping, the screen drifts into your favorite
-                photos — a quiet bit of warmth on the wall.
+                photos, a quiet bit of warmth on the wall.
               </p>
             </div>
           </div>

@@ -61,7 +61,7 @@ async function assertPlayerOk(response: Response, action: string): Promise<void>
 
   if (response.status === 403) {
     throw new Error(
-      "Spotify rejected the command — check Premium and that a device is active.",
+      "Spotify rejected the command. Check Premium and that a device is active.",
     );
   }
 
