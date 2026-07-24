@@ -2,15 +2,12 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
-import {
-  fetchRecipeChats,
-  fetchRecipeDetail,
-} from "@/lib/recipes/queries";
-import { CookModeView } from "./CookModeView";
+import { isPropertyOwner } from "@/lib/photos";
+import { fetchRecipeDetail } from "@/lib/recipes/queries";
+import { EditRecipeFlow } from "@/components/recipes/EditRecipeFlow";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -21,12 +18,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select("title")
     .eq("id", id)
     .maybeSingle();
-  return { title: data?.title ?? "Cook mode" };
+  return { title: data?.title ? `Edit · ${data.title}` : "Edit recipe" };
 }
 
-export default async function RecipeCookPage({ params, searchParams }: Props) {
+export default async function EditRecipePage({ params }: Props) {
   const { id } = await params;
-  const { saved } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,7 +31,7 @@ export default async function RecipeCookPage({ params, searchParams }: Props) {
   const propertyId = user
     ? await getDefaultPropertyIdForUser(user.id)
     : null;
-  if (!propertyId) {
+  if (!propertyId || !user) {
     redirect("/recipes");
   }
 
@@ -44,13 +40,8 @@ export default async function RecipeCookPage({ params, searchParams }: Props) {
     notFound();
   }
 
-  const chats = await fetchRecipeChats(id);
+  const owner = await isPropertyOwner(propertyId, user.id);
+  const canDelete = owner || recipe.created_by === user.id;
 
-  return (
-    <CookModeView
-      recipe={recipe}
-      initialChats={chats}
-      showSavedToast={saved === "1"}
-    />
-  );
+  return <EditRecipeFlow recipe={recipe} canDelete={canDelete} />;
 }

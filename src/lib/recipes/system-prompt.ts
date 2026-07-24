@@ -3,14 +3,19 @@ import { formatIngredientLine, scaleAmount } from "./format-amount";
 
 export function buildRecipeSystemPrompt(recipe: RecipeDetail): string {
   const ingredientLines = recipe.ingredients.map((ing) => {
+    if (ing.amount == null) {
+      return `- ${ing.name}${ing.notes ? ` (${ing.notes})` : ""}`;
+    }
     const scaled = scaleAmount(ing.amount, recipe.servings, recipe.servings);
-    return `- ${formatIngredientLine(ing.name, scaled, ing.unit)}`;
+    return `- ${formatIngredientLine(ing.name, scaled, ing.unit)}${
+      ing.notes ? ` (${ing.notes})` : ""
+    }`;
   });
 
   const stepLines = recipe.steps.map(
     (step) =>
       `${step.step_number}. ${step.title}: ${step.content}${
-        step.timer_seconds > 0
+        step.timer_seconds != null && step.timer_seconds > 0
           ? ` (timer: ${Math.round(step.timer_seconds / 60)} min)`
           : ""
       }`,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { fetchRecipesForProperty } from "@/lib/recipes/queries";
@@ -80,7 +80,7 @@ export default async function RecipesPage() {
 
   return (
     <div className="py-4">
-      <header className="mb-8 px-2 sm:px-0">
+      <header className="mb-6 px-2 sm:px-0">
         <p className="text-sm font-medium uppercase tracking-widest text-[#F4B400]">
           Recipes
         </p>
@@ -99,6 +99,18 @@ export default async function RecipesPage() {
         </div>
       </header>
 
+      {propertyId && (
+        <div className="mb-8 px-2 sm:px-0">
+          <Link
+            href="/recipes/new"
+            className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#F4B400] px-5 text-base font-semibold text-stone-900 transition hover:bg-[#e0a800] sm:w-auto"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.25} />
+            Add recipe
+          </Link>
+        </div>
+      )}
+
       {!propertyId ? (
         <p className="rounded-[20px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           Set a default hive in{" "}
@@ -107,7 +119,7 @@ export default async function RecipesPage() {
         </p>
       ) : recipes.length === 0 ? (
         <p className="rounded-[20px] bg-white px-5 py-8 text-center text-stone-600 shadow-sm">
-          No recipes yet for this hive.
+          No recipes yet for this hive. Add one to get cooking.
         </p>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">

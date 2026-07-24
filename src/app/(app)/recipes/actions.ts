@@ -96,7 +96,10 @@ export async function addRecipeToShoppingList(
     RecipeIngredient,
     "name" | "amount" | "unit"
   >[]).map((ing) => {
-    const scaled = scaleAmount(ing.amount, currentServings, baseServings);
+    const scaled =
+      ing.amount == null
+        ? null
+        : scaleAmount(ing.amount, currentServings, baseServings);
     return {
       property_id: propertyId,
       recipe_id: recipeId,

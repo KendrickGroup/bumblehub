@@ -7,15 +7,16 @@ import type {
   RecipeStep,
 } from "./types";
 
+const RECIPE_COLUMNS =
+  "id, property_id, title, description, servings, hero_image_url, prep_minutes, cook_minutes, total_minutes, tags, created_by, source_url";
+
 export async function fetchRecipesForProperty(
   propertyId: string,
 ): Promise<Recipe[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("recipes")
-    .select(
-      "id, property_id, title, description, servings, hero_image_url, total_minutes, tags",
-    )
+    .select(RECIPE_COLUMNS)
     .eq("property_id", propertyId)
     .order("title", { ascending: true });
 
@@ -44,9 +45,7 @@ export async function fetchRecipeDetail(
 
   const { data: recipe, error: recipeError } = await supabase
     .from("recipes")
-    .select(
-      "id, property_id, title, description, servings, hero_image_url, total_minutes, tags",
-    )
+    .select(RECIPE_COLUMNS)
     .eq("id", recipeId)
     .eq("property_id", propertyId)
     .maybeSingle();
@@ -58,7 +57,7 @@ export async function fetchRecipeDetail(
     await Promise.all([
       supabase
         .from("recipe_ingredients")
-        .select("id, recipe_id, name, amount, unit, display_order")
+        .select("id, recipe_id, name, amount, unit, notes, display_order")
         .eq("recipe_id", recipeId)
         .order("display_order", { ascending: true }),
       supabase

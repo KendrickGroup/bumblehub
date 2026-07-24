@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   MessageCircle,
   Minus,
+  Pencil,
   Plus,
 } from "lucide-react";
 import {
@@ -22,15 +23,28 @@ import { RecipeTimer } from "./RecipeTimer";
 type Props = {
   recipe: RecipeDetail;
   initialChats: RecipeChatMessage[];
+  showSavedToast?: boolean;
 };
 
-export function CookModeView({ recipe, initialChats }: Props) {
+export function CookModeView({
+  recipe,
+  initialChats,
+  showSavedToast = false,
+}: Props) {
   const router = useRouter();
   const [servings, setServings] = useState(recipe.servings);
   const [stepIndex, setStepIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [listBusy, setListBusy] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showSavedToast) return;
+    setToast("Recipe saved.");
+    const id = window.setTimeout(() => setToast(null), 2800);
+    router.replace(`/recipes/${recipe.id}`, { scroll: false });
+    return () => window.clearTimeout(id);
+  }, [showSavedToast, recipe.id, router]);
 
   const steps = recipe.steps;
   const totalSteps = steps.length;
@@ -41,12 +55,15 @@ export function CookModeView({ recipe, initialChats }: Props) {
     () =>
       recipe.ingredients.map((ing) => ({
         ...ing,
-        scaled: scaleAmount(ing.amount, servings, recipe.servings),
+        scaled:
+          ing.amount == null
+            ? null
+            : scaleAmount(ing.amount, servings, recipe.servings),
       })),
     [recipe.ingredients, recipe.servings, servings],
   );
 
-  const showToast = (message: string) => {
+  const showToastMessage = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 2800);
   };
@@ -68,9 +85,9 @@ export function CookModeView({ recipe, initialChats }: Props) {
     const result = await addRecipeToShoppingList(recipe.id, servings);
     setListBusy(false);
     if (result.ok) {
-      showToast("Added to shopping list.");
+      showToastMessage("Added to shopping list.");
     } else {
-      showToast(result.error);
+      showToastMessage(result.error);
     }
   };
 
@@ -87,16 +104,25 @@ export function CookModeView({ recipe, initialChats }: Props) {
 
       <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid gap-6 max-[899px]:grid-cols-1 min-[900px]:grid-cols-[280px_1fr_320px] min-[900px]:items-start">
-          {/* Ingredients */}
           <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100vh-3rem)] min-[900px]:overflow-y-auto">
             <div className="rounded-[20px] border border-stone-200/80 bg-white p-5 shadow-sm">
-              <Link
-                href="/recipes"
-                className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-800"
-              >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                Back to recipes
-              </Link>
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href="/recipes"
+                  className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-800"
+                >
+                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                  Back to recipes
+                </Link>
+                <Link
+                  href={`/recipes/${recipe.id}/edit`}
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-[14px] px-3 text-sm font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-800"
+                  aria-label="Edit recipe"
+                >
+                  <Pencil className="h-4 w-4" strokeWidth={2} />
+                  <span className="hidden sm:inline">Edit</span>
+                </Link>
+              </div>
               <h1
                 className="mt-3 font-[family-name:var(--font-fraunces)] text-2xl font-semibold leading-tight text-stone-900 sm:text-[1.65rem]"
                 style={{ fontVariationSettings: '"opsz" 72' }}
@@ -113,9 +139,7 @@ export function CookModeView({ recipe, initialChats }: Props) {
                     type="button"
                     aria-label="Decrease servings"
                     disabled={servings <= 1}
-                    onClick={() =>
-                      setServings((s) => Math.max(1, s - 1))
-                    }
+                    onClick={() => setServings((s) => Math.max(1, s - 1))}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-800 transition hover:bg-stone-50 disabled:opacity-40"
                   >
                     <Minus className="h-5 w-5" strokeWidth={2} />
@@ -127,9 +151,7 @@ export function CookModeView({ recipe, initialChats }: Props) {
                     type="button"
                     aria-label="Increase servings"
                     disabled={servings >= 99}
-                    onClick={() =>
-                      setServings((s) => Math.min(99, s + 1))
-                    }
+                    onClick={() => setServings((s) => Math.min(99, s + 1))}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-800 transition hover:bg-stone-50 disabled:opacity-40"
                   >
                     <Plus className="h-5 w-5" strokeWidth={2} />
@@ -140,18 +162,29 @@ export function CookModeView({ recipe, initialChats }: Props) {
               <ul className="mt-5 space-y-3 border-t border-stone-100 pt-5">
                 {scaledIngredients.map((ing) => (
                   <li key={ing.id} className="text-[15px] leading-snug">
-                    {ing.unit ? (
+                    {ing.scaled == null ? (
+                      <span className="text-stone-900">
+                        {ing.name}
+                        {ing.notes ? (
+                          <span className="text-stone-500"> — {ing.notes}</span>
+                        ) : null}
+                      </span>
+                    ) : ing.unit ? (
                       <>
                         <span className="font-medium text-stone-900">
                           {ing.name}
                         </span>
                         <span className="mt-0.5 block text-stone-600">
                           {formatIngredientAmount(ing.scaled, ing.unit)}
+                          {ing.notes ? ` · ${ing.notes}` : ""}
                         </span>
                       </>
                     ) : (
                       <span className="text-stone-900">
                         {formatIngredientAmount(ing.scaled, null)} {ing.name}
+                        {ing.notes ? (
+                          <span className="text-stone-500"> — {ing.notes}</span>
+                        ) : null}
                       </span>
                     )}
                   </li>
@@ -169,7 +202,6 @@ export function CookModeView({ recipe, initialChats }: Props) {
             </div>
           </aside>
 
-          {/* Step */}
           <section className="min-w-0">
             {currentStep ? (
               <div className="rounded-[20px] border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
@@ -207,9 +239,10 @@ export function CookModeView({ recipe, initialChats }: Props) {
                   {currentStep.content}
                 </p>
 
-                {currentStep.timer_seconds > 0 && (
-                  <RecipeTimer timerSeconds={currentStep.timer_seconds} />
-                )}
+                {currentStep.timer_seconds != null &&
+                  currentStep.timer_seconds > 0 && (
+                    <RecipeTimer timerSeconds={currentStep.timer_seconds} />
+                  )}
 
                 <div className="mt-8 flex items-center justify-center gap-2">
                   {steps.map((step, index) => (
@@ -243,7 +276,6 @@ export function CookModeView({ recipe, initialChats }: Props) {
             </button>
           </section>
 
-          {/* Chat — desktop */}
           <div className="hidden min-[900px]:block min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100vh-3rem)]">
             <RecipeChat
               recipeId={recipe.id}
