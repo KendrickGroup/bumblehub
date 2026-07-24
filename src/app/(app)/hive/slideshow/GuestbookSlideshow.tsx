@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BeeMark } from "@/components/brand/AppBrandLockup";
 import {
   IDLE_RETURN_PATH_KEY,
   isSafeReturnPath,
@@ -244,13 +245,7 @@ export function GuestbookSlideshow({
       aria-label="Exit slideshow"
     >
       <div className="absolute top-0 right-0 z-30 flex items-center gap-3 p-6 sm:p-8">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/bee.png"
-          alt=""
-          aria-hidden
-          className="h-7 w-auto object-contain opacity-25"
-        />
+        <BeeMark size={28} className="opacity-25" />
         <Clock />
       </div>
 

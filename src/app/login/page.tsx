@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BeeMark } from "@/components/brand/AppBrandLockup";
 import { LoginForm } from "./LoginForm";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,12 +38,7 @@ export default async function LoginPage({
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <Link href="/" className="inline-block" aria-label="BumbleHub home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/bee.png"
-                alt=""
-                className="mx-auto h-12 w-auto object-contain"
-              />
+              <BeeMark size={44} className="mx-auto" />
             </Link>
             <h1 className="mt-4 text-3xl font-semibold text-stone-900">
               Sign in

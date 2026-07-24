@@ -1,4 +1,4 @@
-import { BrandMark } from "@/components/brand/BrandMark";
+import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 
 type StubPageProps = {
   title: string;
@@ -8,7 +8,7 @@ type StubPageProps = {
 export function StubPage({ title, description }: StubPageProps) {
   return (
     <div className="px-2 py-6 sm:px-0">
-      <BrandMark beeHeight={28} wordmarkHeight={18} />
+      <AppBrandLockup />
       <h1
         className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900"
         style={{ fontVariationSettings: '"opsz" 72' }}

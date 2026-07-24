@@ -16,7 +16,7 @@ import {
 } from "@/lib/house-mode/settings";
 import { SettingsGate } from "@/components/house-mode/SettingsGate";
 import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSettingsPanel";
-import { BrandMark } from "@/components/brand/BrandMark";
+import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 
 export const metadata: Metadata = {
@@ -73,7 +73,7 @@ export default async function SettingsPage() {
   return (
     <SettingsGate>
       <div className="px-2 py-6 sm:px-0">
-        <BrandMark beeHeight={28} wordmarkHeight={18} />
+        <AppBrandLockup />
         <h1
           className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-stone-900"
           style={{ fontVariationSettings: '"opsz" 72' }}
