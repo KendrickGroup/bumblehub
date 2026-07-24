@@ -91,7 +91,7 @@ export function GuestbookCard({
         >
           <Image
             src={photo.displayUrl}
-            alt={photo.caption ?? "Guestbook photo"}
+            alt={photo.caption ?? "Photo Booth memory"}
             fill
             className="rounded-t-[16px] object-cover"
             sizes="(max-width: 640px) 100vw, 320px"
@@ -150,7 +150,7 @@ export function GuestbookCard({
             <div className="relative mx-5 mt-5 aspect-[4/3] overflow-hidden rounded-[16px] bg-[#FBF0D0]">
               <Image
                 src={photo.displayUrl}
-                alt={photo.caption ?? "Guestbook photo"}
+                alt={photo.caption ?? "Photo Booth memory"}
                 fill
                 className="object-cover"
                 sizes="512px"
@@ -237,7 +237,7 @@ export function GuestbookCard({
                       onClick={() => setConfirmRemove(true)}
                       className="w-full py-2 text-center text-sm font-medium text-red-700 transition hover:text-red-800 disabled:opacity-50"
                     >
-                      Remove from guestbook
+                      Remove from the wall
                     </button>
                   ) : (
                     <div className="space-y-3">

@@ -1,55 +1,35 @@
-export type BuiltinBackdrop = {
+export type BoothBackdrop = {
   id: string;
-  label: string;
   url: string;
-  builtin: true;
+  /** Display name. Empty string = unnamed (thumbnail only in the booth). */
+  name: string;
 };
 
-export type CustomBackdrop = {
-  id: string;
-  label: string;
-  url: string;
-  builtin: false;
-};
+/** @deprecated Use BoothBackdrop — kept as alias during rename. */
+export type CustomBackdrop = BoothBackdrop;
 
-export type GuestbookBackdrop = BuiltinBackdrop | CustomBackdrop;
-
-export const BUILTIN_BACKDROPS: BuiltinBackdrop[] = [
-  {
-    id: "honey-gradient",
-    label: "Honey",
-    url: "/backdrops/honey-gradient.svg",
-    builtin: true,
-  },
-  {
-    id: "night-sky",
-    label: "Night sky",
-    url: "/backdrops/night-sky.svg",
-    builtin: true,
-  },
-  {
-    id: "cozy-cabin",
-    label: "Cozy cabin",
-    url: "/backdrops/cozy-cabin.svg",
-    builtin: true,
-  },
-  {
-    id: "golden-field",
-    label: "Golden field",
-    url: "/backdrops/golden-field.svg",
-    builtin: true,
-  },
-];
-
+/**
+ * Parse `dashboard_layout.guestbook_backdrops`.
+ * Accepts `{ id?, url, name }` | `{ id?, url, label }` | bare URL strings.
+ * Filenames are never used as names.
+ */
 export function parseCustomBackdrops(
   dashboardLayout: unknown,
-): CustomBackdrop[] {
+): BoothBackdrop[] {
   if (!dashboardLayout || typeof dashboardLayout !== "object") return [];
   const raw = (dashboardLayout as Record<string, unknown>).guestbook_backdrops;
   if (!Array.isArray(raw)) return [];
 
-  const out: CustomBackdrop[] = [];
+  const out: BoothBackdrop[] = [];
   for (const item of raw) {
+    if (typeof item === "string" && item) {
+      out.push({
+        id: `legacy-${out.length + 1}`,
+        url: item,
+        name: "",
+      });
+      continue;
+    }
     if (!item || typeof item !== "object") continue;
     const row = item as Record<string, unknown>;
     if (typeof row.url !== "string" || !row.url) continue;
@@ -57,11 +37,27 @@ export function parseCustomBackdrops(
       typeof row.id === "string" && row.id
         ? row.id
         : `custom-${out.length + 1}`;
-    const label =
-      typeof row.label === "string" && row.label.trim()
-        ? row.label.trim().slice(0, 40)
-        : "Custom";
-    out.push({ id, label, url: row.url, builtin: false });
+    let name = "";
+    if (typeof row.name === "string") {
+      name = row.name.trim().slice(0, 40);
+    } else if (typeof row.label === "string") {
+      // Legacy field — keep unless it looks like a raw filename.
+      const label = row.label.trim().slice(0, 40);
+      if (label && !/\.(jpe?g|png|webp|gif|heic|heif)$/i.test(label)) {
+        name = label === "Custom" ? "" : label;
+      }
+    }
+    out.push({ id, url: row.url, name });
   }
   return out.slice(0, 6);
+}
+
+export function serializeBackdrops(
+  backdrops: BoothBackdrop[],
+): { id: string; url: string; name: string }[] {
+  return backdrops.map(({ id, url, name }) => ({
+    id,
+    url,
+    name: name.trim().slice(0, 40),
+  }));
 }

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
-import { isPropertyOwner } from "@/lib/photos";
+import {
+  fetchGuestbookPhotos,
+  isPropertyOwner,
+} from "@/lib/photos";
 import {
   DEFAULT_IDLE_DRIFT_SETTINGS,
   parseIdleDriftSettings,
@@ -22,7 +25,7 @@ import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSetting
 import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
-import { GuestbookBackdropsPanel } from "./GuestbookBackdropsPanel";
+import { PhotoBoothSettingsSection } from "./PhotoBoothSettingsSection";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -55,6 +58,7 @@ export default async function SettingsPage() {
   let isOwner = false;
   let homeAssistantUrl = "";
   let customBackdrops = parseCustomBackdrops(null);
+  let photos: Awaited<ReturnType<typeof fetchGuestbookPhotos>> = [];
   let spotify = {
     connected: false,
     displayName: null as string | null,
@@ -75,6 +79,7 @@ export default async function SettingsPage() {
     homeAssistantUrl = parseHomeAssistantUrl(data?.dashboard_layout);
     customBackdrops = parseCustomBackdrops(data?.dashboard_layout);
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
+    photos = await fetchGuestbookPhotos(propertyId);
 
     const { data: property } = await supabase
       .from("properties")
@@ -143,7 +148,6 @@ export default async function SettingsPage() {
         <div className="mt-6">
           <IdleDriftSettingsPanel
             initialSettings={idleSettings}
-            initialSlideshowStyle={slideshowStyle}
             hasProperty={!!propertyId}
           />
         </div>
@@ -157,8 +161,11 @@ export default async function SettingsPage() {
         </div>
 
         <div className="mt-6">
-          <GuestbookBackdropsPanel
+          <PhotoBoothSettingsSection
             hasProperty={!!propertyId}
+            initialPhotos={photos}
+            canDelete={isOwner}
+            initialSlideshowStyle={slideshowStyle}
             initialBackdrops={customBackdrops}
           />
         </div>

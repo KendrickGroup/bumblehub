@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Images, Plus, Upload } from "lucide-react";
+import { Camera, Images, Upload } from "lucide-react";
 import type { GuestbookPhoto } from "@/lib/photos";
 import { downscaleImageFile } from "@/lib/images/downscale";
 import { readTakenAtFromImage } from "@/lib/images/exif-taken-at";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
-import { GuestbookCard } from "./GuestbookCard";
-import { StartSlideshowButton } from "./StartSlideshowButton";
+import { GuestbookCard } from "@/app/(app)/hive/GuestbookCard";
 
 type Props = {
   initialPhotos: GuestbookPhoto[];
@@ -20,7 +18,6 @@ function isImageFile(file: File): boolean {
   return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name);
 }
 
-/** True when the device likely supports file drag-and-drop. */
 function useFinePointerDrag() {
   const [fine, setFine] = useState(false);
 
@@ -35,7 +32,8 @@ function useFinePointerDrag() {
   return fine;
 }
 
-export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
+/** Memories manager for Settings → Photo Booth (upload, edit, delete). */
+export function MemoriesManager({ initialPhotos, canDelete }: Props) {
   const [photos, setPhotos] = useState(initialPhotos);
   const [caption, setCaption] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -90,7 +88,6 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       for (let i = 0; i < images.length; i++) {
         const file = images[i]!;
         try {
-          // Read EXIF before canvas re-encode strips it.
           const takenAt = await readTakenAtFromImage(file);
 
           let blob: Blob;
@@ -134,8 +131,8 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       if (okCount > 0) {
         showToast(
           okCount === 1
-            ? "Photo added to the guestbook."
-            : `${okCount} photos added to the guestbook.`,
+            ? "Photo added to the wall."
+            : `${okCount} photos added to the wall.`,
         );
         setCaption("");
       }
@@ -207,20 +204,17 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-30 flex min-h-[280px] items-center justify-center rounded-[20px] border-2 border-dashed border-[#F4B400] bg-[#F4B400]/15 backdrop-blur-[1px]">
           <p className="px-6 text-center text-lg font-semibold text-stone-900">
-            Drop photos to add them to the guestbook
+            Drop photos to add them to the wall
           </p>
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-        <Link
-          href="/guestbook"
-          className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[18px] bg-[#F4B400] px-5 text-base font-semibold text-stone-900 transition hover:bg-[#e0a800]"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2.25} />
-          Add to the guestbook
-        </Link>
+      <h3 className="text-base font-semibold text-stone-900">Memories</h3>
+      <p className="mt-1 text-sm text-stone-600">
+        Upload photos, edit captions and dates, or remove shots from the wall.
+      </p>
 
+      <div className="mt-4">
         <input
           ref={fileRef}
           type="file"
@@ -238,16 +232,14 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
           type="button"
           disabled={uploading}
           onClick={openPicker}
-          className="inline-flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-[18px] border-2 border-[#F4B400]/50 bg-white px-5 text-base font-semibold text-stone-900 transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
+          className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[#F4B400]/50 bg-white px-5 text-base font-semibold text-stone-900 transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50 sm:w-auto"
         >
           <Upload className="h-5 w-5 text-[#F4B400]" strokeWidth={2.25} />
           Upload photos
         </button>
-
-        <StartSlideshowButton />
       </div>
 
-      <label className="mb-6 block">
+      <label className="mt-4 block">
         <span className="mb-1.5 block text-sm font-medium text-stone-600">
           Caption for this upload{" "}
           <span className="font-normal text-stone-400">(optional)</span>
@@ -264,7 +256,7 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       </label>
 
       {progress && (
-        <div className="mb-4 rounded-[16px] border border-[#F4B400]/30 bg-[#FBF0D0]/60 px-4 py-3">
+        <div className="mt-4 rounded-[16px] border border-[#F4B400]/30 bg-[#FBF0D0]/60 px-4 py-3">
           <p className="text-sm font-medium text-stone-800">
             Uploading {progress.done} of {progress.total}…
           </p>
@@ -280,18 +272,17 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       )}
 
       {error && (
-        <p className="mb-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {error}
         </p>
       )}
 
-      {/* Desktop drop invitation — hidden on touch (Upload button is enough) */}
       {canDragDrop && photos.length > 0 && (
         <button
           type="button"
           disabled={uploading}
           onClick={openPicker}
-          className="mb-5 flex w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-5 py-5 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
+          className="mt-5 flex w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-5 py-5 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
         >
           <Images
             className="mb-1 h-6 w-6 text-[#E0972B]"
@@ -312,22 +303,22 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
           type="button"
           disabled={uploading}
           onClick={openPicker}
-          className="flex min-h-[220px] w-full flex-col items-center rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-6 py-14 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
+          className="mt-5 flex min-h-[180px] w-full flex-col items-center rounded-2xl border-2 border-dashed border-stone-300/90 bg-[#FBF7EF] px-6 py-10 text-center transition hover:border-[#F4B400] hover:bg-[#F4B400]/10 disabled:opacity-50"
         >
-          <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#F4B400]/15 text-[#F4B400]">
-            <Camera className="h-8 w-8" strokeWidth={1.75} />
+          <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#F4B400]/15 text-[#F4B400]">
+            <Camera className="h-7 w-7" strokeWidth={1.75} />
           </span>
-          <p className="text-lg font-semibold text-stone-900">
-            The guestbook is empty. Be the first!
+          <p className="text-base font-semibold text-stone-900">
+            No memories on the wall yet
           </p>
           <p className="mt-2 max-w-sm text-sm text-stone-500">
             {canDragDrop
-              ? "Take a photo, upload from your device, or drag pictures right here."
-              : "Take a photo or tap Upload photos to add pictures from your library."}
+              ? "Upload from your device or drag pictures right here."
+              : "Upload photos from your library to get started."}
           </p>
         </button>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
           {photos.map((photo) => (
             <GuestbookCard
               key={photo.id}

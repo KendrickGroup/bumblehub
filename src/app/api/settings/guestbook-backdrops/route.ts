@@ -5,7 +5,10 @@ import {
   GUESTBOOK_BUCKET,
   isGuestbookBucketPublic,
 } from "@/lib/photos";
-import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
+import {
+  parseCustomBackdrops,
+  serializeBackdrops,
+} from "@/lib/guestbook/backdrops";
 
 async function loadLayout(propertyId: string) {
   const supabase = await createClient();
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
   if (contentType.includes("multipart/form-data")) {
     if (backdrops.length >= 6) {
       return NextResponse.json(
-        { error: "You can upload up to 6 custom backdrops." },
+        { error: "You can upload up to 6 backdrops." },
         { status: 400 },
       );
     }
@@ -92,8 +95,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image provided." }, { status: 400 });
     }
 
-    // Server can't run browser canvas downscale — accept JPEG/PNG/webp as uploaded.
-    // Client should downscale before upload.
     const id = crypto.randomUUID();
     const path = `${propertyId}/backdrops/${id}.jpg`;
     const { error: uploadError } = await supabase.storage
@@ -116,11 +117,8 @@ export async function POST(request: Request) {
       if (data?.signedUrl) url = data.signedUrl;
     }
 
-    const label = String(form.get("label") ?? "").trim() || "Custom";
-    backdrops = [
-      ...backdrops,
-      { id, label: label.slice(0, 40), url, builtin: false as const },
-    ];
+    // Never use the filename — empty name until the family names it.
+    backdrops = [...backdrops, { id, url, name: "" }];
   } else {
     let body: unknown;
     try {
@@ -141,16 +139,25 @@ export async function POST(request: Request) {
         const path = `${propertyId}/backdrops/${id}.jpg`;
         await supabase.storage.from(GUESTBOOK_BUCKET).remove([path]);
       }
+    } else if (action === "rename") {
+      const id = (body as { id?: unknown }).id;
+      const nameRaw = (body as { name?: unknown }).name;
+      if (typeof id !== "string") {
+        return NextResponse.json({ error: "id required" }, { status: 400 });
+      }
+      const name =
+        typeof nameRaw === "string" ? nameRaw.trim().slice(0, 40) : "";
+      const idx = backdrops.findIndex((b) => b.id === id);
+      if (idx < 0) {
+        return NextResponse.json({ error: "Backdrop not found" }, { status: 404 });
+      }
+      backdrops = backdrops.map((b) => (b.id === id ? { ...b, name } : b));
     } else {
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
   }
 
-  layout.guestbook_backdrops = backdrops.map(({ id, label, url }) => ({
-    id,
-    label,
-    url,
-  }));
+  layout.guestbook_backdrops = serializeBackdrops(backdrops);
 
   const { error } = await saveLayout(propertyId, layout);
   if (error) {

@@ -200,7 +200,7 @@ export function FridgeDoorSlideshow({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={shot.photo.displayUrl}
-                  alt={shot.photo.caption ?? "Guestbook photo"}
+                  alt={shot.photo.caption ?? "Photo Booth memory"}
                   className="h-full w-full object-cover"
                   draggable={false}
                 />

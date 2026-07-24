@@ -14,7 +14,7 @@ const corkboardFont = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Guestbook slideshow",
+  title: "Photo Booth memories",
 };
 
 type Props = {

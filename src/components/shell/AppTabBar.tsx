@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BookImage,
   BookOpen,
+  Camera,
   ChefHat,
   Home,
   Music,
@@ -27,8 +27,8 @@ const TABS = [
   },
   {
     href: "/hive",
-    label: "Guestbook",
-    icon: BookImage,
+    label: "Photo Booth",
+    icon: Camera,
     match: (p: string) =>
       p === "/hive" ||
       p.startsWith("/hive/") ||

@@ -123,7 +123,7 @@ export function IdleDriftWatcher() {
 
       const path = pathnameRef.current;
       if (path.startsWith("/hive/slideshow")) return;
-      if (path.startsWith("/guestbook")) return;
+      if (path === "/hive" || path.startsWith("/guestbook")) return;
       if (isIdleBlockedByGates()) return;
 
       const idleMs = Date.now() - lastActivityRef.current;

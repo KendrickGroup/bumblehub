@@ -88,7 +88,7 @@ export function ReflectionSlideshow({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photo.displayUrl}
-            alt={photo.caption ?? "Guestbook photo"}
+            alt={photo.caption ?? "Photo Booth memory"}
             className="h-[55vh] w-auto max-w-full rounded-sm object-contain shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
             draggable={false}
           />

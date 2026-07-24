@@ -143,7 +143,7 @@ export function MemoriesSlideshow({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={center.displayUrl}
-            alt={center.caption ?? "Guestbook photo"}
+            alt={center.caption ?? "Photo Booth memory"}
             className="max-h-full max-w-full rounded-lg object-contain shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
             draggable={false}
           />

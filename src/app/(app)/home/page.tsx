@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene } from "@/lib/types";
@@ -120,21 +121,21 @@ export default async function HomePage() {
 
         <section>
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
-            Guestbook
+            Photo Booth
           </h2>
           <Link
-            href="/guestbook"
+            href="/hive"
             className="flex min-h-[88px] items-center gap-4 rounded-[20px] bg-white px-6 py-5 shadow-sm transition hover:shadow-md active:scale-[0.99]"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#F4B400]/15 text-3xl">
-              📸
+            <span className="flex h-14 w-14 items-center justify-center rounded-[16px] bg-[#F4B400]/15 text-[#E0972B]">
+              <Camera className="h-7 w-7" strokeWidth={1.75} />
             </span>
             <div>
               <p className="text-lg font-semibold text-stone-900">
-                Add a guestbook photo
+                Open the Photo Booth
               </p>
               <p className="text-sm text-stone-500">
-                Snap a selfie for the guestbook slideshow
+                Snap a few and join the wall of memories
               </p>
             </div>
           </Link>

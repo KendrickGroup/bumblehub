@@ -8,18 +8,14 @@ import {
   type IdleDriftMinutes,
   type IdleDriftSettings,
 } from "@/lib/idle/settings";
-import type { SlideshowStyle } from "@/lib/hive/slideshow-style";
-import { SlideshowStyleSwitcher } from "@/components/hive/SlideshowStyleSwitcher";
 
 type Props = {
   initialSettings: IdleDriftSettings;
-  initialSlideshowStyle: SlideshowStyle;
   hasProperty: boolean;
 };
 
 export function IdleDriftSettingsPanel({
   initialSettings,
-  initialSlideshowStyle,
   hasProperty,
 }: Props) {
   const [settings, setSettings] = useState(initialSettings);
@@ -73,12 +69,13 @@ export function IdleDriftSettingsPanel({
         Idle slideshow
       </h2>
       <p className="mt-2 text-sm text-stone-600">
-        When the house is quiet, drift into the guestbook photos.
+        When the house is quiet, drift into Photo Booth memories. Pick the
+        slideshow style under Photo Booth below.
       </p>
 
       <label className="mt-5 flex min-h-[56px] cursor-pointer items-center justify-between gap-4 rounded-[16px] bg-[#FAF8F3] px-4">
         <span className="text-base font-medium text-stone-800">
-          Drift into the guestbook slideshow when idle
+          Drift into memories when idle
         </span>
         <input
           type="checkbox"
@@ -119,8 +116,6 @@ export function IdleDriftSettingsPanel({
           })}
         </div>
       </div>
-
-      <SlideshowStyleSwitcher initialStyle={initialSlideshowStyle} />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {saving && (

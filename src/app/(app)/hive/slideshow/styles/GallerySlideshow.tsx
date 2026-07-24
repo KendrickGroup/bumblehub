@@ -146,7 +146,7 @@ export function GallerySlideshow({
           <img
             key={`${photo.id}-${index}-${kenBurns.from}`}
             src={photo.displayUrl}
-            alt={photo.caption ?? "Guestbook photo"}
+            alt={photo.caption ?? "Photo Booth memory"}
             className="max-h-[88vh] max-w-[92vw] object-contain will-change-transform"
             style={{
               ["--kb-from" as string]: kenBurns.from,

@@ -333,3 +333,111 @@ export async function compositeWithBackdrop(
     return null;
   }
 }
+
+/**
+ * Draw a mirrored, downscaled video frame onto a canvas for live segmentation.
+ */
+export function drawMirroredVideoFrame(
+  video: HTMLVideoElement,
+  maxEdge = 320,
+): HTMLCanvasElement | null {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  const scale = Math.min(1, maxEdge / Math.max(vw, vh));
+  const w = Math.max(1, Math.round(vw * scale));
+  const h = Math.max(1, Math.round(vh * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, w, h);
+  return canvas;
+}
+
+/**
+ * Composite a person frame + mask over a backdrop onto an output canvas
+ * (live preview). Returns false on failure.
+ */
+export function compositeOntoCanvas(
+  output: HTMLCanvasElement,
+  personSource: HTMLCanvasElement | HTMLImageElement,
+  mask: ImageData,
+  backdrop: HTMLImageElement,
+): boolean {
+  const width = output.width;
+  const height = output.height;
+  const ctx = output.getContext("2d");
+  if (!ctx || !width || !height) return false;
+
+  try {
+    const softMask = featherMaskAlpha(mask, 1);
+    ctx.clearRect(0, 0, width, height);
+
+    const br = backdrop.naturalWidth / backdrop.naturalHeight;
+    const cr = width / height;
+    let sx = 0;
+    let sy = 0;
+    let sw = backdrop.naturalWidth;
+    let sh = backdrop.naturalHeight;
+    if (br > cr) {
+      sw = backdrop.naturalHeight * cr;
+      sx = (backdrop.naturalWidth - sw) / 2;
+    } else {
+      sh = backdrop.naturalWidth / cr;
+      sy = (backdrop.naturalHeight - sh) / 2;
+    }
+    ctx.drawImage(backdrop, sx, sy, sw, sh, 0, 0, width, height);
+
+    const personCanvas = document.createElement("canvas");
+    personCanvas.width = width;
+    personCanvas.height = height;
+    const pctx = personCanvas.getContext("2d");
+    if (!pctx) return false;
+    pctx.drawImage(personSource, 0, 0, width, height);
+
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    const mctx = maskCanvas.getContext("2d");
+    if (!mctx) return false;
+    if (softMask.width !== width || softMask.height !== height) {
+      const tmp = document.createElement("canvas");
+      tmp.width = softMask.width;
+      tmp.height = softMask.height;
+      const tctx = tmp.getContext("2d");
+      if (!tctx) return false;
+      tctx.putImageData(softMask, 0, 0);
+      mctx.drawImage(tmp, 0, 0, width, height);
+    } else {
+      mctx.putImageData(softMask, 0, 0);
+    }
+
+    pctx.globalCompositeOperation = "destination-in";
+    pctx.drawImage(maskCanvas, 0, 0);
+    ctx.drawImage(personCanvas, 0, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function captureMirroredJpeg(
+  video: HTMLVideoElement,
+  quality = 0.92,
+): Promise<Blob | null> {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || canvas.width === 0 || canvas.height === 0) return null;
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+  });
+}
