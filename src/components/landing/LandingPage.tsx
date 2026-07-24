@@ -61,7 +61,13 @@ export function LandingPage() {
             </p>
           </div>
           <div className="hero-art reveal d2">
-            <BeeIcon className="hero-bee" />
+            <div className="hero-logo-wrap">
+              <img
+                src="/logo.png"
+                alt="BumbleHub"
+                className="hero-logo"
+              />
+            </div>
           </div>
         </section>
 
