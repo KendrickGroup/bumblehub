@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatSlideshowDate } from "@/lib/hive/format";
+import { guestbookTakenDateLabel } from "@/lib/hive/photo-labels";
 import type { SlideshowPhoto, StyleSlideshowProps } from "../types";
 
 const SWAP_MS = 6000;
@@ -162,8 +162,9 @@ export function FridgeDoorSlideshow({
       />
 
       {shots.map((shot) => {
-        const dateLabel = formatSlideshowDate(
-          shot.photo.taken_at ?? shot.photo.created_at,
+        const dateLabel = guestbookTakenDateLabel(
+          shot.photo.taken_at,
+          "slideshow",
         );
         return (
           <article
@@ -206,11 +207,18 @@ export function FridgeDoorSlideshow({
               </div>
               <div className="flex min-h-[2.5rem] flex-col justify-center px-1.5 py-1.5 text-center">
                 {shot.photo.caption ? (
-                  <p className="line-clamp-2 font-[family-name:var(--font-corkboard)] text-[0.95rem] leading-snug text-stone-800 sm:text-base">
-                    {shot.photo.caption}
-                  </p>
+                  <>
+                    <p className="line-clamp-2 font-[family-name:var(--font-corkboard)] text-[0.95rem] leading-snug text-stone-800 sm:text-base">
+                      {shot.photo.caption}
+                    </p>
+                    {dateLabel ? (
+                      <p className="mt-0.5 text-[0.65rem] tracking-wide text-stone-400">
+                        {dateLabel}
+                      </p>
+                    ) : null}
+                  </>
                 ) : dateLabel ? (
-                  <p className="font-[family-name:var(--font-corkboard)] text-sm text-stone-400">
+                  <p className="font-[family-name:var(--font-corkboard)] text-sm text-stone-500">
                     {dateLabel}
                   </p>
                 ) : null}

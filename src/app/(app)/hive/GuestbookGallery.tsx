@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Images, Plus, Upload } from "lucide-react";
 import type { GuestbookPhoto } from "@/lib/photos";
 import { downscaleImageFile } from "@/lib/images/downscale";
+import { readTakenAtFromImage } from "@/lib/images/exif-taken-at";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
 import { GuestbookCard } from "./GuestbookCard";
 import { StartSlideshowButton } from "./StartSlideshowButton";
@@ -89,6 +90,9 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
       for (let i = 0; i < images.length; i++) {
         const file = images[i]!;
         try {
+          // Read EXIF before canvas re-encode strips it.
+          const takenAt = await readTakenAtFromImage(file);
+
           let blob: Blob;
           try {
             blob = await downscaleImageFile(file);
@@ -107,6 +111,7 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
             new File([blob], "guestbook.jpg", { type: "image/jpeg" }),
           );
           if (batchCaption) formData.append("caption", batchCaption);
+          if (takenAt) formData.append("taken_at", takenAt);
 
           const result = await saveGuestbookPhoto(formData);
           if (!result.ok) {
@@ -330,6 +335,11 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
               canDelete={canDelete}
               onDeleted={(id) =>
                 setPhotos((prev) => prev.filter((p) => p.id !== id))
+              }
+              onUpdated={(updated) =>
+                setPhotos((prev) =>
+                  prev.map((p) => (p.id === updated.id ? updated : p)),
+                )
               }
             />
           ))}

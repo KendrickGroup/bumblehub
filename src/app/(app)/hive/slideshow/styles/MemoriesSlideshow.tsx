@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatSlideshowDate } from "@/lib/hive/format";
+import { guestbookTakenDateLabel } from "@/lib/hive/photo-labels";
 import type { StyleSlideshowProps } from "../types";
 
 const SLIDE_MS = 8000;
@@ -72,7 +72,7 @@ export function MemoriesSlideshow({
   const center = photos[index]!;
   const left = photos[prevIndex]!;
   const right = photos[nextIndex]!;
-  const dateLabel = formatSlideshowDate(center.taken_at ?? center.created_at);
+  const dateLabel = guestbookTakenDateLabel(center.taken_at, "slideshow");
 
   // During slide: center moves left+blurs, right moves to center+sharpens
   const leftStyle = sliding
@@ -173,13 +173,19 @@ export function MemoriesSlideshow({
             transition: `opacity ${TRANSITION_MS}ms ease`,
           }}
         >
-          {center.caption && (
-            <p className="mx-auto max-w-xl font-[family-name:var(--font-fraunces)] text-2xl font-medium text-[#F5EFE3] sm:text-3xl">
-              {center.caption}
+          {center.caption ? (
+            <>
+              <p className="mx-auto max-w-xl font-[family-name:var(--font-fraunces)] text-2xl font-medium text-[#F5EFE3] sm:text-3xl">
+                {center.caption}
+              </p>
+              {dateLabel ? (
+                <p className="mt-2 text-sm text-[#F5EFE3]/70">{dateLabel}</p>
+              ) : null}
+            </>
+          ) : (
+            <p className="mx-auto max-w-xl text-base text-[#F5EFE3]/80 sm:text-lg">
+              {dateLabel}
             </p>
-          )}
-          {dateLabel && (
-            <p className="mt-2 text-sm text-[#F5EFE3]/70">{dateLabel}</p>
           )}
         </div>
       )}

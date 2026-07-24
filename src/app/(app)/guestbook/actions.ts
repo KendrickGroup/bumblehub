@@ -37,6 +37,17 @@ export async function saveGuestbookPhoto(
   }
 
   const caption = String(formData.get("caption") ?? "").trim() || null;
+  // Client may pass EXIF / camera capture time. Absent or invalid → null
+  // (do not use upload time — that lives in created_at).
+  const takenAtRaw = String(formData.get("taken_at") ?? "").trim();
+  let taken_at: string | null = null;
+  if (takenAtRaw) {
+    const parsed = new Date(takenAtRaw);
+    if (!Number.isNaN(parsed.getTime())) {
+      taken_at = parsed.toISOString();
+    }
+  }
+
   const photoId = crypto.randomUUID();
   const path = guestbookStoragePath(propertyId, photoId);
 
@@ -52,7 +63,6 @@ export async function saveGuestbookPhoto(
     data: { publicUrl },
   } = supabase.storage.from(GUESTBOOK_BUCKET).getPublicUrl(path);
 
-  const now = new Date().toISOString();
   const { data: inserted, error: insertError } = await supabase
     .from("photos")
     .insert({
@@ -61,7 +71,7 @@ export async function saveGuestbookPhoto(
       url: publicUrl,
       caption,
       category: "guestbook",
-      taken_at: now,
+      taken_at,
       created_by: user.id,
     })
     .select(

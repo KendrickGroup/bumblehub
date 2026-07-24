@@ -329,6 +329,8 @@ export function GuestbookCapture({
     if (caption.trim()) {
       formData.set("caption", caption.trim());
     }
+    // Wall camera capture: "now" is the real taken time.
+    formData.set("taken_at", new Date().toISOString());
 
     const result = await saveGuestbookPhoto(formData);
     if (!result.ok) {

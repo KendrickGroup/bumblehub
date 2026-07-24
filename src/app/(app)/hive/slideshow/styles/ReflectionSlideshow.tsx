@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatSlideshowDate } from "@/lib/hive/format";
+import { guestbookTakenDateLabel } from "@/lib/hive/photo-labels";
 import type { StyleSlideshowProps } from "../types";
 
 const SLIDE_MS = 8000;
@@ -65,7 +65,7 @@ export function ReflectionSlideshow({
   const photo = photos[index];
   if (!photo) return null;
 
-  const dateLabel = formatSlideshowDate(photo.taken_at ?? photo.created_at);
+  const dateLabel = guestbookTakenDateLabel(photo.taken_at, "slideshow");
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#141210]">
@@ -126,13 +126,19 @@ export function ReflectionSlideshow({
             transition: `opacity ${FADE_MS}ms ease-in-out`,
           }}
         >
-          {photo.caption && (
-            <p className="max-w-2xl font-[family-name:var(--font-fraunces)] text-2xl font-medium text-[#F5EFE3] sm:text-3xl">
-              {photo.caption}
+          {photo.caption ? (
+            <>
+              <p className="max-w-2xl font-[family-name:var(--font-fraunces)] text-2xl font-medium text-[#F5EFE3] sm:text-3xl">
+                {photo.caption}
+              </p>
+              {dateLabel ? (
+                <p className="mt-2 text-sm text-[#F5EFE3]/70">{dateLabel}</p>
+              ) : null}
+            </>
+          ) : (
+            <p className="max-w-2xl text-base text-[#F5EFE3]/80 sm:text-lg">
+              {dateLabel}
             </p>
-          )}
-          {dateLabel && (
-            <p className="mt-2 text-sm text-[#F5EFE3]/70">{dateLabel}</p>
           )}
         </div>
       )}
