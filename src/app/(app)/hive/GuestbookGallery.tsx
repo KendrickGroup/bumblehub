@@ -163,13 +163,27 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
   const uploading = progress != null;
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       {toast && (
         <div
           className="fixed left-1/2 top-6 z-[60] -translate-x-1/2 rounded-[18px] border border-[#F4B400]/40 bg-[#FBF0D0] px-5 py-3 text-sm font-medium text-stone-900 shadow-md"
           role="status"
         >
           {toast}
+        </div>
+      )}
+
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex min-h-[280px] items-center justify-center rounded-[20px] border-2 border-dashed border-[#F4B400] bg-[#F4B400]/15 backdrop-blur-[1px]">
+          <p className="px-6 text-center text-lg font-semibold text-stone-900">
+            Drop photos to add them to the guestbook
+          </p>
         </div>
       )}
 
@@ -246,49 +260,32 @@ export function GuestbookGallery({ initialPhotos, canDelete }: Props) {
         </p>
       )}
 
-      <div
-        className="relative"
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
-        {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-20 flex min-h-[180px] items-center justify-center rounded-[20px] border-2 border-dashed border-[#F4B400] bg-[#F4B400]/15 backdrop-blur-[1px]">
-            <p className="px-6 text-center text-lg font-semibold text-stone-900">
-              Drop photos to add them to the guestbook
-            </p>
-          </div>
-        )}
-
-        {photos.length === 0 ? (
-          <div className="flex min-h-[220px] flex-col items-center rounded-[20px] bg-white px-6 py-14 text-center shadow-sm">
-            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#F4B400]/15 text-[#F4B400]">
-              <Camera className="h-8 w-8" strokeWidth={1.75} />
-            </span>
-            <p className="text-lg font-semibold text-stone-900">
-              The guestbook is empty. Be the first!
-            </p>
-            <p className="mt-2 max-w-sm text-sm text-stone-500">
-              Snap a selfie, upload photos, or drop them here for the
-              slideshow.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {photos.map((photo) => (
-              <GuestbookCard
-                key={photo.id}
-                photo={photo}
-                canDelete={canDelete}
-                onDeleted={(id) =>
-                  setPhotos((prev) => prev.filter((p) => p.id !== id))
-                }
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {photos.length === 0 ? (
+        <div className="flex min-h-[220px] flex-col items-center rounded-[20px] bg-white px-6 py-14 text-center shadow-sm">
+          <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#F4B400]/15 text-[#F4B400]">
+            <Camera className="h-8 w-8" strokeWidth={1.75} />
+          </span>
+          <p className="text-lg font-semibold text-stone-900">
+            The guestbook is empty. Be the first!
+          </p>
+          <p className="mt-2 max-w-sm text-sm text-stone-500">
+            Snap a selfie, upload photos, or drop them here for the slideshow.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {photos.map((photo) => (
+            <GuestbookCard
+              key={photo.id}
+              photo={photo}
+              canDelete={canDelete}
+              onDeleted={(id) =>
+                setPhotos((prev) => prev.filter((p) => p.id !== id))
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

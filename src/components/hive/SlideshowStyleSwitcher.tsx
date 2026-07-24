@@ -55,7 +55,9 @@ export function SlideshowStyleSwitcher({
       )}
       <div
         className={`grid gap-2 ${
-          compact ? "grid-cols-3" : "grid-cols-3"
+          compact
+            ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+            : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
         }`}
         role="group"
         aria-label="Slideshow style"

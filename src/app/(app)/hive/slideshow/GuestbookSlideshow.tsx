@@ -12,7 +12,9 @@ import type { SlideshowStyle } from "@/lib/hive/slideshow-style";
 import type { SlideshowPhoto } from "./types";
 import { GallerySlideshow } from "./styles/GallerySlideshow";
 import { CorkboardSlideshow } from "./styles/CorkboardSlideshow";
-import { HoneycombSlideshow } from "./styles/HoneycombSlideshow";
+import { FridgeDoorSlideshow } from "./styles/FridgeDoorSlideshow";
+import { MemoriesSlideshow } from "./styles/MemoriesSlideshow";
+import { ReflectionSlideshow } from "./styles/ReflectionSlideshow";
 
 type DocWithWebkit = Document & {
   webkitFullscreenElement?: Element | null;
@@ -253,8 +255,12 @@ export function GuestbookSlideshow({
         <GallerySlideshow {...styleProps} />
       ) : style === "corkboard" ? (
         <CorkboardSlideshow {...styleProps} />
+      ) : style === "fridge" ? (
+        <FridgeDoorSlideshow {...styleProps} />
+      ) : style === "memories" ? (
+        <MemoriesSlideshow {...styleProps} />
       ) : (
-        <HoneycombSlideshow {...styleProps} />
+        <ReflectionSlideshow {...styleProps} />
       )}
     </div>
   );

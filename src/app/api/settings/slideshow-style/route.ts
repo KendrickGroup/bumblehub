@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const style = (body as { style?: unknown }).style;
   if (!isSlideshowStyle(style)) {
     return NextResponse.json(
-      { error: "style must be gallery, corkboard, or honeycomb" },
+      { error: "style must be gallery, corkboard, fridge, memories, or reflection" },
       { status: 400 },
     );
   }

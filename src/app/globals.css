@@ -87,6 +87,49 @@ body {
   animation: corkboard-fade-out 700ms ease forwards;
 }
 
+@keyframes fridge-pin-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.08) translateY(-10px) rotate(var(--fridge-rot, 0deg));
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.98) translateY(2px) rotate(var(--fridge-rot, 0deg));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0) rotate(var(--fridge-rot, 0deg));
+  }
+}
+
+@keyframes fridge-fade-out {
+  from {
+    opacity: 1;
+    transform: rotate(var(--fridge-rot, 0deg));
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--fridge-rot, 0deg));
+  }
+}
+
+.fridge-pin-in {
+  animation: fridge-pin-in 700ms cubic-bezier(0.22, 1.15, 0.36, 1) forwards;
+}
+
+.fridge-fade-out {
+  animation: fridge-fade-out 650ms ease forwards;
+}
+
+@keyframes reflectionBreathe {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.03);
+  }
+}
+
 @keyframes pin-shake {
   0%,
   100% {
