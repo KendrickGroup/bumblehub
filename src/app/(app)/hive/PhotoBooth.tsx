@@ -529,14 +529,20 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
           )}
 
           {step === "live" && (
-            <div className="mt-6 flex flex-col items-center gap-4">
+            <div className="mt-6 flex w-full max-w-sm flex-col items-center gap-3">
               <button
                 type="button"
                 onClick={beginCountdown}
-                className="inline-flex min-h-[64px] w-full max-w-sm items-center justify-center rounded-[22px] bg-[#F4B400] px-6 text-lg font-semibold text-stone-900 shadow-md transition hover:bg-[#e0a800]"
+                className="inline-flex min-h-[64px] w-full items-center justify-center rounded-[22px] bg-[#F4B400] px-6 text-lg font-semibold text-stone-900 shadow-md transition hover:bg-[#e0a800]"
               >
                 Take your picture
               </button>
+              <Link
+                href="/hive/scrapbook"
+                className="inline-flex min-h-[56px] w-full items-center justify-center rounded-[22px] border-2 border-stone-800 bg-stone-900 px-6 text-base font-semibold text-white transition hover:bg-stone-800"
+              >
+                Make a page
+              </Link>
               <Link
                 href="/hive/slideshow"
                 className="text-sm font-medium text-stone-500 underline-offset-2 transition hover:text-stone-800 hover:underline"

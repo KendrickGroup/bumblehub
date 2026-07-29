@@ -61,7 +61,7 @@ export async function updateGuestbookPhoto(input: {
     .update({ caption, taken_at })
     .eq("id", input.photoId)
     .eq("property_id", propertyId)
-    .eq("category", "guestbook")
+    .in("category", ["guestbook", "scrapbook"])
     .select("id, caption, taken_at")
     .maybeSingle();
 
@@ -108,7 +108,7 @@ export async function deleteGuestbookPhoto(
     .select("id, url, property_id, category")
     .eq("id", photoId)
     .eq("property_id", propertyId)
-    .eq("category", "guestbook")
+    .in("category", ["guestbook", "scrapbook"])
     .maybeSingle();
 
   if (fetchError || !photo) {

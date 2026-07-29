@@ -48,6 +48,10 @@ export async function saveGuestbookPhoto(
     }
   }
 
+  const categoryRaw = String(formData.get("category") ?? "guestbook").trim();
+  const category =
+    categoryRaw === "scrapbook" ? "scrapbook" : "guestbook";
+
   const photoId = crypto.randomUUID();
   const path = guestbookStoragePath(propertyId, photoId);
 
@@ -70,7 +74,7 @@ export async function saveGuestbookPhoto(
       property_id: propertyId,
       url: publicUrl,
       caption,
-      category: "guestbook",
+      category,
       taken_at,
       created_by: user.id,
     })

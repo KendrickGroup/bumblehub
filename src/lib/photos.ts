@@ -36,6 +36,9 @@ export type GuestbookPhoto = Photo & {
   displayUrl: string;
 };
 
+/** Guestbook booth snaps and scrapbook pages on the wall. */
+export const WALL_PHOTO_CATEGORIES = ["guestbook", "scrapbook"] as const;
+
 export async function fetchGuestbookPhotos(
   propertyId: string,
 ): Promise<GuestbookPhoto[]> {
@@ -46,7 +49,7 @@ export async function fetchGuestbookPhotos(
       "id, property_id, url, caption, taken_at, category, is_curated, created_by, created_at",
     )
     .eq("property_id", propertyId)
-    .eq("category", "guestbook")
+    .in("category", [...WALL_PHOTO_CATEGORIES])
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
