@@ -5,7 +5,7 @@ import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { PhotoBooth } from "./PhotoBooth";
 
 export const metadata: Metadata = {
-  title: "Photo Booth",
+  title: "Latigo Cowboy Portrait Co.",
 };
 
 export default async function HivePage() {

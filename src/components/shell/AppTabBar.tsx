@@ -27,7 +27,7 @@ const TABS = [
   },
   {
     href: "/hive",
-    label: "Photo Booth",
+    label: "Portraits",
     icon: Camera,
     match: (p: string) =>
       p === "/hive" ||

@@ -26,4 +26,6 @@ export type Photo = {
   is_curated: boolean;
   created_by: string | null;
   created_at: string;
+  share_token?: string | null;
+  watermarked_url?: string | null;
 };

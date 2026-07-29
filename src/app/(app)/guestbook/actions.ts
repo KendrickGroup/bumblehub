@@ -11,8 +11,20 @@ import { getDefaultPropertyIdForUser } from "@/lib/property";
 import type { Photo } from "@/lib/types";
 
 export type SaveGuestbookResult =
-  | { ok: true; url: string; photo: GuestbookPhoto }
+  | {
+      ok: true;
+      url: string;
+      photo: GuestbookPhoto;
+      shareToken: string | null;
+      shareUrl: string | null;
+    }
   | { ok: false; error: string };
+
+function randomShareToken(): string {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export async function saveGuestbookPhoto(
   formData: FormData,
@@ -37,8 +49,6 @@ export async function saveGuestbookPhoto(
   }
 
   const caption = String(formData.get("caption") ?? "").trim() || null;
-  // Client may pass EXIF / camera capture time. Absent or invalid → null
-  // (do not use upload time — that lives in created_at).
   const takenAtRaw = String(formData.get("taken_at") ?? "").trim();
   let taken_at: string | null = null;
   if (takenAtRaw) {
@@ -52,8 +62,16 @@ export async function saveGuestbookPhoto(
   const category =
     categoryRaw === "scrapbook" ? "scrapbook" : "guestbook";
 
+  const watermarked = formData.get("watermarked");
+  const hasCabinet =
+    category === "guestbook" &&
+    watermarked instanceof Blob &&
+    watermarked.size > 0;
+
   const photoId = crypto.randomUUID();
   const path = guestbookStoragePath(propertyId, photoId);
+  const cabinetPath = `${propertyId}/${photoId}-cabinet.jpg`;
+  const share_token = hasCabinet ? randomShareToken() : null;
 
   const { error: uploadError } = await supabase.storage
     .from(GUESTBOOK_BUCKET)
@@ -61,6 +79,30 @@ export async function saveGuestbookPhoto(
 
   if (uploadError) {
     return { ok: false, error: uploadError.message };
+  }
+
+  let watermarked_url: string | null = null;
+  if (hasCabinet && watermarked instanceof Blob) {
+    const { error: wmError } = await supabase.storage
+      .from(GUESTBOOK_BUCKET)
+      .upload(cabinetPath, watermarked, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+    if (wmError) {
+      await supabase.storage.from(GUESTBOOK_BUCKET).remove([path]);
+      return { ok: false, error: wmError.message };
+    }
+    const {
+      data: { publicUrl: wmPublic },
+    } = supabase.storage.from(GUESTBOOK_BUCKET).getPublicUrl(cabinetPath);
+    watermarked_url = wmPublic;
+    if (!isGuestbookBucketPublic()) {
+      const { data } = await supabase.storage
+        .from(GUESTBOOK_BUCKET)
+        .createSignedUrl(cabinetPath, 60 * 60 * 24 * 365);
+      if (data?.signedUrl) watermarked_url = data.signedUrl;
+    }
   }
 
   const {
@@ -77,14 +119,19 @@ export async function saveGuestbookPhoto(
       category,
       taken_at,
       created_by: user.id,
+      share_token,
+      watermarked_url,
     })
     .select(
-      "id, property_id, url, caption, taken_at, category, is_curated, created_by, created_at",
+      "id, property_id, url, caption, taken_at, category, is_curated, created_by, created_at, share_token, watermarked_url",
     )
     .single();
 
   if (insertError || !inserted) {
     await supabase.storage.from(GUESTBOOK_BUCKET).remove([path]);
+    if (hasCabinet) {
+      await supabase.storage.from(GUESTBOOK_BUCKET).remove([cabinetPath]);
+    }
     return { ok: false, error: insertError?.message ?? "Failed to save photo." };
   }
 
@@ -101,5 +148,7 @@ export async function saveGuestbookPhoto(
     ok: true,
     url: publicUrl,
     photo: { ...row, displayUrl },
+    shareToken: share_token,
+    shareUrl: share_token ? `/p/${share_token}` : null,
   };
 }

@@ -121,7 +121,7 @@ export default async function HomePage() {
 
         <section>
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
-            Photo Booth
+            Portraits
           </h2>
           <Link
             href="/hive"
@@ -132,10 +132,10 @@ export default async function HomePage() {
             </span>
             <div>
               <p className="text-lg font-semibold text-stone-900">
-                Open the Photo Booth
+                Latigo Cowboy Portrait Co.
               </p>
               <p className="text-sm text-stone-500">
-                Snap a few and join the wall of memories
+                Dress up. Pick a scene. Hold real still.
               </p>
             </div>
           </Link>
