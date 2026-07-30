@@ -23,6 +23,7 @@ import {
 } from "@/lib/guestbook/finish";
 import {
   costumesFromManifest,
+  facesFromManifest,
   getParlorProp,
   ParlorPropIcon,
   PORTRAIT_CANVAS_H,
@@ -58,6 +59,7 @@ type Props = {
 
 const FINISHES: PortraitFinish[] = ["color", "sepia", "tintype"];
 const COSTUME_SHELF = costumesFromManifest();
+const FACE_SHELF = facesFromManifest();
 const PROP_SHELF = ranchPropsFromManifest();
 
 function uid() {
@@ -594,7 +596,7 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
       <div className="relative mx-auto flex w-full max-w-[1100px] flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center lg:gap-5">
         {/* Costume rack */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:w-[120px] lg:flex-col lg:pt-3 ${
+          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:max-h-[min(70vh,720px)] lg:w-[120px] lg:flex-col lg:overflow-y-auto lg:pt-3 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
@@ -615,14 +617,11 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
               title={item.name}
               disabled={!shelvesActive || step === "saving"}
               onClick={() => addProp(item.id)}
-              className="flex h-[74px] w-[74px] items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-2 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
             >
-              <ParlorPropIcon propId={item.id} className="h-full w-full" />
+              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
             </button>
           ))}
-          <span className="rounded-full bg-[#F4B400]/25 px-3 py-1.5 text-xs font-semibold text-[#3E2A1E]">
-            +10 more
-          </span>
         </aside>
 
         {/* Marquee */}
@@ -792,7 +791,7 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
 
         {/* Ranch props */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:w-[120px] lg:flex-col lg:pt-3 ${
+          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:max-h-[min(70vh,720px)] lg:w-[120px] lg:flex-col lg:overflow-y-auto lg:pt-3 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
@@ -813,15 +812,44 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
               title={item.name}
               disabled={!shelvesActive || step === "saving"}
               onClick={() => addProp(item.id)}
-              className="flex h-[74px] w-[74px] items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-2 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
             >
-              <ParlorPropIcon propId={item.id} className="h-full w-full" />
+              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
             </button>
           ))}
-          <span className="rounded-full bg-[#F4B400]/25 px-3 py-1.5 text-xs font-semibold text-[#3E2A1E]">
-            +13 more
-          </span>
         </aside>
+      </div>
+
+      {/* Faces shelf */}
+      <div
+        className={`relative mx-auto mt-4 w-full max-w-[1100px] transition-opacity ${
+          shelvesActive ? "opacity-100" : "pointer-events-none opacity-40"
+        }`}
+      >
+        <div className="mb-2 flex items-baseline justify-center gap-3">
+          <p className="-rotate-1 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
+            Faces
+          </p>
+          {!shelvesActive && (
+            <p className="font-[family-name:var(--font-marker)] text-[11px] text-[#B3402A]/90">
+              snap first, then decorate
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          {FACE_SHELF.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              title={item.name}
+              disabled={!shelvesActive || step === "saving"}
+              onClick={() => addProp(item.id)}
+              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+            >
+              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Footer actions by state */}
