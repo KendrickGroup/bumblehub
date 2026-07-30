@@ -173,6 +173,9 @@ export function PhotoBooth({ hasProperty }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sharePath, setSharePath] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [cabinetPreviewUrl, setCabinetPreviewUrl] = useState<string | null>(
+    null,
+  );
   const [sceneBusy, setSceneBusy] = useState(false);
 
   const [overlays, setOverlays] = useState<PortraitOverlayObject[]>([]);
@@ -228,6 +231,13 @@ export function PhotoBooth({ hasProperty }: Props) {
     });
   }, []);
 
+  const setCabinetPreview = useCallback((blob: Blob | null) => {
+    setCabinetPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return blob ? URL.createObjectURL(blob) : null;
+    });
+  }, []);
+
   const startCamera = useCallback(async () => {
     setStep("camera-loading");
     setCameraError(null);
@@ -236,6 +246,7 @@ export function PhotoBooth({ hasProperty }: Props) {
     rawPersonBlobRef.current = null;
     personMaskRef.current = null;
     setCleanPreview(null);
+    setCabinetPreview(null);
     setWhoName("");
     setSaveError(null);
     setSharePath(null);
@@ -263,7 +274,7 @@ export function PhotoBooth({ hasProperty }: Props) {
       setCameraError(cameraErrorMessage(error));
       setStep("camera-error");
     }
-  }, [clearOverlays, setCleanPreview, stopCamera]);
+  }, [clearOverlays, setCabinetPreview, setCleanPreview, stopCamera]);
 
   useEffect(() => {
     if (!hasProperty) return;
@@ -367,6 +378,24 @@ export function PhotoBooth({ hasProperty }: Props) {
       if (cleanUrl) URL.revokeObjectURL(cleanUrl);
     };
   }, [cleanUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (cabinetPreviewUrl) URL.revokeObjectURL(cabinetPreviewUrl);
+    };
+  }, [cabinetPreviewUrl]);
+
+  useEffect(() => {
+    if (step !== "done") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        void startCamera();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step, startCamera]);
 
   useEffect(() => {
     if (!editingTextId) return;
@@ -620,7 +649,12 @@ export function PhotoBooth({ hasProperty }: Props) {
       formData.set("photo", flattened, "portrait.jpg");
       formData.set("taken_at", new Date().toISOString());
       if (whoName.trim()) formData.set("caption", whoName.trim());
-      if (cabinet) formData.set("watermarked", cabinet, "cabinet.jpg");
+      if (cabinet) {
+        formData.set("watermarked", cabinet, "cabinet.jpg");
+        setCabinetPreview(cabinet);
+      } else {
+        setCabinetPreview(null);
+      }
 
       const result = await saveGuestbookPhoto(formData);
       if (!result.ok) {
@@ -635,7 +669,7 @@ export function PhotoBooth({ hasProperty }: Props) {
         const absolute = `${window.location.origin}${path}`;
         const qr = await QRCode.toDataURL(absolute, {
           margin: 1,
-          width: 220,
+          width: 260,
           color: { dark: "#3E2A1E", light: "#FAF3E3" },
         });
         setQrDataUrl(qr);
@@ -725,7 +759,62 @@ export function PhotoBooth({ hasProperty }: Props) {
         </div>
       )}
 
-      {isHung && <CelebrationBees />}
+      {isHung && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#201A14]/75 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Portrait hung — take it home"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) void startCamera();
+          }}
+        >
+          <CelebrationBees />
+          <div className="relative max-h-[min(92dvh,760px)] w-full max-w-md overflow-y-auto rounded-[20px] border-2 border-[#5C4430] bg-[#FFF8EA] px-5 py-6 text-center shadow-[0_24px_60px_rgba(0,0,0,.45)]">
+            <p className="font-[family-name:var(--font-rye)] text-2xl text-[#3E2A1E] sm:text-3xl">
+              You&apos;re on the wall!
+            </p>
+            {cabinetPreviewUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cabinetPreviewUrl}
+                alt="Latigo Ranch House take-home portrait card"
+                className="mx-auto mt-4 max-h-[180px] w-auto rounded-sm shadow-md"
+              />
+            )}
+            <p className="mt-5 font-[family-name:var(--font-marker)] text-lg text-[#3E2A1E]">
+              Take it home:
+            </p>
+            {qrDataUrl && sharePath && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={qrDataUrl}
+                alt="Scan to download your cabinet card"
+                className="mx-auto mt-3 h-[260px] w-[260px] rounded-lg"
+              />
+            )}
+            <p className="mt-2 text-sm font-medium text-[#5C4430]">
+              Scan with your phone camera.
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={takeAnother}
+                className="inline-flex min-h-[52px] items-center justify-center rounded-[16px] bg-[#F4B400] px-6 text-base font-semibold text-[#3E2A1E]"
+              >
+                Take another
+              </button>
+              <button
+                type="button"
+                onClick={() => void startCamera()}
+                className="min-h-[44px] text-sm font-semibold text-[#5C4430]/80 underline-offset-2 hover:underline"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="relative mb-2 text-center">
         <div className="inline-block rounded-[14px] border-[3px] border-[#5C4430] bg-gradient-to-b from-[#4A3323] via-[#3E2A1E] to-[#2C1D14] px-6 py-2.5 shadow-[0_6px_0_#2C1D14,0_12px_24px_rgba(44,29,20,.35)] sm:px-8 sm:py-3">
@@ -1151,42 +1240,6 @@ export function PhotoBooth({ hasProperty }: Props) {
           ))}
         </div>
       </div>
-
-      {isHung && (
-        <div className="relative mx-auto mt-8 max-w-md text-center">
-          {qrDataUrl && sharePath && (
-            <div className="rounded-[18px] border-2 border-[#5C4430] bg-[#FFF8EA] px-5 py-6 shadow-md">
-              <p className="font-[family-name:var(--font-marker)] text-lg text-[#3E2A1E]">
-                Take it home:
-              </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrDataUrl}
-                alt="Scan to download your cabinet card"
-                className="mx-auto mt-4 h-[220px] w-[220px] rounded-lg"
-              />
-              <p className="mt-3 text-sm font-medium text-[#5C4430]">
-                Scan with your phone camera.
-              </p>
-            </div>
-          )}
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <button
-              type="button"
-              onClick={takeAnother}
-              className="inline-flex min-h-[56px] items-center justify-center rounded-[18px] bg-[#F4B400] px-8 text-base font-semibold text-[#3E2A1E]"
-            >
-              Take another
-            </button>
-            <Link
-              href="/hive/slideshow"
-              className="text-sm font-semibold text-[#3E2A1E]/75 hover:text-[#B3402A]"
-            >
-              Done
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1276,7 +1329,7 @@ function CelebrationBees() {
   ];
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[60] overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-[80] overflow-hidden"
       aria-hidden
     >
       {paths.map((p, i) => (

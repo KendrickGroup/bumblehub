@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>E1 Gusset &amp; Rivet — cabinet frame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Rye&family=Special+Elite&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /*
+      E1 Gusset & Rivet frame — 1600×1480
+      Photo window (transparent hole): x=140 y=120 w=1320 h=990
+      These coords are mirrored in src/lib/guestbook/cabinet-card.ts
+    */
+    :root {
+      --frame-w: 1600px;
+      --frame-h: 1480px;
+      --win-x: 140px;
+      --win-y: 120px;
+      --win-w: 1320px;
+      --win-h: 990px;
+      --steel: #33352f;
+      --ink: #241a12;
+      --barn: #b3402a;
+      --cream-a: #f6edd8;
+      --cream-b: #e7d9b8;
+      --cream-border: #c7b48f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: transparent;
+      width: var(--frame-w);
+      height: var(--frame-h);
+      overflow: hidden;
+    }
+
+    .frame {
+      position: relative;
+      width: var(--frame-w);
+      height: var(--frame-h);
+      background: transparent;
+    }
+
+    /* Weathered barnwood with a rectangular hole for the portrait */
+    .wood {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80px 50px at 18% 72%, rgba(60, 36, 20, 0.35), transparent 70%),
+        radial-gradient(ellipse 60px 40px at 78% 28%, rgba(50, 30, 16, 0.3), transparent 70%),
+        radial-gradient(ellipse 90px 55px at 55% 88%, rgba(70, 42, 22, 0.25), transparent 70%),
+        repeating-linear-gradient(
+          90deg,
+          #6b4428 0px,
+          #7a4e2e 14px,
+          #5c3a22 28px,
+          #8a5a34 42px,
+          #654024 56px,
+          #734928 70px,
+          #5a381f 84px,
+          #6b4428 98px
+        );
+      clip-path: polygon(
+        evenodd,
+        0 0,
+        1600px 0,
+        1600px 1480px,
+        0 1480px,
+        0 0,
+        140px 120px,
+        1460px 120px,
+        1460px 1110px,
+        140px 1110px,
+        140px 120px
+      );
+    }
+
+    /* Plank seam + grain overlays */
+    .wood::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent 96px,
+          rgba(30, 16, 8, 0.28) 97px,
+          rgba(30, 16, 8, 0.28) 99px,
+          transparent 100px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent 0,
+          transparent 3px,
+          rgba(40, 22, 10, 0.06) 3px,
+          rgba(40, 22, 10, 0.06) 4px
+        );
+      pointer-events: none;
+    }
+
+    .wood::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 230, 180, 0.08), transparent 30%, rgba(20, 10, 4, 0.18)),
+        radial-gradient(circle at 30% 40%, transparent 40%, rgba(0, 0, 0, 0.12) 100%);
+      pointer-events: none;
+    }
+
+    /* Dark steel border around the photo window */
+    .steel-border {
+      position: absolute;
+      left: calc(var(--win-x) - 3px);
+      top: calc(var(--win-y) - 3px);
+      width: calc(var(--win-w) + 6px);
+      height: calc(var(--win-h) + 6px);
+      border: 3px solid var(--steel);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        inset 0 0 18px rgba(0, 0, 0, 0.35),
+        0 6px 16px rgba(0, 0, 0, 0.35);
+      background: transparent;
+      pointer-events: none;
+    }
+
+    /* Corner gusset plates */
+    .gusset {
+      position: absolute;
+      width: 128px;
+      height: 128px;
+      filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+    }
+    .gusset.tl { left: 28px; top: 28px; }
+    .gusset.tr { right: 28px; top: 28px; transform: scaleX(-1); }
+    .gusset.bl { left: 28px; bottom: 28px; transform: scaleY(-1); }
+    .gusset.br { right: 28px; bottom: 28px; transform: scale(-1); }
+
+    .gusset-plate {
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at 30% 30%, #c47a4a 0%, transparent 45%),
+        radial-gradient(circle at 70% 60%, #5a2e18 0%, transparent 50%),
+        linear-gradient(135deg, #8a4a2a 0%, #5c3018 40%, #3a1c0c 70%, #6b3a22 100%);
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+      border-top: 1px solid rgba(220, 160, 100, 0.35);
+      border-left: 1px solid rgba(220, 160, 100, 0.25);
+    }
+
+    .rivet {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 30%, #e8b888, #a05a32 45%, #4a2410 80%);
+      box-shadow:
+        inset 0 -2px 3px rgba(0, 0, 0, 0.45),
+        inset 0 2px 2px rgba(255, 200, 140, 0.35),
+        0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .gusset .rivet:nth-child(2) { left: 14px; top: 14px; }
+    .gusset .rivet:nth-child(3) { left: 52px; top: 14px; }
+    .gusset .rivet:nth-child(4) { left: 14px; top: 52px; }
+
+    /* Cream sign panel */
+    .sign {
+      position: absolute;
+      left: 220px;
+      right: 220px;
+      top: 1150px;
+      height: 168px;
+      background: linear-gradient(180deg, var(--cream-a), var(--cream-b));
+      border: 2px solid var(--cream-border);
+      border-radius: 4px;
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.45);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 18px 24px 22px;
+    }
+
+    .bolt {
+      position: absolute;
+      top: -10px;
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      background:
+        radial-gradient(circle at 35% 30%, #d4a070, #8a4a28 50%, #3a1c0c 85%);
+      box-shadow:
+        inset 0 -2px 3px rgba(0, 0, 0, 0.5),
+        0 2px 3px rgba(0, 0, 0, 0.35);
+      z-index: 2;
+    }
+    .bolt::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      background:
+        linear-gradient(45deg, transparent 42%, #2a1408 42%, #2a1408 58%, transparent 58%),
+        linear-gradient(-45deg, transparent 42%, #2a1408 42%, #2a1408 58%, transparent 58%);
+      opacity: 0.85;
+    }
+    .bolt.left { left: 18px; }
+    .bolt.right { right: 18px; }
+
+    .rust-streak {
+      position: absolute;
+      top: 10px;
+      width: 10px;
+      height: 52px;
+      background: linear-gradient(
+        180deg,
+        rgba(140, 60, 28, 0.45),
+        rgba(140, 60, 28, 0.18) 55%,
+        transparent
+      );
+      filter: blur(1.2px);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .rust-streak.left { left: 24px; }
+    .rust-streak.right { right: 24px; }
+
+    .sign h1 {
+      font-family: "Rye", Georgia, serif;
+      font-weight: 400;
+      font-size: 52px;
+      line-height: 1;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    .sign h2 {
+      font-family: "IM Fell English SC", "Times New Roman", serif;
+      font-weight: 400;
+      font-size: 22px;
+      line-height: 1.1;
+      color: var(--barn);
+      letter-spacing: 0.28em;
+      text-align: center;
+      text-indent: 0.28em;
+    }
+
+    .byline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 1348px;
+      text-align: center;
+      font-family: "Special Elite", "Courier New", monospace;
+      font-size: 15px;
+      letter-spacing: 0.14em;
+      color: rgba(246, 237, 216, 0.72);
+      text-indent: 0.14em;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame" id="frame">
+    <div class="wood" aria-hidden="true"></div>
+    <div class="steel-border" aria-hidden="true"></div>
+
+    <div class="gusset tl" aria-hidden="true">
+      <div class="gusset-plate"></div>
+      <span class="rivet"></span><span class="rivet"></span><span class="rivet"></span>
+    </div>
+    <div class="gusset tr" aria-hidden="true">
+      <div class="gusset-plate"></div>
+      <span class="rivet"></span><span class="rivet"></span><span class="rivet"></span>
+    </div>
+    <div class="gusset bl" aria-hidden="true">
+      <div class="gusset-plate"></div>
+      <span class="rivet"></span><span class="rivet"></span><span class="rivet"></span>
+    </div>
+    <div class="gusset br" aria-hidden="true">
+      <div class="gusset-plate"></div>
+      <span class="rivet"></span><span class="rivet"></span><span class="rivet"></span>
+    </div>
+
+    <div class="sign">
+      <span class="bolt left" aria-hidden="true"></span>
+      <span class="bolt right" aria-hidden="true"></span>
+      <span class="rust-streak left" aria-hidden="true"></span>
+      <span class="rust-streak right" aria-hidden="true"></span>
+      <h1>Latigo Ranch House</h1>
+      <h2>SUTTER CREEK, CALIFORNIA</h2>
+    </div>
+
+    <p class="byline">PORTRAIT BY LATIGO COWBOY PORTRAIT CO.</p>
+  </div>
+</body>
+</html>

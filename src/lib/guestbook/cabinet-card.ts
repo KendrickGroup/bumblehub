@@ -1,65 +1,89 @@
 /**
- * Mount a portrait on a vintage cabinet card:
- * cream border (wider at bottom), "Latigo Cowboy Portrait Co.",
- * "El Dorado County, Calif.", double-rule frame.
+ * E1 “Gusset & Rivet” take-home card.
+ *
+ * The decorative frame (wood, gussets, sign, type) is a static asset:
+ *   public/brand/cabinet-card-frame.png
+ * Regenerated via: `npm run render:cabinet-frame`
+ * Source HTML: scripts/cabinet-frame-e1.html
+ *
+ * Per-save work is only: draw the portrait into the window, then the frame on top.
+ */
+
+/** Window hole in cabinet-card-frame.png (must match scripts/cabinet-frame-e1.html). */
+export const CABINET_FRAME = {
+  src: "/brand/cabinet-card-frame.png",
+  width: 1600,
+  height: 1480,
+  window: {
+    x: 140,
+    y: 120,
+    width: 1320,
+    height: 990,
+  },
+} as const;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load ${src}`));
+    img.src = src;
+  });
+}
+
+/** Cover-fit `img` into the destination rect. */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+) {
+  const ir = img.naturalWidth / img.naturalHeight;
+  const rr = dw / dh;
+  let sx = 0;
+  let sy = 0;
+  let sw = img.naturalWidth;
+  let sh = img.naturalHeight;
+  if (ir > rr) {
+    sw = img.naturalHeight * rr;
+    sx = (img.naturalWidth - sw) / 2;
+  } else {
+    sh = img.naturalWidth / rr;
+    sy = (img.naturalHeight - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
+/**
+ * Composite portrait into the E1 frame window and return a JPEG blob.
  */
 export async function renderCabinetCard(
   portrait: HTMLImageElement,
-  exportWidth = 1600,
 ): Promise<Blob | null> {
-  const aspect = portrait.naturalHeight / Math.max(1, portrait.naturalWidth);
-  const imgW = Math.round(exportWidth * 0.82);
-  const imgH = Math.round(imgW * aspect);
-  const sidePad = Math.round((exportWidth - imgW) / 2);
-  const topPad = Math.round(exportWidth * 0.06);
-  const bottomPad = Math.round(exportWidth * 0.18);
-  const canvasW = exportWidth;
-  const canvasH = topPad + imgH + bottomPad;
+  const { width, height, window: win, src } = CABINET_FRAME;
+
+  let frame: HTMLImageElement;
+  try {
+    frame = await loadImage(src);
+  } catch {
+    return null;
+  }
 
   const canvas = document.createElement("canvas");
-  canvas.width = canvasW;
-  canvas.height = canvasH;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // Card stock
-  ctx.fillStyle = "#FAF3E3";
-  ctx.fillRect(0, 0, canvasW, canvasH);
+  // Warm underlay so any anti-aliased hole edge looks like wood, not white
+  ctx.fillStyle = "#5c3a22";
+  ctx.fillRect(0, 0, width, height);
 
-  // Outer double rule
-  ctx.strokeStyle = "#3E2A1E";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(18, 18, canvasW - 36, canvasH - 36);
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(26, 26, canvasW - 52, canvasH - 52);
-
-  // Portrait inset
-  ctx.fillStyle = "#2C1D14";
-  ctx.fillRect(sidePad - 2, topPad - 2, imgW + 4, imgH + 4);
-  ctx.drawImage(portrait, sidePad, topPad, imgW, imgH);
-
-  // Typography under image
-  const textY = topPad + imgH + Math.round(bottomPad * 0.38);
-  ctx.fillStyle = "#3E2A1E";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  // Prefer Rye if loaded
-  ctx.font = `400 ${Math.round(exportWidth * 0.038)}px Rye, Georgia, serif`;
-  ctx.fillText("Latigo Cowboy Portrait Co.", canvasW / 2, textY);
-
-  ctx.font = `600 ${Math.round(exportWidth * 0.018)}px "Bricolage Grotesque", system-ui, sans-serif`;
-  ctx.fillStyle = "#5C4430";
-  ctx.fillText("EL DORADO COUNTY, CALIF.", canvasW / 2, textY + Math.round(exportWidth * 0.04));
-
-  // Small flourish line
-  const lineY = textY + Math.round(exportWidth * 0.07);
-  ctx.strokeStyle = "#8A6B4F";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(canvasW * 0.28, lineY);
-  ctx.lineTo(canvasW * 0.72, lineY);
-  ctx.stroke();
+  drawCover(ctx, portrait, win.x, win.y, win.width, win.height);
+  ctx.drawImage(frame, 0, 0, width, height);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);

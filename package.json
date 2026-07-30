@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "render:cabinet-frame": "node scripts/render-cabinet-frame.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.99.0",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.62.1",
     "supabase": "^2.101.0",
     "tailwindcss": "^4",
     "typescript": "^5"
