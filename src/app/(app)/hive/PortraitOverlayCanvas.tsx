@@ -14,18 +14,30 @@ import {
   PORTRAIT_CANVAS_W,
   PORTRAIT_MAX_PROP_FRAC,
   PORTRAIT_MIN_PROP,
-  type PortraitPropObject,
 } from "@/lib/guestbook/parlor-props";
+import {
+  isOutsidePortrait,
+  parlorFontCss,
+  type PortraitOverlayObject,
+  type PortraitTextOverlay,
+} from "@/lib/guestbook/parlor-overlay";
 
 type Props = {
-  objects: PortraitPropObject[];
+  objects: PortraitOverlayObject[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  onChangeObject: (id: string, patch: Partial<PortraitPropObject>) => void;
+  onChangeObject: (
+    id: string,
+    patch: Partial<PortraitOverlayObject>,
+  ) => void;
   onBringToFront: (id: string) => void;
   onDelete: (id: string) => void;
   onCommitGesture: () => void;
   onGestureStart: () => void;
+  onEditText: (id: string) => void;
+  editingTextId: string | null;
+  textDraft: string;
+  onTextDraftChange: (value: string) => void;
   enabled: boolean;
 };
 
@@ -62,6 +74,8 @@ type ActiveGesture =
       startDist: number;
     };
 
+type Poof = { id: string; x: number; y: number; size: number };
+
 function clampSize(w: number, h: number) {
   const maxW = PORTRAIT_CANVAS_W * PORTRAIT_MAX_PROP_FRAC;
   const maxH = PORTRAIT_CANVAS_H * PORTRAIT_MAX_PROP_FRAC;
@@ -78,8 +92,8 @@ function angle(a: { x: number; y: number }, b: { x: number; y: number }) {
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 }
 
-/** Scrapbook-style gestures over a frozen portrait (move / pinch / handle / trash). */
-export function PortraitPropCanvas({
+/** Scrapbook-style gestures; throw object center off-frame to delete. */
+export function PortraitOverlayCanvas({
   objects,
   selectedId,
   onSelect,
@@ -88,19 +102,24 @@ export function PortraitPropCanvas({
   onDelete,
   onCommitGesture,
   onGestureStart,
+  onEditText,
+  editingTextId,
+  textDraft,
+  onTextDraftChange,
   enabled,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [trashHot, setTrashHot] = useState(false);
-  const [dragging, setDragging] = useState(false);
+  const [poofs, setPoofs] = useState<Poof[]>([]);
   const gestureRef = useRef<ActiveGesture | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef(0);
   const pendingPatchRef = useRef<{
     id: string;
-    patch: Partial<PortraitPropObject>;
+    patch: Partial<PortraitOverlayObject>;
   } | null>(null);
+  const movedRef = useRef(false);
+  const tapEditRef = useRef(false);
 
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
 
@@ -137,7 +156,7 @@ export function PortraitPropCanvas({
   }, [onChangeObject]);
 
   const schedulePatch = useCallback(
-    (id: string, patch: Partial<PortraitPropObject>) => {
+    (id: string, patch: Partial<PortraitOverlayObject>) => {
       pendingPatchRef.current = { id, patch };
       if (!rafRef.current) {
         rafRef.current = requestAnimationFrame(flushPatch);
@@ -153,12 +172,23 @@ export function PortraitPropCanvas({
     }
   };
 
+  const triggerPoof = (obj: PortraitOverlayObject) => {
+    const id = `${obj.id}-poof-${Date.now()}`;
+    const size = Math.max(obj.width, obj.height) * scale;
+    setPoofs((prev) => [
+      ...prev,
+      { id, x: obj.x * scale, y: obj.y * scale, size },
+    ]);
+    window.setTimeout(() => {
+      setPoofs((prev) => prev.filter((p) => p.id !== id));
+    }, 320);
+  };
+
   const endGesture = useCallback(
     (deleted?: boolean) => {
       clearLongPress();
       gestureRef.current = null;
-      setDragging(false);
-      setTrashHot(false);
+      movedRef.current = false;
       if (!deleted) onCommitGesture();
     },
     [onCommitGesture],
@@ -166,7 +196,7 @@ export function PortraitPropCanvas({
 
   const onPointerDownObject = (
     e: ReactPointerEvent,
-    obj: PortraitPropObject,
+    obj: PortraitOverlayObject,
   ) => {
     if (!enabled) return;
     e.stopPropagation();
@@ -175,6 +205,9 @@ export function PortraitPropCanvas({
     onSelect(obj.id);
     const pt = clientToCanvas(e.clientX, e.clientY);
     const g = gestureRef.current;
+    movedRef.current = false;
+    tapEditRef.current =
+      obj.kind === "text" && selectedId === obj.id && editingTextId !== obj.id;
 
     if (g?.kind === "move" && g.id === obj.id) {
       const pointers = new Map<number, { x: number; y: number }>();
@@ -190,9 +223,8 @@ export function PortraitPropCanvas({
         origW: obj.width,
         origH: obj.height,
         origRot: obj.rotation,
-        aspect: obj.width / obj.height,
+        aspect: obj.width / Math.max(1, obj.height),
       };
-      setDragging(true);
       return;
     }
 
@@ -210,7 +242,6 @@ export function PortraitPropCanvas({
       origX: obj.x,
       origY: obj.y,
     };
-    setDragging(true);
     onGestureStart();
 
     clearLongPress();
@@ -221,7 +252,7 @@ export function PortraitPropCanvas({
 
   const onPointerDownHandle = (
     e: ReactPointerEvent,
-    obj: PortraitPropObject,
+    obj: PortraitOverlayObject,
   ) => {
     if (!enabled) return;
     e.stopPropagation();
@@ -239,7 +270,6 @@ export function PortraitPropCanvas({
       startAngle: angle({ x: obj.x, y: obj.y }, pt),
       startDist: dist({ x: obj.x, y: obj.y }, pt),
     };
-    setDragging(true);
     onGestureStart();
   };
 
@@ -252,11 +282,13 @@ export function PortraitPropCanvas({
     if (!obj) return;
 
     if (g.kind === "move" && e.pointerId === g.pointerId) {
-      clearLongPress();
-      const nx = g.origX + (pt.x - g.startX);
-      const ny = g.origY + (pt.y - g.startY);
-      schedulePatch(g.id, { x: nx, y: ny });
-      setTrashHot(ny > PORTRAIT_CANVAS_H * 0.78);
+      const dx = pt.x - g.startX;
+      const dy = pt.y - g.startY;
+      if (Math.hypot(dx, dy) > 4) {
+        movedRef.current = true;
+        clearLongPress();
+      }
+      schedulePatch(g.id, { x: g.origX + dx, y: g.origY + dy });
       return;
     }
 
@@ -264,6 +296,8 @@ export function PortraitPropCanvas({
       if (!g.pointers.has(e.pointerId)) return;
       g.pointers.set(e.pointerId, pt);
       if (g.pointers.size < 2) return;
+      movedRef.current = true;
+      clearLongPress();
       const pts = [...g.pointers.values()];
       const d = dist(pts[0]!, pts[1]!);
       const a = angle(pts[0]!, pts[1]!);
@@ -279,6 +313,7 @@ export function PortraitPropCanvas({
     }
 
     if (g.kind === "handle" && e.pointerId === g.pointerId) {
+      movedRef.current = true;
       const d = dist({ x: obj.x, y: obj.y }, pt);
       const a = angle({ x: obj.x, y: obj.y }, pt);
       const scaleFactor = d / Math.max(1, g.startDist);
@@ -320,11 +355,24 @@ export function PortraitPropCanvas({
 
     if (g.kind === "move" && e.pointerId === g.pointerId) {
       const obj = objects.find((o) => o.id === g.id);
-      if (obj && obj.y > PORTRAIT_CANVAS_H * 0.78) {
+      const wasTap = !movedRef.current;
+
+      if (
+        obj &&
+        isOutsidePortrait(obj.x, obj.y, PORTRAIT_CANVAS_W, PORTRAIT_CANVAS_H)
+      ) {
+        triggerPoof(obj);
         onDelete(g.id);
         endGesture(true);
         return;
       }
+
+      if (wasTap && obj?.kind === "text" && tapEditRef.current) {
+        endGesture();
+        onEditText(obj.id);
+        return;
+      }
+
       endGesture();
       return;
     }
@@ -346,9 +394,9 @@ export function PortraitPropCanvas({
       onPointerCancel={onPointerUp}
     >
       {sorted.map((obj) => {
-        const def = getParlorProp(obj.propId);
-        if (!def) return null;
         const selected = selectedId === obj.id;
+        const editing = editingTextId === obj.id;
+
         return (
           <div
             key={obj.id}
@@ -364,8 +412,48 @@ export function PortraitPropCanvas({
             }}
             onPointerDown={(e) => onPointerDownObject(e, obj)}
           >
-            <ParlorPropIcon propId={obj.propId} className="h-full w-full" />
-            {selected && enabled && (
+            {obj.kind === "prop" && (
+              <ParlorPropIcon
+                propId={obj.propId}
+                className="h-full w-full object-contain"
+              />
+            )}
+            {obj.kind === "text" && !editing && (
+              <div
+                className="flex h-full w-full items-center justify-center px-1 text-center leading-tight"
+                style={{
+                  fontFamily: parlorFontCss(obj.font),
+                  color: obj.color,
+                  fontSize: Math.max(14, obj.height * scale * 0.42),
+                  fontWeight: 700,
+                  textShadow:
+                    obj.color === "#FAF3E3"
+                      ? "0 1px 2px rgba(0,0,0,.45)"
+                      : undefined,
+                }}
+              >
+                {(obj as PortraitTextOverlay).text || "Tap to edit"}
+              </div>
+            )}
+            {obj.kind === "text" && editing && (
+              <textarea
+                value={textDraft}
+                onChange={(e) => onTextDraftChange(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onBlur={() => onEditText("")}
+                autoFocus
+                rows={2}
+                className="h-full w-full resize-none rounded-md border-2 border-[#F4B400] bg-[#FFF8EA]/95 px-1 py-0.5 text-center leading-tight outline-none"
+                style={{
+                  fontFamily: parlorFontCss(obj.font),
+                  color: obj.color,
+                  fontSize: Math.max(14, obj.height * scale * 0.42),
+                  fontWeight: 700,
+                }}
+              />
+            )}
+
+            {selected && enabled && !editing && (
               <>
                 <div className="pointer-events-none absolute inset-[-4px] rounded-[6px] ring-2 ring-[#F4B400] ring-offset-1" />
                 <button
@@ -381,19 +469,26 @@ export function PortraitPropCanvas({
         );
       })}
 
-      {dragging && enabled && (
-        <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 z-[50] flex h-[18%] items-center justify-center transition ${
-            trashHot
-              ? "bg-red-600/85 text-white"
-              : "bg-stone-900/45 text-white/90"
-          }`}
-        >
-          <span className="text-sm font-semibold tracking-wide">
-            {trashHot ? "Release to delete" : "Drop here to delete"}
-          </span>
-        </div>
-      )}
+      {poofs.map((p) => (
+        <span
+          key={p.id}
+          className="pointer-events-none absolute z-[60] rounded-full bg-[#3E2A1E]/35"
+          style={{
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size,
+            transform: "translate(-50%, -50%)",
+            animation: "parlorPoof 0.3s ease-out forwards",
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes parlorPoof {
+          0% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(0.15); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Undo2 } from "lucide-react";
+import { Type, Undo2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -13,7 +13,6 @@ import {
 } from "react";
 import QRCode from "qrcode";
 import { useIdleGate } from "@/lib/idle/gates";
-import type { BoothBackdrop } from "@/lib/guestbook/backdrops";
 import { renderCabinetCard } from "@/lib/guestbook/cabinet-card";
 import { flattenPortraitWithProps } from "@/lib/guestbook/flatten-portrait-props";
 import {
@@ -22,6 +21,14 @@ import {
   type PortraitFinish,
 } from "@/lib/guestbook/finish";
 import {
+  PARLOR_TEXT_COLORS,
+  PARLOR_TEXT_FONTS,
+  type ParlorTextColor,
+  type ParlorTextFont,
+  type PortraitOverlayObject,
+  type PortraitTextOverlay,
+} from "@/lib/guestbook/parlor-overlay";
+import {
   costumesFromManifest,
   facesFromManifest,
   getParlorProp,
@@ -29,8 +36,12 @@ import {
   PORTRAIT_CANVAS_H,
   PORTRAIT_CANVAS_W,
   ranchPropsFromManifest,
-  type PortraitPropObject,
 } from "@/lib/guestbook/parlor-props";
+import {
+  getParlorScene,
+  PARLOR_SCENES,
+  type ParlorSceneId,
+} from "@/lib/guestbook/parlor-scenes";
 import {
   blobToImage,
   captureMirroredJpeg,
@@ -41,7 +52,7 @@ import {
   segmentPersonMask,
 } from "@/lib/guestbook/segmentation";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
-import { PortraitPropCanvas } from "./PortraitPropCanvas";
+import { PortraitOverlayCanvas } from "./PortraitOverlayCanvas";
 
 type Step =
   | "camera-loading"
@@ -54,7 +65,6 @@ type Step =
 
 type Props = {
   hasProperty: boolean;
-  backdrops: BoothBackdrop[];
 };
 
 const FINISHES: PortraitFinish[] = ["color", "sepia", "tintype"];
@@ -124,7 +134,15 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export function PhotoBooth({ hasProperty, backdrops }: Props) {
+function cloneMask(mask: ImageData): ImageData {
+  return new ImageData(
+    new Uint8ClampedArray(mask.data),
+    mask.width,
+    mask.height,
+  );
+}
+
+export function PhotoBooth({ hasProperty }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -132,15 +150,18 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
   const liveLoopRef = useRef(0);
   const slowFramesRef = useRef(0);
   const liveEnabledRef = useRef(true);
-  const selectedBackdropUrlRef = useRef<string | null>(null);
+  const selectedSceneUrlRef = useRef<string | null>(null);
   const cleanBlobRef = useRef<Blob | null>(null);
+  const rawPersonBlobRef = useRef<Blob | null>(null);
+  const personMaskRef = useRef<ImageData | null>(null);
   const nextZRef = useRef(1);
+  const sceneBusyRef = useRef(false);
 
   const [step, setStep] = useState<Step>("camera-loading");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState(false);
-  const [selectedBackdropId, setSelectedBackdropId] = useState<string | null>(
+  const [selectedSceneId, setSelectedSceneId] = useState<ParlorSceneId | null>(
     null,
   );
   const [liveBackdropOk, setLiveBackdropOk] = useState(false);
@@ -151,22 +172,29 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sharePath, setSharePath] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [sceneBusy, setSceneBusy] = useState(false);
 
-  const [props, setProps] = useState<PortraitPropObject[]>([]);
-  const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
-  const [undoSnapshot, setUndoSnapshot] = useState<PortraitPropObject[] | null>(
-    null,
-  );
+  const [overlays, setOverlays] = useState<PortraitOverlayObject[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [undoSnapshot, setUndoSnapshot] = useState<
+    PortraitOverlayObject[] | null
+  >(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [textDraft, setTextDraft] = useState("");
 
-  const hasBackdrops = backdrops.length > 0;
-  const selectedBackdrop = backdrops.find((b) => b.id === selectedBackdropId);
+  const selectedScene = getParlorScene(selectedSceneId);
 
   const isLiveish =
     step === "live" || step === "camera-loading" || step === "countdown";
   const isPosed = step === "posed" || step === "saving";
   const isHung = step === "done";
   const shelvesActive = isPosed;
-  const scenesActive = isLiveish;
+  const scenesActive = isLiveish || isPosed;
+
+  const selectedText = useMemo(() => {
+    const o = overlays.find((x) => x.id === selectedId);
+    return o?.kind === "text" ? o : null;
+  }, [overlays, selectedId]);
 
   const captureActive =
     hasProperty && step !== "done" && step !== "camera-error";
@@ -177,10 +205,12 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     [finish],
   );
 
-  const clearProps = useCallback(() => {
-    setProps([]);
-    setSelectedPropId(null);
+  const clearOverlays = useCallback(() => {
+    setOverlays([]);
+    setSelectedId(null);
     setUndoSnapshot(null);
+    setEditingTextId(null);
+    setTextDraft("");
     nextZRef.current = 1;
   }, []);
 
@@ -200,8 +230,10 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
   const startCamera = useCallback(async () => {
     setStep("camera-loading");
     setCameraError(null);
-    clearProps();
+    clearOverlays();
     cleanBlobRef.current = null;
+    rawPersonBlobRef.current = null;
+    personMaskRef.current = null;
     setCleanPreview(null);
     setWhoName("");
     setSaveError(null);
@@ -230,33 +262,28 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
       setCameraError(cameraErrorMessage(error));
       setStep("camera-error");
     }
-  }, [clearProps, setCleanPreview, stopCamera]);
+  }, [clearOverlays, setCleanPreview, stopCamera]);
 
   useEffect(() => {
     if (!hasProperty) return;
     void startCamera();
+    void loadSelfieSegmenter();
     return () => {
       stopCamera();
       cancelAnimationFrame(liveLoopRef.current);
     };
-    // Mount once with property — avoid re-running on startCamera identity churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasProperty]);
 
   useEffect(() => {
-    if (!hasBackdrops) return;
-    void loadSelfieSegmenter();
-  }, [hasBackdrops]);
-
-  useEffect(() => {
-    selectedBackdropUrlRef.current = selectedBackdrop?.url ?? null;
+    selectedSceneUrlRef.current = selectedScene?.url ?? null;
     backdropImgRef.current = null;
     setLiveBackdropOk(false);
     setShowLiveCanvas(false);
     liveEnabledRef.current = true;
     slowFramesRef.current = 0;
 
-    if (!selectedBackdrop?.url) return;
+    if (!selectedScene?.url) return;
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -265,11 +292,11 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     img.onerror = () => {
       backdropImgRef.current = null;
     };
-    img.src = selectedBackdrop.url;
-  }, [selectedBackdrop?.url]);
+    img.src = selectedScene.url;
+  }, [selectedScene?.url]);
 
   useEffect(() => {
-    if (step !== "live" || !selectedBackdropId || !hasBackdrops) {
+    if (step !== "live" || !selectedSceneId) {
       setShowLiveCanvas(false);
       return;
     }
@@ -332,7 +359,7 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
       cancelled = true;
       cancelAnimationFrame(liveLoopRef.current);
     };
-  }, [step, selectedBackdropId, hasBackdrops]);
+  }, [step, selectedSceneId]);
 
   useEffect(() => {
     return () => {
@@ -340,41 +367,55 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     };
   }, [cleanUrl]);
 
+  useEffect(() => {
+    if (!editingTextId) return;
+    const t = window.setTimeout(() => {
+      setOverlays((prev) =>
+        prev.map((o) =>
+          o.id === editingTextId && o.kind === "text"
+            ? { ...o, text: textDraft }
+            : o,
+        ),
+      );
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [textDraft, editingTextId]);
+
   const snapshotBefore = useCallback(() => {
-    setUndoSnapshot(props.map((o) => ({ ...o })));
-  }, [props]);
+    setUndoSnapshot(overlays.map((o) => ({ ...o })));
+  }, [overlays]);
 
-  const commitGesture = useCallback(() => {
-    // Continuous transforms already live in props; undo was snapshotted at gesture start.
-  }, []);
+  const commitGesture = useCallback(() => {}, []);
 
-  const updateProp = useCallback(
-    (id: string, patch: Partial<PortraitPropObject>) => {
-      setProps((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+  const updateObject = useCallback(
+    (id: string, patch: Partial<PortraitOverlayObject>) => {
+      setOverlays((prev) =>
+        prev.map((o) => (o.id === id ? ({ ...o, ...patch } as PortraitOverlayObject) : o)),
       );
     },
     [],
   );
 
-  const deleteProp = useCallback((id: string) => {
-    setProps((prev) => prev.filter((o) => o.id !== id));
-    setSelectedPropId((cur) => (cur === id ? null : cur));
+  const deleteObject = useCallback((id: string) => {
+    setOverlays((prev) => prev.filter((o) => o.id !== id));
+    setSelectedId((cur) => (cur === id ? null : cur));
+    setEditingTextId((cur) => (cur === id ? null : cur));
   }, []);
 
-  const bringPropFront = useCallback((id: string) => {
+  const bringFront = useCallback((id: string) => {
     nextZRef.current += 1;
     const z = nextZRef.current;
-    setProps((prev) =>
+    setOverlays((prev) =>
       prev.map((o) => (o.id === id ? { ...o, zIndex: z } : o)),
     );
   }, []);
 
   const undo = () => {
     if (!undoSnapshot) return;
-    setProps(undoSnapshot);
+    setOverlays(undoSnapshot);
     setUndoSnapshot(null);
-    setSelectedPropId(null);
+    setSelectedId(null);
+    setEditingTextId(null);
   };
 
   const addProp = (propId: string) => {
@@ -385,7 +426,8 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     const size = def.defaultSize ?? 220;
     nextZRef.current += 1;
     const z = nextZRef.current;
-    const obj: PortraitPropObject = {
+    const obj: PortraitOverlayObject = {
+      kind: "prop",
       id: uid(),
       propId,
       x: PORTRAIT_CANVAS_W / 2 + (Math.random() * 80 - 40),
@@ -395,8 +437,98 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
       rotation: Math.random() * 10 - 5,
       zIndex: z,
     };
-    setProps((prev) => [...prev, obj]);
-    setSelectedPropId(obj.id);
+    setOverlays((prev) => [...prev, obj]);
+    setSelectedId(obj.id);
+    setEditingTextId(null);
+  };
+
+  const addText = () => {
+    if (!shelvesActive) return;
+    snapshotBefore();
+    nextZRef.current += 1;
+    const z = nextZRef.current;
+    const id = uid();
+    const obj: PortraitTextOverlay = {
+      kind: "text",
+      id,
+      text: "Howdy",
+      font: "marker",
+      color: "#1a1a1a",
+      x: PORTRAIT_CANVAS_W / 2,
+      y: PORTRAIT_CANVAS_H * 0.82,
+      width: 420,
+      height: 90,
+      rotation: Math.random() * 4 - 2,
+      zIndex: z,
+    };
+    setOverlays((prev) => [...prev, obj]);
+    setSelectedId(id);
+    setTextDraft(obj.text);
+    setEditingTextId(id);
+  };
+
+  const onEditText = (id: string) => {
+    if (!id) {
+      setEditingTextId(null);
+      return;
+    }
+    const obj = overlays.find((o) => o.id === id);
+    if (!obj || obj.kind !== "text") return;
+    setSelectedId(id);
+    setTextDraft(obj.text);
+    setEditingTextId(id);
+  };
+
+  const ensureMask = async (raw: Blob): Promise<ImageData | null> => {
+    if (personMaskRef.current) return personMaskRef.current;
+    const img = await blobToImage(raw);
+    const mask = await segmentPersonMask(img);
+    if (mask) personMaskRef.current = cloneMask(mask);
+    return personMaskRef.current;
+  };
+
+  const rebuildComposite = async (sceneId: ParlorSceneId | null) => {
+    const raw = rawPersonBlobRef.current;
+    if (!raw) return;
+
+    if (!sceneId) {
+      cleanBlobRef.current = raw;
+      setCleanPreview(raw);
+      return;
+    }
+
+    const scene = getParlorScene(sceneId);
+    if (!scene) return;
+
+    setSceneBusy(true);
+    sceneBusyRef.current = true;
+    try {
+      const img = await blobToImage(raw);
+      const mask = await ensureMask(raw);
+      if (!mask) {
+        setSaveError("Couldn't cut you out for that scene. Try again.");
+        return;
+      }
+      const composited = await compositeWithBackdrop(img, mask, scene.url);
+      if (composited) {
+        cleanBlobRef.current = composited;
+        setCleanPreview(composited);
+        setSaveError(null);
+      }
+    } catch {
+        setSaveError("Couldn't switch scenes. Try again.");
+    } finally {
+      sceneBusyRef.current = false;
+      setSceneBusy(false);
+    }
+  };
+
+  const selectScene = (sceneId: ParlorSceneId | null) => {
+    if (!scenesActive || step === "saving" || sceneBusyRef.current) return;
+    setSelectedSceneId(sceneId);
+    if (isPosed) {
+      void rebuildComposite(sceneId);
+    }
   };
 
   const flashAndShutter = async () => {
@@ -404,20 +536,6 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     setFlash(true);
     await sleep(120);
     setFlash(false);
-  };
-
-  const processCaptureBlob = async (raw: Blob): Promise<Blob> => {
-    const url = selectedBackdropUrlRef.current;
-    if (!url) return raw;
-    try {
-      const img = await blobToImage(raw);
-      const mask = await segmentPersonMask(img);
-      if (!mask) return raw;
-      const composited = await compositeWithBackdrop(img, mask, url);
-      return composited ?? raw;
-    } catch {
-      return raw;
-    }
   };
 
   const runCapture = async () => {
@@ -433,10 +551,29 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
       setStep("live");
       return;
     }
-    const clean = await processCaptureBlob(raw);
+
+    rawPersonBlobRef.current = raw;
+    personMaskRef.current = null;
+
+    let clean: Blob = raw;
+    const sceneUrl = selectedSceneUrlRef.current;
+    if (sceneUrl) {
+      try {
+        const img = await blobToImage(raw);
+        const mask = await segmentPersonMask(img);
+        if (mask) {
+          personMaskRef.current = cloneMask(mask);
+          const composited = await compositeWithBackdrop(img, mask, sceneUrl);
+          if (composited) clean = composited;
+        }
+      } catch {
+        // keep raw
+      }
+    }
+
     cleanBlobRef.current = clean;
     setCleanPreview(clean);
-    clearProps();
+    clearOverlays();
     setWhoName("");
     setSaveError(null);
     stopCamera();
@@ -469,9 +606,10 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     if (!clean) return;
     setStep("saving");
     setSaveError(null);
+    setEditingTextId(null);
     try {
       const flattened =
-        (await flattenPortraitWithProps(clean, props, finish)) ?? clean;
+        (await flattenPortraitWithProps(clean, overlays, finish)) ?? clean;
       const finishedImg = await blobToImage(flattened);
       const cabinet = await renderCabinetCard(finishedImg);
 
@@ -513,6 +651,14 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     void startCamera();
   };
 
+  const patchSelectedText = (
+    patch: Partial<Pick<PortraitTextOverlay, "font" | "color">>,
+  ) => {
+    if (!selectedText) return;
+    snapshotBefore();
+    updateObject(selectedText.id, patch);
+  };
+
   if (!hasProperty) {
     return (
       <div className="px-2 py-10 sm:px-0">
@@ -525,7 +671,7 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
 
   if (step === "camera-error") {
     return (
-      <div className="parlor relative -mx-4 min-h-full bg-[#FAF3E3] px-4 pb-10 pt-5 sm:-mx-6 sm:px-6">
+      <div className="parlor relative -mx-2 min-h-full bg-[#FAF3E3] px-2 pb-10 pt-4 sm:-mx-4 sm:px-4">
         <div className="relative mx-auto max-w-md rounded-[20px] bg-[#FFF8EA] px-6 py-10 text-center shadow-md">
           <p className="text-base text-[#3E2A1E]">{cameraError}</p>
           <div className="mt-6 flex flex-col gap-3">
@@ -548,8 +694,11 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
     );
   }
 
+  const tileClass =
+    "flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default";
+
   return (
-    <div className="parlor relative -mx-4 min-h-full bg-[#FAF3E3] px-4 pb-10 pt-5 sm:-mx-6 sm:px-6">
+    <div className="parlor relative -mx-2 min-h-full bg-[#FAF3E3] px-2 pb-10 pt-3 sm:-mx-4 sm:px-3">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -575,16 +724,16 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
 
       {isHung && <CelebrationBees />}
 
-      <header className="relative mb-3 text-center">
-        <div className="inline-block rounded-[14px] border-[3px] border-[#5C4430] bg-gradient-to-b from-[#4A3323] via-[#3E2A1E] to-[#2C1D14] px-8 py-3.5 shadow-[0_6px_0_#2C1D14,0_12px_24px_rgba(44,29,20,.35)]">
-          <h1 className="font-[family-name:var(--font-rye)] text-[clamp(1.35rem,4.5vw,2.5rem)] leading-tight tracking-wide text-[#F4B400] [text-shadow:0_2px_0_rgba(0,0,0,.45)]">
+      <header className="relative mb-2 text-center">
+        <div className="inline-block rounded-[14px] border-[3px] border-[#5C4430] bg-gradient-to-b from-[#4A3323] via-[#3E2A1E] to-[#2C1D14] px-6 py-2.5 shadow-[0_6px_0_#2C1D14,0_12px_24px_rgba(44,29,20,.35)] sm:px-8 sm:py-3">
+          <h1 className="font-[family-name:var(--font-rye)] text-[clamp(1.2rem,4vw,2.25rem)] leading-tight tracking-wide text-[#F4B400] [text-shadow:0_2px_0_rgba(0,0,0,.45)]">
             Latigo Cowboy Portrait Co.
           </h1>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.25em] text-[#D9BE8C]">
+          <p className="mt-0.5 text-[10px] uppercase tracking-[0.25em] text-[#D9BE8C] sm:text-[11px]">
             ★ Est. at the cabin ★
           </p>
         </div>
-        <p className="mt-3 -rotate-[1.2deg] font-[family-name:var(--font-marker)] text-[clamp(0.95rem,2.5vw,1.25rem)] text-[#B3402A]">
+        <p className="mt-2 -rotate-[1.2deg] font-[family-name:var(--font-marker)] text-[clamp(0.9rem,2.3vw,1.15rem)] text-[#B3402A]">
           {isHung
             ? "You're on the wall!"
             : isPosed
@@ -593,19 +742,19 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
         </p>
       </header>
 
-      <div className="relative mx-auto flex w-full max-w-[1100px] flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center lg:gap-5">
+      <div className="relative mx-auto flex w-full max-w-[1200px] flex-col items-center gap-3 lg:flex-row lg:items-start lg:justify-center lg:gap-3">
         {/* Costume rack */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:max-h-[min(70vh,720px)] lg:w-[120px] lg:flex-col lg:overflow-y-auto lg:pt-3 ${
+          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
           <div className="text-center lg:w-full">
-            <p className="-rotate-3 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
+            <p className="-rotate-3 font-[family-name:var(--font-marker)] text-xs text-[#3E2A1E] sm:text-sm">
               Costume rack
             </p>
             {!shelvesActive && (
-              <p className="mt-0.5 font-[family-name:var(--font-marker)] text-[11px] text-[#B3402A]/90">
+              <p className="mt-0.5 font-[family-name:var(--font-marker)] text-[10px] text-[#B3402A]/90">
                 snap first, then decorate
               </p>
             )}
@@ -617,18 +766,21 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
               title={item.name}
               disabled={!shelvesActive || step === "saving"}
               onClick={() => addProp(item.id)}
-              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+              className={tileClass}
             >
-              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
+              <ParlorPropIcon
+                propId={item.id}
+                className="h-full w-full object-contain"
+              />
             </button>
           ))}
         </aside>
 
-        {/* Marquee */}
-        <div className="relative w-full max-w-[520px] shrink-0">
-          <div className="relative rounded-[26px] bg-gradient-to-b from-[#4A3323] to-[#3E2A1E] p-[26px] shadow-[0_10px_0_#2C1D14,0_22px_40px_rgba(44,29,20,.35)]">
+        {/* Marquee column */}
+        <div className="relative w-full max-w-[640px] shrink-0">
+          <div className="relative rounded-[22px] bg-gradient-to-b from-[#4A3323] to-[#3E2A1E] p-[18px] shadow-[0_10px_0_#2C1D14,0_22px_40px_rgba(44,29,20,.35)] sm:rounded-[26px] sm:p-[22px]">
             <MarqueeBulbs />
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[14px] bg-[#201A14]">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] bg-[#201A14] sm:rounded-[14px]">
               <div className="absolute inset-0" style={finishFilterStyle}>
                 {isLiveish && (
                   <>
@@ -662,15 +814,22 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
                 )}
 
                 {(isPosed || isHung) && (
-                  <PortraitPropCanvas
-                    objects={props}
-                    selectedId={selectedPropId}
-                    onSelect={setSelectedPropId}
-                    onChangeObject={updateProp}
-                    onBringToFront={bringPropFront}
-                    onDelete={deleteProp}
+                  <PortraitOverlayCanvas
+                    objects={overlays}
+                    selectedId={selectedId}
+                    onSelect={(id) => {
+                      setSelectedId(id);
+                      if (id !== editingTextId) setEditingTextId(null);
+                    }}
+                    onChangeObject={updateObject}
+                    onBringToFront={bringFront}
+                    onDelete={deleteObject}
                     onCommitGesture={commitGesture}
                     onGestureStart={snapshotBefore}
+                    onEditText={onEditText}
+                    editingTextId={editingTextId}
+                    textDraft={textDraft}
+                    onTextDraftChange={setTextDraft}
                     enabled={step === "posed"}
                   />
                 )}
@@ -699,10 +858,55 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
                   Warming up the box…
                 </div>
               )}
+              {sceneBusy && (
+                <div className="absolute inset-0 z-[6] flex items-center justify-center bg-[#201A14]/35 text-sm text-[#FAF3E3]">
+                  Changing scene…
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Finish chips — live + posed */}
+          {/* Primary action — directly under marquee */}
+          {step === "live" && (
+            <div className="mt-4 flex justify-center">
+              <div className="flex h-[150px] w-[150px] items-center justify-center rounded-full bg-[radial-gradient(circle_at_40%_30%,#F7E19A,#F4B400_60%,#B8860B)] shadow-[0_6px_14px_rgba(44,29,20,.3),inset_0_2px_4px_rgba(255,255,255,.5)] sm:h-[170px] sm:w-[170px]">
+                <button
+                  type="button"
+                  onClick={beginCountdown}
+                  className="h-[118px] w-[118px] rounded-full border-0 bg-[radial-gradient(circle_at_35%_28%,#E9705A,#B3402A_55%,#7E2A1B)] font-[family-name:var(--font-rye)] text-[22px] leading-none tracking-wide text-[#FFF8EA] shadow-[0_8px_0_#6B2416,0_14px_24px_rgba(44,29,20,.4),inset_0_-6px_12px_rgba(0,0,0,.25)] transition active:translate-y-2 active:shadow-[0_2px_0_#6B2416] sm:h-[134px] sm:w-[134px] sm:text-[26px]"
+                >
+                  STRIKE
+                  <br />A POSE
+                  <span className="mt-1 block font-[family-name:var(--font-bricolage)] text-[10px] font-semibold tracking-wide text-[#FFD9CF] sm:text-[11px]">
+                    hold real still
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isPosed && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={step === "saving"}
+                onClick={retake}
+                className="min-h-[52px] flex-1 rounded-[16px] border-2 border-[#3E2A1E]/20 bg-transparent text-base font-semibold text-[#5C4430]/85"
+              >
+                Retake
+              </button>
+              <button
+                type="button"
+                disabled={step === "saving"}
+                onClick={() => void hangPortrait()}
+                className="min-h-[52px] flex-[1.4] rounded-[16px] bg-[#F4B400] text-base font-semibold text-[#3E2A1E] disabled:opacity-50"
+              >
+                {step === "saving" ? "Hanging…" : "Hang it on the wall"}
+              </button>
+            </div>
+          )}
+
+          {/* Finish + text tools */}
           {(isLiveish || isPosed) && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
               <span className="-rotate-1 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
@@ -725,55 +929,103 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
                 </button>
               ))}
               {isPosed && (
-                <button
-                  type="button"
-                  disabled={!undoSnapshot || step === "saving"}
-                  onClick={undo}
-                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#3E2A1E]/20 bg-[#FFF8EA] px-3 py-1.5 text-[13px] font-semibold text-[#3E2A1E] disabled:opacity-40"
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                  Undo
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={step === "saving"}
+                    onClick={addText}
+                    className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#3E2A1E]/20 bg-[#FFF8EA] px-3 py-1.5 text-[13px] font-semibold text-[#3E2A1E]"
+                  >
+                    <Type className="h-3.5 w-3.5" />
+                    Add text
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!undoSnapshot || step === "saving"}
+                    onClick={undo}
+                    className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#3E2A1E]/20 bg-[#FFF8EA] px-3 py-1.5 text-[13px] font-semibold text-[#3E2A1E] disabled:opacity-40"
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                    Undo
+                  </button>
+                </>
               )}
             </div>
           )}
 
-          {/* Scene cards */}
+          {isPosed && selectedText && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              {PARLOR_TEXT_FONTS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  disabled={step === "saving"}
+                  onClick={() =>
+                    patchSelectedText({ font: f.id as ParlorTextFont })
+                  }
+                  className={`rounded-full border-2 px-3 py-1 text-[12px] font-semibold ${
+                    selectedText.font === f.id
+                      ? "border-[#F4B400] bg-[#FFF8EA]"
+                      : "border-[#3E2A1E]/15 bg-[#FFF8EA]/80"
+                  }`}
+                  style={{ fontFamily: f.css }}
+                >
+                  {f.label}
+                </button>
+              ))}
+              {PARLOR_TEXT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Color ${c}`}
+                  disabled={step === "saving"}
+                  onClick={() =>
+                    patchSelectedText({ color: c as ParlorTextColor })
+                  }
+                  className={`h-7 w-7 rounded-full border-2 ${
+                    selectedText.color === c
+                      ? "border-[#3E2A1E] ring-2 ring-[#F4B400]"
+                      : "border-[#3E2A1E]/25"
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Scene cards — compact single row */}
           <div
-            className={`mt-4 transition-opacity ${
+            className={`mt-3 transition-opacity ${
               scenesActive ? "opacity-100" : "pointer-events-none opacity-40"
             }`}
           >
-            <p className="-rotate-1 font-[family-name:var(--font-marker)] text-[15px] text-[#3E2A1E]">
+            <p className="-rotate-1 font-[family-name:var(--font-marker)] text-[13px] text-[#3E2A1E]">
               Pick your scene:
             </p>
-            <div className="mt-2 flex flex-wrap justify-center gap-2.5">
+            <div className="mt-1.5 flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1">
               <SceneCard
-                active={!selectedBackdropId}
-                tilt="-2.5deg"
-                name="No scene"
-                onClick={() => scenesActive && setSelectedBackdropId(null)}
+                active={!selectedSceneId}
+                tilt="-1.5deg"
+                name="AS-IS"
+                onClick={() => selectScene(null)}
               >
-                <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-xs font-extrabold text-[#3E2A1E]">
+                <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-[10px] font-extrabold text-[#3E2A1E]">
                   AS-IS
                 </span>
               </SceneCard>
-              {backdrops.map((bd, i) => {
-                const tilts = ["-1.5deg", "1.5deg", "-1deg", "2deg", "-2deg"];
+              {PARLOR_SCENES.map((sc, i) => {
+                const tilts = ["1deg", "-1deg", "1.5deg"];
                 return (
                   <SceneCard
-                    key={bd.id}
-                    active={selectedBackdropId === bd.id}
+                    key={sc.id}
+                    active={selectedSceneId === sc.id}
                     tilt={tilts[i % tilts.length]!}
-                    name={bd.name || "Scene"}
-                    stamp={i === 0}
-                    onClick={() =>
-                      scenesActive && setSelectedBackdropId(bd.id)
-                    }
+                    name={sc.name}
+                    onClick={() => selectScene(sc.id)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={bd.url}
+                      src={sc.url}
                       alt=""
                       className="h-full w-full object-cover"
                     />
@@ -781,26 +1033,65 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
                 );
               })}
             </div>
-            {selectedBackdropId && !liveBackdropOk && step === "live" && (
-              <p className="mt-2 text-center text-xs text-[#5C4430]/80">
+            {selectedSceneId && !liveBackdropOk && step === "live" && (
+              <p className="mt-1 text-center text-[11px] text-[#5C4430]/80">
                 Scene will land when you strike the pose
               </p>
             )}
           </div>
+
+          {isPosed && (
+            <label className="mt-4 block">
+              <span className="mb-1 block text-sm font-medium text-[#3E2A1E]">
+                Who&apos;s in this one?{" "}
+                <span className="font-normal text-[#5C4430]/70">(optional)</span>
+              </span>
+              <input
+                type="text"
+                value={whoName}
+                disabled={step === "saving"}
+                onChange={(e) => setWhoName(e.target.value)}
+                maxLength={120}
+                placeholder="Names or a note"
+                className="min-h-[44px] w-full rounded-[14px] border border-[#3E2A1E]/20 bg-[#FFF8EA] px-4 text-base text-[#3E2A1E] focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+              />
+            </label>
+          )}
+
+          {saveError && (
+            <p className="mt-2 text-center text-sm text-[#B3402A]">{saveError}</p>
+          )}
+
+          {step === "live" && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <Link
+                href="/hive/scrapbook"
+                className="relative -rotate-[1.4deg] rounded-md border-2 border-dashed border-[#B3402A] bg-[#FFF8EA] px-6 py-2.5 text-sm font-extrabold text-[#B3402A] transition hover:rotate-0 hover:scale-[1.04]"
+              >
+                Scrapbook a page
+              </Link>
+              <Link
+                href="/hive/slideshow"
+                className="text-sm font-semibold text-[#3E2A1E]/75 transition hover:text-[#B3402A]"
+              >
+                See the wall →
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Ranch props */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2.5 transition-opacity lg:max-h-[min(70vh,720px)] lg:w-[120px] lg:flex-col lg:overflow-y-auto lg:pt-3 ${
+          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
           <div className="text-center lg:w-full">
-            <p className="-rotate-3 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
+            <p className="-rotate-3 font-[family-name:var(--font-marker)] text-xs text-[#3E2A1E] sm:text-sm">
               Ranch props
             </p>
             {!shelvesActive && (
-              <p className="mt-0.5 font-[family-name:var(--font-marker)] text-[11px] text-[#B3402A]/90">
+              <p className="mt-0.5 font-[family-name:var(--font-marker)] text-[10px] text-[#B3402A]/90">
                 snap first, then decorate
               </p>
             )}
@@ -812,9 +1103,12 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
               title={item.name}
               disabled={!shelvesActive || step === "saving"}
               onClick={() => addProp(item.id)}
-              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+              className={tileClass}
             >
-              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
+              <ParlorPropIcon
+                propId={item.id}
+                className="h-full w-full object-contain"
+              />
             </button>
           ))}
         </aside>
@@ -822,21 +1116,21 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
 
       {/* Faces shelf */}
       <div
-        className={`relative mx-auto mt-4 w-full max-w-[1100px] transition-opacity ${
+        className={`relative mx-auto mt-3 w-full max-w-[1200px] transition-opacity ${
           shelvesActive ? "opacity-100" : "pointer-events-none opacity-40"
         }`}
       >
-        <div className="mb-2 flex items-baseline justify-center gap-3">
-          <p className="-rotate-1 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
+        <div className="mb-1.5 flex items-baseline justify-center gap-3">
+          <p className="-rotate-1 font-[family-name:var(--font-marker)] text-xs text-[#3E2A1E] sm:text-sm">
             Faces
           </p>
           {!shelvesActive && (
-            <p className="font-[family-name:var(--font-marker)] text-[11px] text-[#B3402A]/90">
+            <p className="font-[family-name:var(--font-marker)] text-[10px] text-[#B3402A]/90">
               snap first, then decorate
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           {FACE_SHELF.map((item) => (
             <button
               key={item.id}
@@ -844,87 +1138,16 @@ export function PhotoBooth({ hasProperty, backdrops }: Props) {
               title={item.name}
               disabled={!shelvesActive || step === "saving"}
               onClick={() => addProp(item.id)}
-              className="flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#3E2A1E]/25 bg-[#FFF8EA] p-1.5 shadow-[0_3px_8px_rgba(44,29,20,.12)] transition enabled:active:scale-95 enabled:hover:border-[#F4B400] enabled:hover:shadow-md disabled:cursor-default"
+              className={tileClass}
             >
-              <ParlorPropIcon propId={item.id} className="h-full w-full object-contain" />
+              <ParlorPropIcon
+                propId={item.id}
+                className="h-full w-full object-contain"
+              />
             </button>
           ))}
         </div>
       </div>
-
-      {/* Footer actions by state */}
-      {step === "live" && (
-        <div className="relative mt-8 flex flex-col items-center gap-4">
-          <div className="flex h-[190px] w-[190px] items-center justify-center rounded-full bg-[radial-gradient(circle_at_40%_30%,#F7E19A,#F4B400_60%,#B8860B)] shadow-[0_6px_14px_rgba(44,29,20,.3),inset_0_2px_4px_rgba(255,255,255,.5)]">
-            <button
-              type="button"
-              onClick={beginCountdown}
-              className="h-[150px] w-[150px] rounded-full border-0 bg-[radial-gradient(circle_at_35%_28%,#E9705A,#B3402A_55%,#7E2A1B)] font-[family-name:var(--font-rye)] text-[28px] leading-none tracking-wide text-[#FFF8EA] shadow-[0_10px_0_#6B2416,0_18px_30px_rgba(44,29,20,.4),inset_0_-6px_12px_rgba(0,0,0,.25)] transition active:translate-y-2 active:shadow-[0_2px_0_#6B2416]"
-            >
-              STRIKE
-              <br />A POSE
-              <span className="mt-1 block font-[family-name:var(--font-bricolage)] text-[11px] font-semibold tracking-wide text-[#FFD9CF]">
-                hold real still
-              </span>
-            </button>
-          </div>
-          <Link
-            href="/hive/scrapbook"
-            className="relative -rotate-[1.4deg] rounded-md border-2 border-dashed border-[#B3402A] bg-[#FFF8EA] px-8 py-3.5 text-base font-extrabold text-[#B3402A] transition hover:rotate-0 hover:scale-[1.04]"
-          >
-            Scrapbook a page
-          </Link>
-          <Link
-            href="/hive/slideshow"
-            className="text-sm font-semibold text-[#3E2A1E]/75 transition hover:text-[#B3402A]"
-          >
-            See the wall →
-          </Link>
-        </div>
-      )}
-
-      {isPosed && (
-        <div className="relative mx-auto mt-8 max-w-md">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-[#3E2A1E]">
-              Who&apos;s in this one?{" "}
-              <span className="font-normal text-[#5C4430]/70">(optional)</span>
-            </span>
-            <input
-              type="text"
-              value={whoName}
-              disabled={step === "saving"}
-              onChange={(e) => setWhoName(e.target.value)}
-              maxLength={120}
-              placeholder="Names or a note"
-              className="min-h-[48px] w-full rounded-[14px] border border-[#3E2A1E]/20 bg-[#FFF8EA] px-4 text-base text-[#3E2A1E] focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
-            />
-          </label>
-
-          {saveError && (
-            <p className="mt-3 text-sm text-[#B3402A]">{saveError}</p>
-          )}
-
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              disabled={step === "saving"}
-              onClick={retake}
-              className="min-h-[52px] flex-1 rounded-[16px] border-2 border-[#3E2A1E]/20 bg-transparent text-base font-semibold text-[#5C4430]/85"
-            >
-              Retake
-            </button>
-            <button
-              type="button"
-              disabled={step === "saving"}
-              onClick={() => void hangPortrait()}
-              className="min-h-[52px] flex-1 rounded-[16px] bg-[#F4B400] text-base font-semibold text-[#3E2A1E] disabled:opacity-50"
-            >
-              {step === "saving" ? "Hanging…" : "Hang it on the wall"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {isHung && (
         <div className="relative mx-auto mt-8 max-w-md text-center">
@@ -983,14 +1206,12 @@ function SceneCard({
   active,
   tilt,
   name,
-  stamp,
   onClick,
   children,
 }: {
   active: boolean;
   tilt: string;
   name: string;
-  stamp?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -998,22 +1219,17 @@ function SceneCard({
     <button
       type="button"
       onClick={onClick}
-      className={`relative w-[86px] overflow-hidden rounded-[10px] border-[3px] bg-[#FFF8EA] shadow-[0_4px_10px_rgba(44,29,20,.18)] transition hover:scale-105 hover:rotate-0 ${
+      className={`relative w-[68px] shrink-0 overflow-hidden rounded-[8px] border-[2.5px] bg-[#FFF8EA] shadow-[0_3px_8px_rgba(44,29,20,.16)] transition hover:scale-105 hover:rotate-0 sm:w-[72px] ${
         active
-          ? "border-[#F4B400] shadow-[0_0_0_3px_rgba(244,180,0,.35),0_4px_10px_rgba(44,29,20,.18)]"
+          ? "border-[#F4B400] shadow-[0_0_0_2px_rgba(244,180,0,.35),0_3px_8px_rgba(44,29,20,.16)]"
           : "border-[#FFF8EA]"
       }`}
       style={{ transform: active ? undefined : `rotate(${tilt})` }}
     >
-      <div className="h-[58px] overflow-hidden">{children}</div>
-      <div className="truncate px-1 py-1 text-center text-[11px] font-semibold text-[#3E2A1E]">
+      <div className="h-[44px] overflow-hidden sm:h-[48px]">{children}</div>
+      <div className="truncate px-0.5 py-0.5 text-center text-[10px] font-semibold leading-tight text-[#3E2A1E]">
         {name}
       </div>
-      {stamp ? (
-        <span className="absolute top-1 right-1 rounded bg-[#F4B400] px-1 text-[10px] font-extrabold text-[#2C1D14]">
-          ★
-        </span>
-      ) : null}
     </button>
   );
 }
@@ -1027,14 +1243,14 @@ function MarqueeBulbs() {
     positions.push([0, i * 10], [100, i * 10]);
   }
   return (
-    <div className="pointer-events-none absolute inset-2 rounded-[20px]">
+    <div className="pointer-events-none absolute inset-1.5 rounded-[18px] sm:inset-2 sm:rounded-[20px]">
       {positions.map(([x, y], i) => (
         <span
           key={`${x}-${y}-${i}`}
-          className="absolute h-3 w-3 rounded-full bg-[radial-gradient(circle_at_35%_30%,#FFF3C4,#F4B400_55%,#C98F00)] shadow-[0_0_10px_2px_rgba(244,180,0,.75)]"
+          className="absolute h-2.5 w-2.5 rounded-full bg-[radial-gradient(circle_at_35%_30%,#FFF3C4,#F4B400_55%,#C98F00)] shadow-[0_0_8px_2px_rgba(244,180,0,.75)] sm:h-3 sm:w-3"
           style={{
-            left: `calc(${x}% - 6px)`,
-            top: `calc(${y}% - 6px)`,
+            left: `calc(${x}% - 5px)`,
+            top: `calc(${y}% - 5px)`,
             animation: `parlorTwinkle 1.8s ease-in-out ${(i % 6) * 0.3}s infinite`,
           }}
         />

@@ -1,10 +1,13 @@
 import {
   getParlorProp,
   parlorPropSrc,
-  type PortraitPropObject,
   PORTRAIT_CANVAS_H,
   PORTRAIT_CANVAS_W,
 } from "./parlor-props";
+import {
+  parlorFontCss,
+  type PortraitOverlayObject,
+} from "./parlor-overlay";
 import { applyFinishToBlob, type PortraitFinish } from "./finish";
 import { blobToImage } from "./segmentation";
 
@@ -18,15 +21,30 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+async function ensureOverlayFonts() {
+  if (!document.fonts) return;
+  try {
+    await Promise.all([
+      document.fonts.load('48px "Rye"'),
+      document.fonts.load('48px "Permanent Marker"'),
+      document.fonts.load('48px "Special Elite"'),
+    ]);
+  } catch {
+    // fall through
+  }
+}
+
 /**
- * Composite clean portrait + placed props, then apply finish over the whole frame.
+ * Composite clean portrait + props/text overlays, then apply finish over all.
  */
 export async function flattenPortraitWithProps(
   clean: Blob,
-  objects: PortraitPropObject[],
+  objects: PortraitOverlayObject[],
   finish: PortraitFinish,
   quality = 0.92,
 ): Promise<Blob | null> {
+  await ensureOverlayFonts();
+
   const base = await blobToImage(clean);
   const w = base.naturalWidth;
   const h = base.naturalHeight;
@@ -45,20 +63,43 @@ export async function flattenPortraitWithProps(
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
 
   for (const obj of sorted) {
-    const def = getParlorProp(obj.propId);
-    if (!def) continue;
-    try {
-      const propImg = await loadImage(parlorPropSrc(def));
-      ctx.save();
-      ctx.translate(obj.x * sx, obj.y * sy);
-      ctx.rotate((obj.rotation * Math.PI) / 180);
-      const pw = obj.width * sx;
-      const ph = obj.height * sy;
-      ctx.drawImage(propImg, -pw / 2, -ph / 2, pw, ph);
-      ctx.restore();
-    } catch {
-      // skip missing art
+    ctx.save();
+    ctx.translate(obj.x * sx, obj.y * sy);
+    ctx.rotate((obj.rotation * Math.PI) / 180);
+
+    if (obj.kind === "prop") {
+      const def = getParlorProp(obj.propId);
+      if (def) {
+        try {
+          const propImg = await loadImage(parlorPropSrc(def));
+          const pw = obj.width * sx;
+          const ph = obj.height * sy;
+          ctx.drawImage(propImg, -pw / 2, -ph / 2, pw, ph);
+        } catch {
+          // skip missing art
+        }
+      }
+    } else {
+      const fontSize = Math.max(16, obj.height * sy * 0.55);
+      ctx.font = `700 ${fontSize}px ${parlorFontCss(obj.font)}`;
+      ctx.fillStyle = obj.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (obj.color === "#FAF3E3") {
+        ctx.shadowColor = "rgba(0,0,0,0.45)";
+        ctx.shadowBlur = 4;
+      }
+      const lines = (obj.text || " ").split("\n");
+      const lineH = fontSize * 1.15;
+      const startY = -((lines.length - 1) * lineH) / 2;
+      const maxW = obj.width * sx;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, 0, startY + i * lineH, maxW);
+      });
+      ctx.shadowColor = "transparent";
     }
+
+    ctx.restore();
   }
 
   if (finish === "color") {

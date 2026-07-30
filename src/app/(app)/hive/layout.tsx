@@ -1,4 +1,4 @@
-import { Permanent_Marker, Rye } from "next/font/google";
+import { Permanent_Marker, Rye, Special_Elite } from "next/font/google";
 
 const rye = Rye({
   subsets: ["latin"],
@@ -12,12 +12,20 @@ const marker = Permanent_Marker({
   variable: "--font-marker",
 });
 
+const elite = Special_Elite({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-elite",
+});
+
 export default function HiveLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${rye.variable} ${marker.variable}`}>{children}</div>
+    <div className={`${rye.variable} ${marker.variable} ${elite.variable}`}>
+      {children}
+    </div>
   );
 }
