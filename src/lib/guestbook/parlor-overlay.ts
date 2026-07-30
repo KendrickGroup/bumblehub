@@ -38,6 +38,10 @@ type BaseOverlay = {
   width: number;
   height: number;
   rotation: number;
+  /** Horizontal mirror: 1 = normal, -1 = flipped. */
+  flipX: 1 | -1;
+  /** Vertical squash for tilt feel; 1 = upright, down to 0.55. */
+  scaleY: number;
   zIndex: number;
 };
 
@@ -66,4 +70,18 @@ export function isOutsidePortrait(
   canvasH: number,
 ): boolean {
   return x < 0 || x > canvasW || y < 0 || y > canvasH;
+}
+
+export const OVERLAY_MIN_SCALE_Y = 0.55;
+export const OVERLAY_MAX_SCALE_Y = 1;
+
+export function clampScaleY(v: number): number {
+  return Math.min(OVERLAY_MAX_SCALE_Y, Math.max(OVERLAY_MIN_SCALE_Y, v));
+}
+
+export function defaultOverlayTransform(): Pick<
+  BaseOverlay,
+  "flipX" | "scaleY"
+> {
+  return { flipX: 1, scaleY: 1 };
 }

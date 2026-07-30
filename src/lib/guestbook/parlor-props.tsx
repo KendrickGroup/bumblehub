@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { getRepairedPropUrl } from "./repair-prop-image";
 
 /** Swap art by changing `url` (or `svg`) — ids stay stable. */
 export type ParlorPropDef = {
@@ -283,12 +286,37 @@ export function ParlorPropIcon({
   className?: string;
 }): ReactNode {
   const def = getParlorProp(propId);
-  if (!def) return null;
-  const src = parlorPropSrc(def);
-  if (!src) return null;
+  const raw = def ? parlorPropSrc(def) : "";
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!raw) {
+      setSrc(null);
+      return;
+    }
+    let cancelled = false;
+    setSrc(null);
+    void getRepairedPropUrl(raw)
+      .then((url) => {
+        if (!cancelled) setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(raw);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [raw]);
+
+  if (!def || !raw) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className={className} draggable={false} />
+    <img
+      src={src ?? raw}
+      alt=""
+      className={className}
+      draggable={false}
+    />
   );
 }
 

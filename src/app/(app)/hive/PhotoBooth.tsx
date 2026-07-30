@@ -23,6 +23,7 @@ import {
 import {
   PARLOR_TEXT_COLORS,
   PARLOR_TEXT_FONTS,
+  defaultOverlayTransform,
   type ParlorTextColor,
   type ParlorTextFont,
   type PortraitOverlayObject,
@@ -436,6 +437,7 @@ export function PhotoBooth({ hasProperty }: Props) {
       height: size,
       rotation: Math.random() * 10 - 5,
       zIndex: z,
+      ...defaultOverlayTransform(),
     };
     setOverlays((prev) => [...prev, obj]);
     setSelectedId(obj.id);
@@ -460,6 +462,7 @@ export function PhotoBooth({ hasProperty }: Props) {
       height: 90,
       rotation: Math.random() * 4 - 2,
       zIndex: z,
+      ...defaultOverlayTransform(),
     };
     setOverlays((prev) => [...prev, obj]);
     setSelectedId(id);

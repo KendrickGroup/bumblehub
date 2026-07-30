@@ -9,17 +9,8 @@ import {
   type PortraitOverlayObject,
 } from "./parlor-overlay";
 import { applyFinishToBlob, type PortraitFinish } from "./finish";
+import { getRepairedPropCanvas } from "./repair-prop-image";
 import { blobToImage } from "./segmentation";
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("prop image load failed"));
-    img.src = src;
-  });
-}
 
 async function ensureOverlayFonts() {
   if (!document.fonts) return;
@@ -32,6 +23,23 @@ async function ensureOverlayFonts() {
   } catch {
     // fall through
   }
+}
+
+/**
+ * Match on-screen CSS:
+ * translate(center) → rotate → scaleX(flip) → scaleY(tilt squash)
+ */
+function applyOverlayTransform(
+  ctx: CanvasRenderingContext2D,
+  obj: PortraitOverlayObject,
+  sx: number,
+  sy: number,
+) {
+  const flipX = obj.flipX ?? 1;
+  const scaleY = obj.scaleY ?? 1;
+  ctx.translate(obj.x * sx, obj.y * sy);
+  ctx.rotate((obj.rotation * Math.PI) / 180);
+  ctx.scale(flipX, scaleY);
 }
 
 /**
@@ -64,14 +72,13 @@ export async function flattenPortraitWithProps(
 
   for (const obj of sorted) {
     ctx.save();
-    ctx.translate(obj.x * sx, obj.y * sy);
-    ctx.rotate((obj.rotation * Math.PI) / 180);
+    applyOverlayTransform(ctx, obj, sx, sy);
 
     if (obj.kind === "prop") {
       const def = getParlorProp(obj.propId);
       if (def) {
         try {
-          const propImg = await loadImage(parlorPropSrc(def));
+          const propImg = await getRepairedPropCanvas(parlorPropSrc(def));
           const pw = obj.width * sx;
           const ph = obj.height * sy;
           ctx.drawImage(propImg, -pw / 2, -ph / 2, pw, ph);

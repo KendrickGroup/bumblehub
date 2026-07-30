@@ -1,5 +1,6 @@
 "use client";
 
+import { FlipHorizontal2, MoveVertical, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -8,7 +9,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  getParlorProp,
   ParlorPropIcon,
   PORTRAIT_CANVAS_H,
   PORTRAIT_CANVAS_W,
@@ -16,6 +16,7 @@ import {
   PORTRAIT_MIN_PROP,
 } from "@/lib/guestbook/parlor-props";
 import {
+  clampScaleY,
   isOutsidePortrait,
   parlorFontCss,
   type PortraitOverlayObject,
@@ -63,7 +64,7 @@ type ActiveGesture =
       aspect: number;
     }
   | {
-      kind: "handle";
+      kind: "resize";
       id: string;
       pointerId: number;
       origW: number;
@@ -72,9 +73,18 @@ type ActiveGesture =
       aspect: number;
       startAngle: number;
       startDist: number;
+    }
+  | {
+      kind: "tilt";
+      id: string;
+      pointerId: number;
+      startY: number;
+      origScaleY: number;
     };
 
 type Poof = { id: string; x: number; y: number; size: number };
+
+const HANDLE_PX = 30;
 
 function clampSize(w: number, h: number) {
   const maxW = PORTRAIT_CANVAS_W * PORTRAIT_MAX_PROP_FRAC;
@@ -92,7 +102,34 @@ function angle(a: { x: number; y: number }, b: { x: number; y: number }) {
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 }
 
-/** Scrapbook-style gestures; throw object center off-frame to delete. */
+/** Stage-space corner of a transformed object (matches CSS transform order). */
+function objectCornerScreen(
+  obj: PortraitOverlayObject,
+  corner: "tl" | "tr" | "bl" | "br",
+  stageScale: number,
+): { x: number; y: number } {
+  const flipX = obj.flipX ?? 1;
+  const scaleY = obj.scaleY ?? 1;
+  const hw = (obj.width * stageScale) / 2;
+  const hh = (obj.height * stageScale) / 2;
+  let lx = corner === "tr" || corner === "br" ? hw : -hw;
+  let ly = corner === "bl" || corner === "br" ? hh : -hh;
+  lx *= flipX;
+  ly *= scaleY;
+  const rad = (obj.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: obj.x * stageScale + lx * cos - ly * sin,
+    y: obj.y * stageScale + lx * sin + ly * cos,
+  };
+}
+
+function handleClassName() {
+  return "absolute z-20 flex items-center justify-center rounded-full border-2 border-[#F4B400] bg-[#FFF8EA] text-[#3E2A1E] shadow-md";
+}
+
+/** Scrapbook-style gestures; throw off-frame or ✕ to delete. */
 export function PortraitOverlayCanvas({
   objects,
   selectedId,
@@ -111,6 +148,7 @@ export function PortraitOverlayCanvas({
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [poofs, setPoofs] = useState<Poof[]>([]);
+  const [handlesHidden, setHandlesHidden] = useState(false);
   const gestureRef = useRef<ActiveGesture | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef(0);
@@ -122,6 +160,7 @@ export function PortraitOverlayCanvas({
   const tapEditRef = useRef(false);
 
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
+  const selected = objects.find((o) => o.id === selectedId) ?? null;
 
   useEffect(() => {
     const el = stageRef.current;
@@ -189,10 +228,18 @@ export function PortraitOverlayCanvas({
       clearLongPress();
       gestureRef.current = null;
       movedRef.current = false;
+      setHandlesHidden(false);
       if (!deleted) onCommitGesture();
     },
     [onCommitGesture],
   );
+
+  const deleteWithPoof = (obj: PortraitOverlayObject) => {
+    onGestureStart();
+    triggerPoof(obj);
+    onDelete(obj.id);
+    endGesture(true);
+  };
 
   const onPointerDownObject = (
     e: ReactPointerEvent,
@@ -225,6 +272,7 @@ export function PortraitOverlayCanvas({
         origRot: obj.rotation,
         aspect: obj.width / Math.max(1, obj.height),
       };
+      setHandlesHidden(true);
       return;
     }
 
@@ -242,6 +290,7 @@ export function PortraitOverlayCanvas({
       origX: obj.x,
       origY: obj.y,
     };
+    setHandlesHidden(true);
     onGestureStart();
 
     clearLongPress();
@@ -250,7 +299,7 @@ export function PortraitOverlayCanvas({
     }, 500);
   };
 
-  const onPointerDownHandle = (
+  const onPointerDownResize = (
     e: ReactPointerEvent,
     obj: PortraitOverlayObject,
   ) => {
@@ -260,7 +309,7 @@ export function PortraitOverlayCanvas({
     onSelect(obj.id);
     const pt = clientToCanvas(e.clientX, e.clientY);
     gestureRef.current = {
-      kind: "handle",
+      kind: "resize",
       id: obj.id,
       pointerId: e.pointerId,
       origW: obj.width,
@@ -270,6 +319,27 @@ export function PortraitOverlayCanvas({
       startAngle: angle({ x: obj.x, y: obj.y }, pt),
       startDist: dist({ x: obj.x, y: obj.y }, pt),
     };
+    setHandlesHidden(true);
+    onGestureStart();
+  };
+
+  const onPointerDownTilt = (
+    e: ReactPointerEvent,
+    obj: PortraitOverlayObject,
+  ) => {
+    if (!enabled) return;
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    onSelect(obj.id);
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    gestureRef.current = {
+      kind: "tilt",
+      id: obj.id,
+      pointerId: e.pointerId,
+      startY: pt.y,
+      origScaleY: obj.scaleY ?? 1,
+    };
+    setHandlesHidden(true);
     onGestureStart();
   };
 
@@ -312,7 +382,7 @@ export function PortraitOverlayCanvas({
       return;
     }
 
-    if (g.kind === "handle" && e.pointerId === g.pointerId) {
+    if (g.kind === "resize" && e.pointerId === g.pointerId) {
       movedRef.current = true;
       const d = dist({ x: obj.x, y: obj.y }, pt);
       const a = angle({ x: obj.x, y: obj.y }, pt);
@@ -324,6 +394,15 @@ export function PortraitOverlayCanvas({
         height: clamped.width / g.aspect,
         rotation: g.origRot + (a - g.startAngle),
       });
+      return;
+    }
+
+    if (g.kind === "tilt" && e.pointerId === g.pointerId) {
+      movedRef.current = true;
+      // Drag down → more squash (brim-forward); drag up → upright (leaned back).
+      const dy = pt.y - g.startY;
+      const next = clampScaleY(g.origScaleY - dy / (PORTRAIT_CANVAS_H * 0.35));
+      schedulePatch(g.id, { scaleY: next });
     }
   };
 
@@ -377,10 +456,16 @@ export function PortraitOverlayCanvas({
       return;
     }
 
-    if (g.kind === "handle" && e.pointerId === g.pointerId) {
+    if (
+      (g.kind === "resize" || g.kind === "tilt") &&
+      e.pointerId === g.pointerId
+    ) {
       endGesture();
     }
   };
+
+  const showHandles =
+    enabled && selected && editingTextId !== selected.id && !handlesHidden;
 
   return (
     <div
@@ -394,8 +479,10 @@ export function PortraitOverlayCanvas({
       onPointerCancel={onPointerUp}
     >
       {sorted.map((obj) => {
-        const selected = selectedId === obj.id;
+        const isSelected = selectedId === obj.id;
         const editing = editingTextId === obj.id;
+        const flipX = obj.flipX ?? 1;
+        const scaleY = obj.scaleY ?? 1;
 
         return (
           <div
@@ -406,7 +493,7 @@ export function PortraitOverlayCanvas({
               top: obj.y * scale,
               width: obj.width * scale,
               height: obj.height * scale,
-              transform: `translate(-50%, -50%) rotate(${obj.rotation}deg)`,
+              transform: `translate(-50%, -50%) rotate(${obj.rotation}deg) scale(${flipX}, ${scaleY})`,
               zIndex: obj.zIndex,
               willChange: "transform",
             }}
@@ -453,21 +540,98 @@ export function PortraitOverlayCanvas({
               />
             )}
 
-            {selected && enabled && !editing && (
-              <>
-                <div className="pointer-events-none absolute inset-[-4px] rounded-[6px] ring-2 ring-[#F4B400] ring-offset-1" />
-                <button
-                  type="button"
-                  aria-label="Resize and rotate"
-                  className="absolute right-[-14px] bottom-[-14px] z-10 h-7 w-7 rounded-full border-2 border-white bg-[#F4B400] shadow-md"
-                  style={{ touchAction: "none" }}
-                  onPointerDown={(e) => onPointerDownHandle(e, obj)}
-                />
-              </>
+            {isSelected && enabled && !editing && !handlesHidden && (
+              <div className="pointer-events-none absolute inset-[-4px] rounded-[6px] ring-2 ring-[#F4B400] ring-offset-1" />
             )}
           </div>
         );
       })}
+
+      {showHandles && selected && (
+        <>
+          {/* Top-left: flip */}
+          <button
+            type="button"
+            aria-label="Flip horizontally"
+            className={handleClassName()}
+            style={{
+              width: HANDLE_PX,
+              height: HANDLE_PX,
+              left: objectCornerScreen(selected, "tl", scale).x,
+              top: objectCornerScreen(selected, "tl", scale).y,
+              transform: "translate(-50%, -50%)",
+              touchAction: "none",
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelect(selected.id);
+              onGestureStart();
+              const next: 1 | -1 = (selected.flipX ?? 1) === 1 ? -1 : 1;
+              onChangeObject(selected.id, { flipX: next });
+              onCommitGesture();
+            }}
+          >
+            <FlipHorizontal2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+
+          {/* Top-right: delete */}
+          <button
+            type="button"
+            aria-label="Delete"
+            className={handleClassName()}
+            style={{
+              width: HANDLE_PX,
+              height: HANDLE_PX,
+              left: objectCornerScreen(selected, "tr", scale).x,
+              top: objectCornerScreen(selected, "tr", scale).y,
+              transform: "translate(-50%, -50%)",
+              touchAction: "none",
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              deleteWithPoof(selected);
+            }}
+          >
+            <X className="h-4 w-4" strokeWidth={2.75} />
+          </button>
+
+          {/* Bottom-left: tilt */}
+          <button
+            type="button"
+            aria-label="Tilt"
+            className={handleClassName()}
+            style={{
+              width: HANDLE_PX,
+              height: HANDLE_PX,
+              left: objectCornerScreen(selected, "bl", scale).x,
+              top: objectCornerScreen(selected, "bl", scale).y,
+              transform: "translate(-50%, -50%)",
+              touchAction: "none",
+            }}
+            onPointerDown={(e) => onPointerDownTilt(e, selected)}
+          >
+            <MoveVertical className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+
+          {/* Bottom-right: resize + rotate */}
+          <button
+            type="button"
+            aria-label="Resize and rotate"
+            className={handleClassName()}
+            style={{
+              width: HANDLE_PX,
+              height: HANDLE_PX,
+              left: objectCornerScreen(selected, "br", scale).x,
+              top: objectCornerScreen(selected, "br", scale).y,
+              transform: "translate(-50%, -50%)",
+              touchAction: "none",
+            }}
+            onPointerDown={(e) => onPointerDownResize(e, selected)}
+          >
+            <span className="block h-2.5 w-2.5 rotate-45 border-r-2 border-b-2 border-[#3E2A1E]" />
+          </button>
+        </>
+      )}
 
       {poofs.map((p) => (
         <span
