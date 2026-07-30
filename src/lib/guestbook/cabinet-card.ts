@@ -1,24 +1,33 @@
 /**
- * E1 “Gusset & Rivet” take-home card.
+ * Photorealistic Gusset & Rivet take-home card.
  *
- * The decorative frame (wood, gussets, sign, type) is a static asset:
- *   public/brand/cabinet-card-frame.png
- * Regenerated via: `npm run render:cabinet-frame`
- * Source HTML: scripts/cabinet-frame-e1.html
+ * Frame asset: public/brand/cabinet-card-frame.png (819×1024)
+ * The black PHOTO WINDOW in the source art is punched to transparent
+ * so the portrait draws underneath; wood, gussets, and cream plate stay opaque.
  *
- * Per-save work is only: draw the portrait into the window, then the frame on top.
+ * Bounds measured at native resolution (see scripts notes / debug pass):
+ *   PHOTO_WINDOW  — solid black inset where the portrait sits
+ *   NAMEPLATE     — cream plate where title text is painted
  */
 
-/** Window hole in cabinet-card-frame.png (must match scripts/cabinet-frame-e1.html). */
+/** Native size and measured regions of cabinet-card-frame.png */
 export const CABINET_FRAME = {
   src: "/brand/cabinet-card-frame.png",
-  width: 1600,
-  height: 1480,
-  window: {
-    x: 140,
-    y: 120,
-    width: 1320,
-    height: 990,
+  width: 819,
+  height: 1024,
+  /** Exact pixel bounds of the black photo window. */
+  photoWindow: {
+    x: 83,
+    y: 107,
+    width: 656,
+    height: 557,
+  },
+  /** Exact pixel bounds of the cream nameplate (including bolt area). */
+  nameplate: {
+    x: 172,
+    y: 744,
+    width: 460,
+    height: 166,
   },
 } as const;
 
@@ -32,7 +41,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Cover-fit `img` into the destination rect. */
+/** Cover-fit `img` into the destination rect (centered crop). */
 function drawCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -57,13 +66,122 @@ function drawCover(
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
+async function ensureCardFonts() {
+  if (typeof document === "undefined") return;
+
+  const linkId = "cabinet-card-google-fonts";
+  if (!document.getElementById(linkId)) {
+    const link = document.createElement("link");
+    link.id = linkId;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Rye&display=swap";
+    document.head.appendChild(link);
+  }
+
+  if (!document.fonts) return;
+  try {
+    await document.fonts.ready;
+    await Promise.all([
+      document.fonts.load('64px "Rye"'),
+      document.fonts.load('28px "IM Fell English SC"'),
+    ]);
+  } catch {
+    // fall through with system serif
+  }
+}
+
+function fillTextWithTracking(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  trackingEm: number,
+) {
+  const size = parseFloat(ctx.font) || 16;
+  const tracking = size * trackingEm;
+  let total = 0;
+  for (let i = 0; i < text.length; i++) {
+    total += ctx.measureText(text[i]!).width;
+    if (i < text.length - 1) total += tracking;
+  }
+  let cx = x - total / 2;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    ctx.fillText(ch, cx, y);
+    cx += ctx.measureText(ch).width + tracking;
+  }
+}
+
 /**
- * Composite portrait into the E1 frame window and return a JPEG blob.
+ * Paint title onto the cream nameplate (~12% padding, worn-paint feel).
+ */
+function drawNameplateText(
+  ctx: CanvasRenderingContext2D,
+  plate: { x: number; y: number; width: number; height: number },
+) {
+  const padX = plate.width * 0.12;
+  const padY = plate.height * 0.12;
+  const innerW = plate.width - padX * 2;
+  const innerH = plate.height - padY * 2;
+  const cx = plate.x + plate.width / 2;
+  const cy = plate.y + plate.height / 2;
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.globalAlpha = 0.92;
+  ctx.filter = "blur(0.5px)";
+
+  // Title — largest line that fits
+  let titleSize = Math.floor(innerH * 0.42);
+  ctx.font = `400 ${titleSize}px Rye, Georgia, serif`;
+  while (
+    titleSize > 18 &&
+    ctx.measureText("Latigo Ranch House").width > innerW
+  ) {
+    titleSize -= 1;
+    ctx.font = `400 ${titleSize}px Rye, Georgia, serif`;
+  }
+  ctx.fillStyle = "#241A12";
+  const titleY = cy - innerH * 0.14;
+  ctx.fillText("Latigo Ranch House", cx, titleY);
+
+  // Subtitle — letterspaced small-caps
+  let subSize = Math.floor(titleSize * 0.38);
+  const sub = "SUTTER CREEK, CALIFORNIA";
+  const fell = '"IM Fell English SC", "Times New Roman", Georgia, serif';
+  ctx.font = `400 ${subSize}px ${fell}`;
+  // Measure with tracking ~0.22em
+  const measureTracked = () => {
+    const tracking = subSize * 0.22;
+    let total = 0;
+    for (let i = 0; i < sub.length; i++) {
+      total += ctx.measureText(sub[i]!).width;
+      if (i < sub.length - 1) total += tracking;
+    }
+    return total;
+  };
+  while (subSize > 10 && measureTracked() > innerW) {
+    subSize -= 1;
+    ctx.font = `400 ${subSize}px ${fell}`;
+  }
+  ctx.fillStyle = "#B3402A";
+  const subY = cy + innerH * 0.28;
+  fillTextWithTracking(ctx, sub, cx, subY, 0.22);
+
+  ctx.restore();
+}
+
+/**
+ * Composite finished portrait into the photorealistic frame and return JPEG.
  */
 export async function renderCabinetCard(
   portrait: HTMLImageElement,
 ): Promise<Blob | null> {
-  const { width, height, window: win, src } = CABINET_FRAME;
+  await ensureCardFonts();
+
+  const { width, height, photoWindow, nameplate, src } = CABINET_FRAME;
 
   let frame: HTMLImageElement;
   try {
@@ -78,12 +196,25 @@ export async function renderCabinetCard(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // Warm underlay so any anti-aliased hole edge looks like wood, not white
-  ctx.fillStyle = "#5c3a22";
-  ctx.fillRect(0, 0, width, height);
+  // Underlay in the punched window (avoids bright edges if alpha fringes)
+  ctx.fillStyle = "#1a1410";
+  ctx.fillRect(
+    photoWindow.x,
+    photoWindow.y,
+    photoWindow.width,
+    photoWindow.height,
+  );
 
-  drawCover(ctx, portrait, win.x, win.y, win.width, win.height);
+  drawCover(
+    ctx,
+    portrait,
+    photoWindow.x,
+    photoWindow.y,
+    photoWindow.width,
+    photoWindow.height,
+  );
   ctx.drawImage(frame, 0, 0, width, height);
+  drawNameplateText(ctx, nameplate);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
