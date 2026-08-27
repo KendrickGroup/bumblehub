@@ -8,10 +8,17 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  Square,
   Volume2,
 } from "lucide-react";
-import type { NowPlayingResponse } from "@/lib/music/types";
+import {
+  RadioLiveBadge,
+  RadioTowerMark,
+  SpotifyMark,
+} from "@/components/music/AudioSourceMarks";
+import type { NowPlayingResponse, PlaybackContext } from "@/lib/music/types";
 import { useNowPlaying } from "@/lib/music/use-now-playing";
+import { stopRadioPlayback, useRadioPlayer } from "@/lib/radio/use-radio-player";
 
 type ConnectedState = Extract<
   NowPlayingResponse,
@@ -36,6 +43,21 @@ export function NowPlayingStrip({
 }: NowPlayingStripProps) {
   const { state, busy, toast, localVolume, setVolume, sendCommand } =
     useNowPlaying();
+  const radio = useRadioPlayer();
+  const radioLive =
+    radio.status === "playing" || radio.status === "buffering";
+
+  if (radioLive) {
+    return (
+      <ShellChrome>
+        <RadioNowPlaying
+          stationName={radio.stationName || "Ranch House Radio"}
+          cityLabel={radio.cityLabel || "the dial"}
+          buffering={radio.status === "buffering"}
+        />
+      </ShellChrome>
+    );
+  }
 
   if (!state) {
     return null;
@@ -72,6 +94,13 @@ export function NowPlayingStrip({
   const isPlaying =
     connected.status === "playing" && connected.track.isPlaying;
   const track = connected.status === "playing" ? connected.track : null;
+  const playbackContext =
+    connected.status === "playing" ? connected.context : null;
+  const contextLine = spotifyContextLine(
+    connected.status,
+    isPlaying,
+    playbackContext,
+  );
 
   return (
     <ShellChrome>
@@ -108,16 +137,13 @@ export function NowPlayingStrip({
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-stone-500">
-              {connected.status === "idle"
-                ? "Music"
-                : isPlaying
-                  ? "Now playing"
-                  : "Paused"}
+            <p className="flex min-w-0 items-center gap-2">
+              <SpotifyMark size={16} className="shrink-0" />
+              <span className="truncate text-base font-semibold text-stone-900">
+                {track?.name ?? "Nothing playing"}
+              </span>
             </p>
-            <p className="truncate text-base font-semibold text-stone-900">
-              {track?.name ?? "Nothing playing"}
-            </p>
+            <p className="truncate text-sm text-stone-500">{contextLine}</p>
             {track?.artists ? (
               <p className="truncate text-sm text-stone-500">{track.artists}</p>
             ) : (
@@ -143,6 +169,56 @@ export function NowPlayingStrip({
         />
       </div>
     </ShellChrome>
+  );
+}
+
+function spotifyContextLine(
+  status: "idle" | "playing",
+  isPlaying: boolean,
+  context: PlaybackContext,
+): string {
+  if (context?.type === "playlist") return `Playlist · ${context.name}`;
+  if (status === "idle") return "Music";
+  return isPlaying ? "Now playing" : "Paused";
+}
+
+function RadioNowPlaying({
+  stationName,
+  cityLabel,
+  buffering,
+}: {
+  stationName: string;
+  cityLabel: string;
+  buffering: boolean;
+}) {
+  return (
+    <div className="flex min-h-[88px] items-center gap-4 rounded-[18px] bg-white px-5 py-4 shadow-sm ring-2 ring-red-500/20 sm:min-h-[72px]">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FBF0D0] text-stone-800">
+        <RadioTowerMark size={22} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="flex min-w-0 items-center gap-2">
+          <RadioLiveBadge />
+          <span className="truncate text-base font-semibold text-stone-900">
+            {stationName}
+          </span>
+        </p>
+        <p className="truncate text-sm text-stone-500">
+          Ranch House Radio · {stationName} — {cityLabel}
+        </p>
+        {buffering ? (
+          <p className="text-xs font-medium text-stone-400">Connecting…</p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        aria-label="Stop radio"
+        onClick={stopRadioPlayback}
+        className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-stone-900 text-white transition hover:bg-stone-800"
+      >
+        <Square className="h-4 w-4" strokeWidth={2.25} fill="currentColor" />
+      </button>
+    </div>
   );
 }
 

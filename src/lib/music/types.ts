@@ -9,6 +9,11 @@ export type NowPlayingTrack = {
   durationMs: number;
 };
 
+export type PlaybackContext = {
+  type: "playlist";
+  name: string;
+} | null;
+
 export type NowPlayingResponse =
   | { status: "not_connected" }
   | { status: "idle"; volume: number | null; shuffle: boolean }
@@ -17,6 +22,7 @@ export type NowPlayingResponse =
       track: NowPlayingTrack;
       volume: number | null;
       shuffle: boolean;
+      context: PlaybackContext;
     };
 
 export type PlaybackCommand =

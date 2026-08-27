@@ -1,15 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { LoaderCircle, Play, Square } from "lucide-react";
 import { formatTunedPlace } from "@/lib/radio/format-place";
-import { playStaticCrackle } from "@/lib/radio/static-crackle";
+import {
+  playStaticCrackle,
+  unlockStaticCrackle,
+} from "@/lib/radio/static-crackle";
 import type { RadioStation } from "@/lib/radio/types";
+import {
+  getRadioPlayerState,
+  playRadio,
+  radioIsLive,
+  rememberTunedStation,
+  setRadioVolume,
+  stopRadioPlayback,
+  useRadioPlayer,
+} from "@/lib/radio/use-radio-player";
 import {
   useRadioStations,
   useTunedStationId,
-  writeTunedStationId,
 } from "@/lib/radio/use-radio-stations";
-import { stopStationTest } from "@/lib/radio/use-station-test-player";
 
 const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
 const VOLUME_STEPS = [0.2, 0.4, 0.6, 0.8, 1] as const;
@@ -28,92 +39,61 @@ function volumeRotation(volume: number): number {
 export function RadioDial() {
   const { visible, loaded } = useRadioStations();
   const tunedId = useTunedStationId();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [volume, setVolume] = useState(0.8);
+  const player = useRadioPlayer();
   const [crackle, setCrackle] = useState(false);
 
   const selected =
     visible.find((s) => s.id === tunedId) ??
     (loaded ? (visible[0] ?? null) : null);
 
-  useEffect(() => {
-    const el = new Audio();
-    el.preload = "none";
-    el.volume = 0.8;
-    audioRef.current = el;
-    const onPlaying = () => {
-      setPlaying(true);
-      setFailed(false);
-    };
-    const onPause = () => setPlaying(false);
-    const onError = () => {
-      setPlaying(false);
-      setFailed(true);
-    };
-    el.addEventListener("playing", onPlaying);
-    el.addEventListener("pause", onPause);
-    el.addEventListener("error", onError);
-    return () => {
-      el.pause();
-      el.removeAttribute("src");
-      el.load();
-      el.removeEventListener("playing", onPlaying);
-      el.removeEventListener("pause", onPause);
-      el.removeEventListener("error", onError);
-      audioRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
+  const playing = player.status === "playing";
+  const buffering = player.status === "buffering";
+  const failed = player.status === "failed" && player.stationId === selected?.id;
+  const live = playing || buffering;
 
   useEffect(() => {
     if (!loaded || !tunedId) return;
     if (visible.some((s) => s.id === tunedId)) return;
-    audioRef.current?.pause();
+    stopRadioPlayback();
   }, [loaded, tunedId, visible]);
 
   const retuneFx = useCallback(() => {
-    playStaticCrackle();
     setCrackle(false);
     window.requestAnimationFrame(() => setCrackle(true));
   }, []);
 
-  const tuneTo = useCallback(
-    (station: RadioStation, autoplay: boolean) => {
-      const changing = tunedId !== station.id;
-      writeTunedStationId(station.id);
-      setFailed(false);
-      if (changing) retuneFx();
-      const el = audioRef.current;
-      if (!el) return;
-      const already = el.src === station.stream_url && !el.paused;
-      if (already && autoplay) return;
-      if (el.src !== station.stream_url) {
-        el.src = station.stream_url;
-      }
-      if (autoplay) {
-        stopStationTest();
-        void el.play().catch(() => setFailed(true));
-      }
-    },
-    [retuneFx, tunedId],
-  );
+  const onCity = (station: RadioStation) => {
+    const switching = getRadioPlayerState().stationId !== station.id;
+    if (radioIsLive()) {
+      playRadio(station);
+    } else {
+      rememberTunedStation(station);
+    }
+    unlockStaticCrackle();
+    if (switching) {
+      retuneFx();
+      playStaticCrackle();
+    }
+  };
 
-  const stopPlayback = useCallback(() => {
-    audioRef.current?.pause();
-  }, []);
+  const onPlayToggle = () => {
+    if (radioIsLive()) {
+      stopRadioPlayback();
+      return;
+    }
+    if (!selected) return;
+    playRadio(selected);
+    unlockStaticCrackle();
+    retuneFx();
+    playStaticCrackle();
+  };
 
-  const cycleVolume = useCallback(() => {
-    setVolume((prev) => {
-      const i = VOLUME_STEPS.findIndex((step) => Math.abs(step - prev) < 0.05);
-      const next = VOLUME_STEPS[(i + 1) % VOLUME_STEPS.length]!;
-      return next;
-    });
-  }, []);
+  const cycleVolume = () => {
+    const prev = getRadioPlayerState().volume;
+    const i = VOLUME_STEPS.findIndex((step) => Math.abs(step - prev) < 0.05);
+    const next = VOLUME_STEPS[(i + 1) % VOLUME_STEPS.length]!;
+    setRadioVolume(next);
+  };
 
   const parked = !loaded;
   const index = selected
@@ -195,7 +175,7 @@ export function RadioDial() {
                   key={station.id}
                   type="button"
                   disabled={parked}
-                  onClick={() => tuneTo(station, true)}
+                  onClick={() => onCity(station)}
                   aria-label={`${station.city_label} ${station.station_name}`}
                   aria-pressed={active}
                   className={`min-w-0 shrink px-0.5 py-1.5 text-center leading-[1.25] transition-colors ${
@@ -261,7 +241,10 @@ export function RadioDial() {
               </span>
             ) : selected && loaded ? (
               <>
-                Tuned to <b className="font-normal text-[#B3402A]">{selected.station_name}</b>
+                Tuned to{" "}
+                <b className="font-normal text-[#B3402A]">
+                  {selected.station_name}
+                </b>
                 {" — "}
                 {formatTunedPlace(selected.city_label)}
               </>
@@ -273,12 +256,12 @@ export function RadioDial() {
           </div>
         </div>
 
-        <div className="relative mt-5 flex items-center justify-between px-1 sm:px-2">
+        <div className="relative mt-5 flex items-end justify-between px-1 sm:px-2">
           <div className="flex w-[58px] flex-col items-center">
             <button
               type="button"
               disabled={parked}
-              onClick={stopPlayback}
+              onClick={stopRadioPlayback}
               aria-label="Power, stop playback"
               className="h-[58px] w-[58px] rounded-full border-2 border-[#2C1D12] disabled:opacity-40"
               style={{
@@ -299,29 +282,59 @@ export function RadioDial() {
             </span>
           </div>
 
-          <div
-            className="mx-4 h-16 flex-1 rounded-[10px] sm:mx-[22px]"
-            style={{
-              background:
-                "repeating-linear-gradient(90deg, rgba(30,20,12,.55) 0 3px, transparent 3px 9px), linear-gradient(180deg,#8A7452,#6B5636)",
-              boxShadow: "inset 0 2px 6px rgba(0,0,0,.5)",
-            }}
-            aria-hidden
-          />
+          <div className="flex flex-1 flex-col items-center">
+            <button
+              type="button"
+              disabled={parked || !selected}
+              onClick={onPlayToggle}
+              aria-label={live ? "Stop radio" : "Play radio"}
+              aria-pressed={live}
+              className="flex h-[76px] w-[76px] items-center justify-center rounded-full disabled:opacity-40 sm:h-[82px] sm:w-[82px]"
+              style={{
+                background:
+                  "radial-gradient(circle at 35% 28%, #F7EFDA, #E7D9B6 55%, #C9B382)",
+                border: "4px solid #C9A24B",
+                boxShadow:
+                  "0 5px 12px rgba(0,0,0,.45), inset 0 2px 4px rgba(255,255,255,.45), 0 0 0 2px #2C1D12",
+              }}
+            >
+              {buffering ? (
+                <LoaderCircle
+                  className="h-8 w-8 animate-spin text-[#3E2A1E]"
+                  strokeWidth={2.25}
+                />
+              ) : live ? (
+                <Square
+                  className="h-7 w-7 text-[#3E2A1E]"
+                  strokeWidth={2.25}
+                  fill="currentColor"
+                />
+              ) : (
+                <Play
+                  className="ml-1 h-8 w-8 text-[#3E2A1E]"
+                  strokeWidth={2.25}
+                  fill="currentColor"
+                />
+              )}
+            </button>
+            <span className="mt-[7px] text-[9px] font-bold tracking-[0.2em] text-[#C9B896]">
+              {live ? "STOP" : "PLAY"}
+            </span>
+          </div>
 
           <div className="flex w-[58px] flex-col items-center">
             <button
               type="button"
               disabled={parked}
               onClick={cycleVolume}
-              aria-label={`Volume ${Math.round(volume * 100)} percent`}
+              aria-label={`Volume ${Math.round(player.volume * 100)} percent`}
               className="relative h-[58px] w-[58px] rounded-full border-2 border-[#2C1D12] disabled:opacity-40"
               style={{
                 background:
                   "radial-gradient(circle at 35% 30%, #8A6B4F, #3E2A1E 65%)",
                 boxShadow:
                   "0 4px 8px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.2)",
-                transform: `rotate(${volumeRotation(volume)}deg)`,
+                transform: `rotate(${volumeRotation(player.volume)}deg)`,
               }}
             >
               <span

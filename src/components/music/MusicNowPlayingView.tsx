@@ -15,12 +15,17 @@ import {
 } from "lucide-react";
 import { PlaylistPickerModal } from "@/components/music/PlaylistPickerModal";
 import { RetroEqualizer } from "@/components/music/RetroEqualizer";
-import type { NowPlayingTrack } from "@/lib/music/types";
+import {
+  RadioLiveBadge,
+  SpotifyMark,
+} from "@/components/music/AudioSourceMarks";
+import type { NowPlayingTrack, PlaybackContext } from "@/lib/music/types";
 import { useNowPlaying } from "@/lib/music/use-now-playing";
 import {
   formatTrackTime,
   usePlaybackProgress,
 } from "@/lib/music/use-playback-progress";
+import { useRadioPlayer } from "@/lib/radio/use-radio-player";
 
 const ART_CROSSFADE_MS = 400;
 
@@ -28,6 +33,27 @@ export function MusicNowPlayingView() {
   const { state, busy, toast, localVolume, setVolume, sendCommand } =
     useNowPlaying();
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
+  const radio = useRadioPlayer();
+  const radioLive =
+    radio.status === "playing" || radio.status === "buffering";
+
+  if (!state && !radioLive) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-pulse rounded-full bg-[#F4B400]/25" />
+      </div>
+    );
+  }
+
+  if ((!state || state.status === "not_connected") && radioLive) {
+    return (
+      <RadioSourcePanel
+        stationName={radio.stationName || "Ranch House Radio"}
+        cityLabel={radio.cityLabel || "the dial"}
+        buffering={radio.status === "buffering"}
+      />
+    );
+  }
 
   if (!state) {
     return (
@@ -62,14 +88,22 @@ export function MusicNowPlayingView() {
     return (
       <>
         {toast && <Toast message={toast} />}
-        <EmptyState
-          action={
-            <PlaylistsButton
-              busy={busy}
-              onClick={() => setPlaylistsOpen(true)}
-            />
-          }
-        />
+        {radioLive ? (
+          <RadioSourcePanel
+            stationName={radio.stationName || "Ranch House Radio"}
+            cityLabel={radio.cityLabel || "the dial"}
+            buffering={radio.status === "buffering"}
+          />
+        ) : (
+          <EmptyState
+            action={
+              <PlaylistsButton
+                busy={busy}
+                onClick={() => setPlaylistsOpen(true)}
+              />
+            }
+          />
+        )}
         <PlaylistPickerModal
           open={playlistsOpen}
           onClose={() => setPlaylistsOpen(false)}
@@ -83,6 +117,7 @@ export function MusicNowPlayingView() {
       {toast && <Toast message={toast} />}
       <PlayingLayout
         track={track}
+        context={state.status === "playing" ? state.context : null}
         isPlaying={isPlaying}
         shuffle={shuffle}
         busy={busy}
@@ -108,6 +143,7 @@ export function MusicNowPlayingView() {
 
 function PlayingLayout({
   track,
+  context,
   isPlaying,
   shuffle,
   busy,
@@ -120,6 +156,7 @@ function PlayingLayout({
   onOpenPlaylists,
 }: {
   track: NowPlayingTrack;
+  context: PlaybackContext;
   isPlaying: boolean;
   shuffle: boolean;
   busy: boolean;
@@ -156,9 +193,21 @@ function PlayingLayout({
       </div>
 
       <div className="relative z-10 mt-6 flex w-full flex-col items-center">
-        <h1 className="font-[family-name:var(--font-fraunces)] text-[clamp(1.75rem,4vw,2.125rem)] font-semibold leading-tight tracking-tight text-stone-900">
-          {track.name}
-        </h1>
+        <div className="flex max-w-full items-start justify-center gap-2.5">
+          <SpotifyMark size={20} className="mt-1.5 shrink-0" />
+          <h1 className="min-w-0 font-[family-name:var(--font-fraunces)] text-[clamp(1.75rem,4vw,2.125rem)] font-semibold leading-tight tracking-tight text-stone-900">
+            {track.name}
+          </h1>
+        </div>
+        {context?.type === "playlist" ? (
+          <p className="mt-2 font-[family-name:var(--font-bricolage)] text-sm font-medium text-stone-500">
+            Playlist · {context.name}
+          </p>
+        ) : (
+          <p className="mt-2 font-[family-name:var(--font-bricolage)] text-sm font-medium text-stone-500">
+            Spotify
+          </p>
+        )}
         <p className="mt-2 font-[family-name:var(--font-bricolage)] text-lg text-stone-500">
           {track.artists}
         </p>
@@ -387,6 +436,33 @@ function ArtLayer({
           <Music2 className="h-16 w-16 text-stone-300" strokeWidth={1.5} />
         </div>
       )}
+    </div>
+  );
+}
+
+function RadioSourcePanel({
+  stationName,
+  cityLabel,
+  buffering,
+}: {
+  stationName: string;
+  cityLabel: string;
+  buffering: boolean;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[600px] rounded-[20px] bg-white px-5 py-6 text-center shadow-sm ring-2 ring-red-500/15">
+      <div className="flex items-center justify-center">
+        <RadioLiveBadge />
+      </div>
+      <h2 className="mt-4 font-[family-name:var(--font-fraunces)] text-2xl font-semibold text-stone-900">
+        {stationName}
+      </h2>
+      <p className="mt-1 font-[family-name:var(--font-bricolage)] text-sm text-stone-500">
+        Ranch House Radio · {stationName} — {cityLabel}
+      </p>
+      {buffering ? (
+        <p className="mt-2 text-xs font-medium text-stone-400">Connecting…</p>
+      ) : null}
     </div>
   );
 }

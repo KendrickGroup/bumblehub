@@ -1,4 +1,8 @@
-import type { NowPlayingResponse, NowPlayingTrack } from "@/lib/music/types";
+import type {
+  NowPlayingResponse,
+  NowPlayingTrack,
+  PlaybackContext,
+} from "@/lib/music/types";
 import { spotifyApiFetch } from "./http";
 import { getValidSpotifyAccessToken, SpotifyNotConnectedError } from "./tokens";
 
@@ -18,7 +22,45 @@ type SpotifyPlayerState = {
   shuffle_state?: boolean;
   item: SpotifyTrack | null;
   device?: { volume_percent: number | null };
+  context?: { type?: string | null; uri?: string | null } | null;
 };
+
+const contextNameCache = new Map<string, { name: string; at: number }>();
+const CONTEXT_CACHE_MS = 10 * 60 * 1000;
+
+function playlistIdFromUri(uri: string): string | null {
+  const parts = uri.split(":");
+  const index = parts.lastIndexOf("playlist");
+  const id = index >= 0 ? parts[index + 1] : undefined;
+  return id && /^[A-Za-z0-9]+$/.test(id) ? id : null;
+}
+
+async function resolvePlaybackContext(
+  propertyId: string,
+  context: SpotifyPlayerState["context"],
+): Promise<PlaybackContext> {
+  if (!context || context.type !== "playlist" || !context.uri) return null;
+  const cached = contextNameCache.get(context.uri);
+  if (cached && Date.now() - cached.at < CONTEXT_CACHE_MS) {
+    return { type: "playlist", name: cached.name };
+  }
+  const playlistId = playlistIdFromUri(context.uri);
+  if (!playlistId) return null;
+  try {
+    const response = await spotifyApiFetch(
+      propertyId,
+      `/playlists/${playlistId}?fields=name`,
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as { name?: unknown };
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) return null;
+    contextNameCache.set(context.uri, { name, at: Date.now() });
+    return { type: "playlist", name };
+  } catch {
+    return null;
+  }
+}
 
 /** Prefer the largest image Spotify returns (typically 640px). */
 function pickAlbumArt(images: SpotifyImage[]): string | null {
@@ -83,5 +125,6 @@ export async function fetchSpotifyNowPlaying(
     return { status: "idle", volume, shuffle };
   }
 
-  return { status: "playing", track, volume, shuffle };
+  const context = await resolvePlaybackContext(propertyId, payload.context);
+  return { status: "playing", track, volume, shuffle, context };
 }

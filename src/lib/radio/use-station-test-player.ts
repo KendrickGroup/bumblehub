@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { exclusiveTest, registerTestStop } from "./audio-exclusive";
 
 export type TestPlayerStatus = "idle" | "loading" | "playing" | "failed";
 
@@ -46,6 +47,8 @@ function stopInternal() {
   emit({ key: null, status: "idle" });
 }
 
+registerTestStop(stopInternal);
+
 function bindAudio(el: HTMLAudioElement) {
   el.onplaying = () => {
     if (!current.key) return;
@@ -72,6 +75,7 @@ export function playStationTest(key: string, url: string) {
   }
   const el = getAudio();
   bindAudio(el);
+  exclusiveTest();
   if (current.key && current.key !== key) {
     el.pause();
   }
