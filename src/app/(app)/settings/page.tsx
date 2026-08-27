@@ -26,6 +26,9 @@ import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 import { PhotoBoothSettingsSection } from "./PhotoBoothSettingsSection";
+import { RadioSettingsPanel } from "./RadioSettingsPanel";
+import { ensureLaunchStations } from "@/lib/radio/queries";
+import type { RadioStation } from "@/lib/radio/types";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -59,6 +62,7 @@ export default async function SettingsPage() {
   let homeAssistantUrl = "";
   let customBackdrops = parseCustomBackdrops(null);
   let photos: Awaited<ReturnType<typeof fetchGuestbookPhotos>> = [];
+  let radioStations: RadioStation[] = [];
   let spotify = {
     connected: false,
     displayName: null as string | null,
@@ -80,6 +84,7 @@ export default async function SettingsPage() {
     customBackdrops = parseCustomBackdrops(data?.dashboard_layout);
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
     photos = await fetchGuestbookPhotos(propertyId);
+    radioStations = await ensureLaunchStations(propertyId);
 
     const { data: property } = await supabase
       .from("properties")
@@ -157,6 +162,13 @@ export default async function SettingsPage() {
             hasProperty={!!propertyId}
             initialHomeAssistantUrl={homeAssistantUrl}
             initialSpotify={spotify}
+          />
+        </div>
+
+        <div className="mt-6">
+          <RadioSettingsPanel
+            hasProperty={!!propertyId}
+            initialStations={radioStations}
           />
         </div>
 
