@@ -34,6 +34,15 @@ let snapshot: RadioPlayerState = {
 };
 
 function emit(next: RadioPlayerState) {
+  if (
+    snapshot.status === next.status &&
+    snapshot.stationId === next.stationId &&
+    snapshot.stationName === next.stationName &&
+    snapshot.cityLabel === next.cityLabel &&
+    snapshot.volume === next.volume
+  ) {
+    return;
+  }
   snapshot = next;
   for (const listener of listeners) listener();
 }

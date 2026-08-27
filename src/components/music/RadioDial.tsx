@@ -50,12 +50,13 @@ export function RadioDial() {
   const buffering = player.status === "buffering";
   const failed = player.status === "failed" && player.stationId === selected?.id;
   const live = playing || buffering;
+  const tunedStillOnDial =
+    !tunedId || visible.some((station) => station.id === tunedId);
 
   useEffect(() => {
-    if (!loaded || !tunedId) return;
-    if (visible.some((s) => s.id === tunedId)) return;
+    if (!loaded || tunedStillOnDial) return;
     stopRadioPlayback();
-  }, [loaded, tunedId, visible]);
+  }, [loaded, tunedStillOnDial]);
 
   const retuneFx = useCallback(() => {
     setCrackle(false);

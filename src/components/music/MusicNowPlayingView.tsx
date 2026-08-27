@@ -117,7 +117,9 @@ export function MusicNowPlayingView() {
       {toast && <Toast message={toast} />}
       <PlayingLayout
         track={track}
-        context={state.status === "playing" ? state.context : null}
+        context={
+          state.status === "playing" ? (state.context ?? null) : null
+        }
         isPlaying={isPlaying}
         shuffle={shuffle}
         busy={busy}
