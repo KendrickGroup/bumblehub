@@ -1,19 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pause, Play, Radio } from "lucide-react";
+import { formatTunedPlace } from "@/lib/radio/format-place";
+import { playStaticCrackle } from "@/lib/radio/static-crackle";
+import type { RadioStation } from "@/lib/radio/types";
 import {
   useRadioStations,
   useTunedStationId,
   writeTunedStationId,
 } from "@/lib/radio/use-radio-stations";
 import { stopStationTest } from "@/lib/radio/use-station-test-player";
-import type { RadioStation } from "@/lib/radio/types";
 
-function needleT(count: number, index: number, parked: boolean): number {
-  if (parked || count === 0) return 0.06;
-  if (count === 1) return 0.5;
-  return index / (count - 1);
+const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
+const VOLUME_STEPS = [0.2, 0.4, 0.6, 0.8, 1] as const;
+
+function needleLeft(count: number, index: number, parked: boolean): string {
+  if (parked || count === 0) return "4%";
+  if (count === 1) return "50%";
+  const t = index / (count - 1);
+  return `${4 + t * 92}%`;
+}
+
+function volumeRotation(volume: number): number {
+  return -135 + Math.min(1, Math.max(0, volume)) * 270;
 }
 
 export function RadioDial() {
@@ -22,6 +31,8 @@ export function RadioDial() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [crackle, setCrackle] = useState(false);
 
   const selected =
     visible.find((s) => s.id === tunedId) ??
@@ -30,6 +41,7 @@ export function RadioDial() {
   useEffect(() => {
     const el = new Audio();
     el.preload = "none";
+    el.volume = 0.8;
     audioRef.current = el;
     const onPlaying = () => {
       setPlaying(true);
@@ -55,77 +67,128 @@ export function RadioDial() {
   }, []);
 
   useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
+
+  useEffect(() => {
     if (!loaded || !tunedId) return;
     if (visible.some((s) => s.id === tunedId)) return;
     audioRef.current?.pause();
   }, [loaded, tunedId, visible]);
 
-  const tuneTo = useCallback((station: RadioStation, autoplay: boolean) => {
-    writeTunedStationId(station.id);
-    setFailed(false);
-    const el = audioRef.current;
-    if (!el) return;
-    const already = el.src === station.stream_url && !el.paused;
-    if (already && autoplay) return;
-    if (el.src !== station.stream_url) {
-      el.src = station.stream_url;
-    }
-    if (autoplay) {
-      stopStationTest();
-      void el.play().catch(() => setFailed(true));
-    }
+  const retuneFx = useCallback(() => {
+    playStaticCrackle();
+    setCrackle(false);
+    window.requestAnimationFrame(() => setCrackle(true));
   }, []);
 
-  const togglePlay = useCallback(() => {
-    const el = audioRef.current;
-    if (!el || !selected) return;
-    if (!el.paused) {
-      el.pause();
-      return;
-    }
-    tuneTo(selected, true);
-  }, [selected, tuneTo]);
+  const tuneTo = useCallback(
+    (station: RadioStation, autoplay: boolean) => {
+      const changing = tunedId !== station.id;
+      writeTunedStationId(station.id);
+      setFailed(false);
+      if (changing) retuneFx();
+      const el = audioRef.current;
+      if (!el) return;
+      const already = el.src === station.stream_url && !el.paused;
+      if (already && autoplay) return;
+      if (el.src !== station.stream_url) {
+        el.src = station.stream_url;
+      }
+      if (autoplay) {
+        stopStationTest();
+        void el.play().catch(() => setFailed(true));
+      }
+    },
+    [retuneFx, tunedId],
+  );
+
+  const stopPlayback = useCallback(() => {
+    audioRef.current?.pause();
+  }, []);
+
+  const cycleVolume = useCallback(() => {
+    setVolume((prev) => {
+      const i = VOLUME_STEPS.findIndex((step) => Math.abs(step - prev) < 0.05);
+      const next = VOLUME_STEPS[(i + 1) % VOLUME_STEPS.length]!;
+      return next;
+    });
+  }, []);
 
   const parked = !loaded;
   const index = selected
     ? Math.max(0, visible.findIndex((s) => s.id === selected.id))
     : 0;
-  const t = needleT(visible.length, index, parked);
 
   return (
-    <section className="mx-auto w-full max-w-[720px]">
+    <section className="mx-auto w-full max-w-[680px]">
       <div
-        className={`relative overflow-hidden rounded-[24px] border border-[#d9c7a0] bg-gradient-to-b from-[#f4ead4] to-[#e8d7b0] px-4 pt-5 pb-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_32px_rgba(60,40,10,0.12)] transition-opacity duration-300 ${
+        className={`relative rounded-[22px] border border-[#33241A] px-[18px] pt-[22px] pb-5 sm:px-7 sm:pt-[26px] sm:pb-6 ${
           parked ? "pointer-events-none opacity-40" : "opacity-100"
         }`}
+        style={{
+          background:
+            "repeating-linear-gradient(90deg, #7A5B3E 0 3px, #3E2A1E 3px 5px, #5E4530 5px 40px, #4E3826 40px 42px, #6B4F36 42px 82px, #533C29 82px 84px)",
+          boxShadow:
+            "0 16px 40px rgba(44,29,20,.4), inset 0 2px 0 rgba(255,255,255,.12), inset 0 -4px 10px rgba(0,0,0,.35)",
+        }}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-[#7a5c28] uppercase">
-            <Radio className="h-4 w-4" strokeWidth={2} />
-            Dial
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[22px]"
+          style={{
+            background:
+              "repeating-linear-gradient(0deg, transparent 0 26px, rgba(30,20,12,.12) 26px 27px)",
+          }}
+          aria-hidden
+        />
+
+        <div className="relative mb-4 text-center">
+          <p className="font-[family-name:var(--font-rye)] text-[17px] tracking-[0.14em] text-[#C9A24B] sm:text-[19px] sm:tracking-[0.12em] [text-shadow:0_1px_0_rgba(0,0,0,.55)]">
+            RANCH HOUSE RADIO
           </p>
-          {selected && loaded ? (
-            <p className="truncate text-right text-sm font-medium text-[#4a3a22]">
-              {selected.city_label}
-              <span className="text-[#9a7b42]"> · </span>
-              {selected.station_name}
-            </p>
-          ) : (
-            <p className="text-sm text-[#9a7b42]">
-              {loaded ? "No stations" : "Tuning…"}
-            </p>
-          )}
+          <p className="mt-[3px] text-[9px] font-semibold tracking-[0.28em] text-[#C9B896] uppercase">
+            Latigo Ranch House · All-American Country
+          </p>
         </div>
 
-        <div className="h-[88px] sm:h-[104px]">
-          <div className="relative mx-8 h-full sm:mx-10">
-            <div
-              className="absolute inset-x-0 top-7 h-[2px] bg-[#c4a66a] sm:top-8"
+        <div
+          className="relative overflow-hidden rounded-[12px] px-3 pt-[26px] pb-4 sm:px-[18px] sm:pb-5"
+          style={{
+            background: "linear-gradient(180deg,#F7EFDA,#F3E9CF 55%,#E7D9B6)",
+            boxShadow:
+              "inset 0 2px 8px rgba(62,42,30,.35), inset 0 0 0 2px #C9B382, 0 2px 0 rgba(255,255,255,.15)",
+          }}
+        >
+          <span className="absolute top-2 left-4 text-[10px] font-extrabold tracking-[0.2em] text-[#8A6F45]">
+            AM
+          </span>
+          <div
+            className={`absolute top-[7px] right-[14px] flex items-center gap-1.5 text-[9px] font-extrabold tracking-[0.2em] ${
+              playing ? "text-[#8A6F45]" : "text-[#8A6F45]/45"
+            }`}
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={
+                playing
+                  ? {
+                      background:
+                        "radial-gradient(circle at 35% 30%, #FFE9A8, #F4B400 55%, #B8860B)",
+                      boxShadow: "0 0 10px 3px rgba(244,180,0,.75)",
+                      animation: "radio-onair-glow 1.6s infinite",
+                    }
+                  : {
+                      background: "#9A8A68",
+                      boxShadow: "inset 0 1px 2px rgba(0,0,0,.35)",
+                    }
+              }
               aria-hidden
             />
-            {visible.map((station, i) => {
-              const pos =
-                visible.length === 1 ? 0.5 : i / (visible.length - 1);
+            ON AIR
+          </div>
+
+          <div className="flex justify-between gap-0.5 overflow-x-auto px-1.5 pb-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {visible.map((station) => {
               const active = station.id === selected?.id && !parked;
               return (
                 <button
@@ -133,62 +196,144 @@ export function RadioDial() {
                   type="button"
                   disabled={parked}
                   onClick={() => tuneTo(station, true)}
-                  className="absolute top-0 flex w-[4.5rem] -translate-x-1/2 flex-col items-center"
-                  style={{ left: `${pos * 100}%` }}
                   aria-label={`${station.city_label} ${station.station_name}`}
                   aria-pressed={active}
+                  className={`min-w-0 shrink px-0.5 py-1.5 text-center leading-[1.25] transition-colors ${
+                    active
+                      ? "text-[#241A12]"
+                      : "text-[#6B5636] hover:text-[#B3402A]"
+                  }`}
                 >
-                  <span
-                    className={`max-w-[4.25rem] truncate text-[10px] font-semibold tracking-wide uppercase sm:text-[11px] ${
-                      active ? "text-[#3e2a14]" : "text-[#8a6d3b]"
-                    }`}
-                  >
+                  <span className="block truncate text-[9px] font-bold tracking-[0.14em] uppercase sm:text-[11px] sm:tracking-[0.16em]">
                     {station.city_label}
                   </span>
                   <span
-                    className={`mt-5 h-3 w-[2px] rounded-full sm:mt-6 ${
-                      active ? "bg-[#c45a1a]" : "bg-[#b08948]"
+                    className={`mt-0.5 block truncate font-[family-name:var(--font-elite)] text-[8px] tracking-[0.04em] normal-case sm:text-[8.5px] ${
+                      active ? "text-[#B3402A]" : "text-[#A08A5F]"
                     }`}
-                  />
+                  >
+                    {station.station_name}
+                  </span>
                 </button>
               );
             })}
+          </div>
 
+          <div
+            className="relative mx-1.5 h-3.5"
+            style={{
+              background:
+                "repeating-linear-gradient(90deg, #C9B382 0 1px, transparent 1px 12px)",
+              borderTop: "1px solid #B39F72",
+              borderBottom: "1px solid #B39F72",
+            }}
+          >
             <div
-              className="pointer-events-none absolute top-8 z-10 h-14 w-[3px] -translate-x-1/2 rounded-full bg-[#c45a1a] shadow-[0_0_8px_rgba(196,90,26,0.55)] transition-[left] duration-500 ease-out sm:top-9 sm:h-16"
-              style={{ left: `${t * 100}%` }}
+              className="absolute top-[-24px] bottom-[-6px] w-1 rounded-sm"
+              style={{
+                left: needleLeft(visible.length, index, parked),
+                transform: "translateX(-50%)",
+                background:
+                  "linear-gradient(180deg,#E8C97E,#C9A24B 60%,#8A6B2F)",
+                boxShadow: "0 0 6px rgba(201,162,75,.7)",
+                transition: NEEDLE_EASE,
+              }}
               aria-hidden
             />
           </div>
-        </div>
 
-        <div className="mt-2 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            disabled={parked || !selected}
-            onClick={togglePlay}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#3e2a14] text-[#f4ead4] shadow-[0_4px_0_#2a1b0c] transition active:translate-y-0.5 active:shadow-none disabled:opacity-40"
-            aria-label={playing ? "Stop radio" : "Play station"}
-          >
-            {playing ? (
-              <Pause className="h-6 w-6" strokeWidth={2.25} fill="currentColor" />
+          <div
+            className={`pointer-events-none absolute inset-0 rounded-[12px] mix-blend-multiply ${
+              crackle ? "radio-crackle" : "opacity-0"
+            }`}
+            style={{
+              background:
+                "repeating-conic-gradient(rgba(62,42,30,.12) 0 .6deg, transparent .6deg 1.2deg)",
+            }}
+            onAnimationEnd={() => setCrackle(false)}
+            aria-hidden
+          />
+
+          <div className="mt-3.5 min-h-[22px] text-center font-[family-name:var(--font-elite)] text-[13px] leading-snug text-[#4A3A24] sm:text-[14px]">
+            {failed && selected ? (
+              <span className="text-[#B3402A]">
+                Could not load {selected.station_name}. Try another station.
+              </span>
+            ) : selected && loaded ? (
+              <>
+                Tuned to <b className="font-normal text-[#B3402A]">{selected.station_name}</b>
+                {" — "}
+                {formatTunedPlace(selected.city_label)}
+              </>
+            ) : loaded ? (
+              <span className="text-[#8A6F45]">The dial is empty.</span>
             ) : (
-              <Play className="h-6 w-6" strokeWidth={2.25} fill="currentColor" />
+              <span className="text-[#8A6F45]">Tuning…</span>
             )}
-          </button>
+          </div>
         </div>
 
-        {failed && selected ? (
-          <p className="mt-3 text-center text-xs font-medium text-[#9a3b2a]">
-            Could not load {selected.station_name}. Try another station.
-          </p>
-        ) : null}
+        <div className="relative mt-5 flex items-center justify-between px-1 sm:px-2">
+          <div className="flex w-[58px] flex-col items-center">
+            <button
+              type="button"
+              disabled={parked}
+              onClick={stopPlayback}
+              aria-label="Power, stop playback"
+              className="h-[58px] w-[58px] rounded-full border-2 border-[#2C1D12] disabled:opacity-40"
+              style={{
+                background:
+                  "radial-gradient(circle at 35% 30%, #D4674C, #B3402A 60%, #6E2517)",
+                boxShadow:
+                  "0 4px 8px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.2)",
+              }}
+            >
+              <span
+                className="mx-auto block h-4 w-1 rounded-sm bg-[#C9A24B]"
+                style={{ marginTop: 6 }}
+                aria-hidden
+              />
+            </button>
+            <span className="mt-[7px] text-[9px] font-bold tracking-[0.2em] text-[#C9B896]">
+              POWER
+            </span>
+          </div>
 
-        {loaded && visible.length === 0 ? (
-          <p className="mt-3 text-center text-sm text-[#7a5c28]">
-            The dial is empty. Add stations in Settings → Radio.
-          </p>
-        ) : null}
+          <div
+            className="mx-4 h-16 flex-1 rounded-[10px] sm:mx-[22px]"
+            style={{
+              background:
+                "repeating-linear-gradient(90deg, rgba(30,20,12,.55) 0 3px, transparent 3px 9px), linear-gradient(180deg,#8A7452,#6B5636)",
+              boxShadow: "inset 0 2px 6px rgba(0,0,0,.5)",
+            }}
+            aria-hidden
+          />
+
+          <div className="flex w-[58px] flex-col items-center">
+            <button
+              type="button"
+              disabled={parked}
+              onClick={cycleVolume}
+              aria-label={`Volume ${Math.round(volume * 100)} percent`}
+              className="relative h-[58px] w-[58px] rounded-full border-2 border-[#2C1D12] disabled:opacity-40"
+              style={{
+                background:
+                  "radial-gradient(circle at 35% 30%, #8A6B4F, #3E2A1E 65%)",
+                boxShadow:
+                  "0 4px 8px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.2)",
+                transform: `rotate(${volumeRotation(volume)}deg)`,
+              }}
+            >
+              <span
+                className="absolute top-1.5 left-1/2 h-4 w-1 -translate-x-1/2 rounded-sm bg-[#C9A24B]"
+                aria-hidden
+              />
+            </button>
+            <span className="mt-[7px] text-[9px] font-bold tracking-[0.2em] text-[#C9B896]">
+              VOLUME
+            </span>
+          </div>
+        </div>
       </div>
     </section>
   );
