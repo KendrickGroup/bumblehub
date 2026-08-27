@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { AppTabBar } from "./AppTabBar";
+import { BuildStamp } from "./BuildStamp";
 import { IdleDriftWatcher } from "./IdleDriftWatcher";
 import { ShellNowPlaying } from "./ShellNowPlaying";
 
@@ -28,6 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ShellNowPlaying />
             <AppTabBar />
           </div>
+          <BuildStamp />
         </div>
       )}
     </>
