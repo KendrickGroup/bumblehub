@@ -20,8 +20,12 @@ export type RadioSearchResult = {
   stationuuid: string;
   name: string;
   country: string;
+  countrycode: string;
   state: string;
   bitrate: number;
+  votes: number;
+  clickcount: number;
+  tags: string[];
   streamUrl: string;
 };
 

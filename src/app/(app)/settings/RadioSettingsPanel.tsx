@@ -16,7 +16,6 @@ import {
   EyeOff,
   Pencil,
   Plus,
-  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -25,9 +24,9 @@ import { stopStationTest } from "@/lib/radio/use-station-test-player";
 import {
   MAX_VISIBLE_STATIONS,
   notifyRadioStationsChanged,
-  type RadioSearchResult,
   type RadioStation,
 } from "@/lib/radio/types";
+import { FindStationsPanel } from "./FindStationsPanel";
 import {
   createRadioStation,
   deleteRadioStation,
@@ -41,7 +40,6 @@ type Props = {
 };
 
 const TEXT_DEBOUNCE_MS = 600;
-const SEARCH_DEBOUNCE_MS = 400;
 
 export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   const [stations, setStations] = useState(initialStations);
@@ -195,6 +193,12 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         <p className="mt-3 text-sm font-medium text-red-700">{error}</p>
       ) : null}
 
+      <FindStationsPanel
+        stations={stations}
+        atVisibleCap={atVisibleCap}
+        onAdd={addStation}
+      />
+
       <div className="mt-5 space-y-3">
         {stations.map((station, index) => (
           <StationRow
@@ -215,7 +219,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         ))}
         {stations.length === 0 ? (
           <p className="rounded-[16px] bg-[#FAF8F3] px-4 py-6 text-center text-sm text-stone-500">
-            No stations yet. Add one below.
+            No stations yet. Find one above or paste a stream below.
           </p>
         ) : null}
       </div>
@@ -513,69 +517,10 @@ function AddStationPanel({
     stream_url: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<RadioSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [city, setCity] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchGen = useRef(0);
-
-  useEffect(() => {
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-    };
-  }, []);
-
-  const onQueryChange = (value: string) => {
-    setQuery(value);
-    const q = value.trim();
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.length < 2) {
-      searchGen.current += 1;
-      setResults([]);
-      setSearching(false);
-      setSearchError(null);
-      return;
-    }
-    setSearching(true);
-    const gen = ++searchGen.current;
-    searchTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const response = await fetch(
-            `/api/radio/search?q=${encodeURIComponent(q)}`,
-            { cache: "no-store" },
-          );
-          const body = (await response.json()) as {
-            results?: RadioSearchResult[];
-            error?: string;
-          };
-          if (gen !== searchGen.current) return;
-          if (!response.ok) {
-            throw new Error(body.error ?? "Search failed");
-          }
-          setResults(body.results ?? []);
-          setSearchError(null);
-        } catch (err) {
-          if (gen !== searchGen.current) return;
-          setSearchError(err instanceof Error ? err.message : "Search failed");
-          setResults([]);
-        } finally {
-          if (gen === searchGen.current) setSearching(false);
-        }
-      })();
-    }, SEARCH_DEBOUNCE_MS);
-  };
-
-  const fillFromResult = (result: RadioSearchResult) => {
-    setName(result.name);
-    setUrl(result.streamUrl);
-    setCity(result.state || result.country || "");
-  };
 
   const save = async () => {
     setSaving(true);
@@ -589,132 +534,58 @@ function AddStationPanel({
       setCity("");
       setName("");
       setUrl("");
-      setQuery("");
-      setResults([]);
     }
   };
 
   return (
     <div className="mt-8 border-t border-stone-100 pt-8">
-      <h3 className="text-base font-semibold text-stone-900">Add a station</h3>
+      <h3 className="text-base font-semibold text-stone-900">Paste a stream</h3>
       <p className="mt-1 text-sm text-stone-600">
-        Search the Radio Browser catalog or paste a stream URL.
+        City label, station name, and an https stream URL.
       </p>
-
-      <div className="mt-5">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">
-          Search
-        </p>
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-stone-400"
-            strokeWidth={2}
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Station name"
-            className="min-h-[52px] w-full rounded-[14px] border border-stone-200 bg-[#FAF8F3] py-3 pr-4 pl-10 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
-          />
-        </div>
-        {searching ? (
-          <p className="mt-2 text-sm text-stone-500">Searching…</p>
-        ) : null}
-        {searchError ? (
-          <p className="mt-2 text-sm font-medium text-red-700">{searchError}</p>
-        ) : null}
-        {results.length > 0 ? (
-          <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-            {results.map((result) => {
-              const place = [result.state, result.country]
-                .filter(Boolean)
-                .join(", ");
-              return (
-                <li
-                  key={result.stationuuid}
-                  className="flex flex-wrap items-center gap-2 rounded-[14px] border border-stone-100 bg-[#FAF8F3] px-3 py-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-stone-900">
-                      {result.name}
-                    </p>
-                    <p className="truncate text-xs text-stone-500">
-                      {place || "Unknown location"}
-                      {result.bitrate ? ` · ${result.bitrate} kbps` : ""}
-                    </p>
-                  </div>
-                  <StationTestButton
-                    testKey={`search:${result.stationuuid}`}
-                    url={result.streamUrl}
-                    compact
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fillFromResult(result)}
-                    className="inline-flex min-h-[44px] items-center rounded-full bg-white px-3 text-sm font-semibold text-stone-800 ring-1 ring-stone-200 transition hover:bg-stone-50"
-                  >
-                    Add to dial
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : query.trim().length >= 2 && !searching && !searchError ? (
-          <p className="mt-2 text-sm text-stone-500">
-            No https streams found for that name.
-          </p>
-        ) : null}
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <input
+          type="text"
+          value={city}
+          maxLength={40}
+          placeholder="City label"
+          onChange={(e) => setCity(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+        <input
+          type="text"
+          value={name}
+          maxLength={80}
+          placeholder="Station name"
+          onChange={(e) => setName(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+        <input
+          type="url"
+          value={url}
+          maxLength={500}
+          placeholder="https://stream…"
+          onChange={(e) => setUrl(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 font-mono text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30 sm:col-span-2"
+        />
       </div>
-
-      <div className="mt-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">
-          Manual
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input
-            type="text"
-            value={city}
-            maxLength={40}
-            placeholder="City label"
-            onChange={(e) => setCity(e.target.value)}
-            className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
-          />
-          <input
-            type="text"
-            value={name}
-            maxLength={80}
-            placeholder="Station name"
-            onChange={(e) => setName(e.target.value)}
-            className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
-          />
-          <input
-            type="url"
-            value={url}
-            maxLength={500}
-            placeholder="https://stream…"
-            onChange={(e) => setUrl(e.target.value)}
-            className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 font-mono text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30 sm:col-span-2"
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <StationTestButton testKey="manual" url={url} />
-          <button
-            type="button"
-            disabled={saving || !city.trim() || !name.trim() || !url.trim()}
-            onClick={() => void save()}
-            className="inline-flex min-h-[48px] items-center gap-2 rounded-[14px] bg-[#F4B400] px-5 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            Save station
-          </button>
-        </div>
-        {atVisibleCap ? (
-          <p className="mt-2 text-xs text-stone-500">
-            Saved stations stay hidden until you free a slot on the dial.
-          </p>
-        ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <StationTestButton testKey="manual" url={url} />
+        <button
+          type="button"
+          disabled={saving || !city.trim() || !name.trim() || !url.trim()}
+          onClick={() => void save()}
+          className="inline-flex min-h-[48px] items-center gap-2 rounded-[14px] bg-[#F4B400] px-5 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          Save station
+        </button>
       </div>
+      {atVisibleCap ? (
+        <p className="mt-2 text-xs text-stone-500">
+          Saved stations stay hidden until you free a slot on the dial.
+        </p>
+      ) : null}
     </div>
   );
 }
