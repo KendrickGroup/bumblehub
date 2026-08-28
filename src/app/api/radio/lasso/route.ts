@@ -2,10 +2,21 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import {
+  LassoFailure,
   RECONNECT_MESSAGE,
-  SpotifyReconnectNeededError,
   lassoTrackToRoundup,
 } from "@/lib/spotify/roundup";
+
+function failurePayload(error: LassoFailure) {
+  return {
+    ok: false as const,
+    code: error.reconnect ? ("reconnect" as const) : undefined,
+    error: error.reconnect ? RECONNECT_MESSAGE : error.message,
+    step: error.step,
+    spotifyStatus: error.spotifyStatus,
+    spotifyError: error.spotifyError,
+  };
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,7 +31,13 @@ export async function POST(request: Request) {
   const propertyId = await getDefaultPropertyIdForUser(user.id);
   if (!propertyId) {
     return NextResponse.json(
-      { error: "No default property configured" },
+      {
+        ok: false,
+        error: "No default property configured",
+        step: "scope-check",
+        spotifyStatus: null,
+        spotifyError: "No default property configured",
+      },
       { status: 400 },
     );
   }
@@ -29,7 +46,16 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Invalid JSON",
+        step: "scope-check",
+        spotifyStatus: null,
+        spotifyError: "Invalid JSON",
+      },
+      { status: 400 },
+    );
   }
 
   const title =
@@ -50,14 +76,40 @@ export async function POST(request: Request) {
     const status = await lassoTrackToRoundup(propertyId, title, artist);
     return NextResponse.json({ ok: true, status });
   } catch (error) {
-    if (error instanceof SpotifyReconnectNeededError) {
-      return NextResponse.json(
-        { ok: false, code: "reconnect", error: RECONNECT_MESSAGE },
-        { status: 403 },
+    if (error instanceof LassoFailure) {
+      console.info(
+        JSON.stringify({
+          msg: "radio.lasso.failure",
+          propertyId,
+          step: error.step,
+          spotifyStatus: error.spotifyStatus,
+          spotifyError: error.spotifyError,
+          reconnect: error.reconnect,
+        }),
       );
+      return NextResponse.json(failurePayload(error), {
+        status: error.reconnect ? 403 : 502,
+      });
     }
     const message =
       error instanceof Error ? error.message : "Could not save this song.";
-    return NextResponse.json({ ok: false, error: message }, { status: 502 });
+    console.info(
+      JSON.stringify({
+        msg: "radio.lasso.failure",
+        propertyId,
+        step: "scope-check",
+        spotifyError: message,
+      }),
+    );
+    return NextResponse.json(
+      {
+        ok: false,
+        error: message,
+        step: "scope-check",
+        spotifyStatus: null,
+        spotifyError: message,
+      },
+      { status: 502 },
+    );
   }
 }

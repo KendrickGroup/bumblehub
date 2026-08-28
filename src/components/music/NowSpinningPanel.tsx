@@ -13,6 +13,13 @@ type LassoToast = {
   text: string;
 };
 
+type LassoDebug = {
+  songKey: string;
+  step: string;
+  spotifyStatus: number | null;
+  spotifyError: string;
+};
+
 const TOAST_COPY: Record<LassoKind, string> = {
   roped: "Roped! Saved to The Latigo Roundup",
   duplicate: "Already in your Roundup",
@@ -31,6 +38,7 @@ export function NowSpinningPanel({
   const songKey = `${track.title}|${track.artist ?? ""}`;
   const [savingFor, setSavingFor] = useState<string | null>(null);
   const [toast, setToast] = useState<LassoToast | null>(null);
+  const [debug, setDebug] = useState<LassoDebug | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -49,6 +57,7 @@ export function NowSpinningPanel({
     if (savingFor === songKey) return;
     const forSong = songKey;
     setSavingFor(forSong);
+    setDebug(null);
     try {
       const response = await fetch("/api/radio/lasso", {
         method: "POST",
@@ -62,16 +71,43 @@ export function NowSpinningPanel({
         status?: string;
         code?: string;
         error?: string;
+        step?: string;
+        spotifyStatus?: number | null;
+        spotifyError?: string;
       };
+      if (body.step || body.spotifyError || body.spotifyStatus != null) {
+        setDebug({
+          songKey: forSong,
+          step: body.step || "unknown",
+          spotifyStatus:
+            typeof body.spotifyStatus === "number" ? body.spotifyStatus : null,
+          spotifyError: body.spotifyError || body.error || `HTTP ${response.status}`,
+        });
+      }
       if (response.status === 403 || body.code === "reconnect") {
         showToast("reconnect", forSong);
         return;
       }
-      if (body.status === "roped") showToast("roped", forSong);
-      else if (body.status === "duplicate") showToast("duplicate", forSong);
-      else if (body.status === "not_found") showToast("not_found", forSong);
-      else showToast("error", forSong, body.error);
-    } catch {
+      if (body.status === "roped") {
+        setDebug(null);
+        showToast("roped", forSong);
+      } else if (body.status === "duplicate") {
+        setDebug(null);
+        showToast("duplicate", forSong);
+      } else if (body.status === "not_found") {
+        setDebug(null);
+        showToast("not_found", forSong);
+      } else {
+        showToast("error", forSong, body.error);
+      }
+    } catch (error) {
+      setDebug({
+        songKey: forSong,
+        step: "scope-check",
+        spotifyStatus: null,
+        spotifyError:
+          error instanceof Error ? error.message : "Network error",
+      });
       showToast("error", forSong);
     } finally {
       setSavingFor((current) => (current === forSong ? null : current));
@@ -80,6 +116,7 @@ export function NowSpinningPanel({
 
   const saving = savingFor === songKey;
   const visibleToast = toast?.songKey === songKey ? toast : null;
+  const visibleDebug = debug?.songKey === songKey ? debug : null;
 
   return (
     <div className="radio-spin relative mt-[18px] rounded-[12px] px-4 py-3">
@@ -137,6 +174,15 @@ export function NowSpinningPanel({
             </span>
           ) : null}
           {visibleToast.text}
+        </p>
+      ) : null}
+      {visibleDebug ? (
+        <p className="mt-2 font-mono text-[10px] leading-snug break-all text-stone-500">
+          {visibleDebug.step}
+          {" · "}
+          {visibleDebug.spotifyStatus ?? "—"}
+          {" · "}
+          {visibleDebug.spotifyError}
         </p>
       ) : null}
     </div>
