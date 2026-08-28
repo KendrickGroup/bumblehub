@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchIcyNowPlaying } from "@/lib/radio/icy";
+import { lookupItunesArtwork } from "@/lib/radio/itunes-artwork";
 import { isHttpsStreamUrl } from "@/lib/radio/types";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -26,7 +27,27 @@ export async function GET(request: Request) {
 
   try {
     const track = await fetchIcyNowPlaying(streamUrl);
-    return NextResponse.json({ track }, { headers: NO_STORE });
+    if (!track) {
+      return NextResponse.json({ track: null }, { headers: NO_STORE });
+    }
+
+    let artworkUrl: string | null = null;
+    try {
+      artworkUrl = await lookupItunesArtwork(track.artist, track.title);
+    } catch {
+      artworkUrl = null;
+    }
+
+    return NextResponse.json(
+      {
+        track: {
+          artist: track.artist,
+          title: track.title,
+          artworkUrl,
+        },
+      },
+      { headers: NO_STORE },
+    );
   } catch {
     return NextResponse.json({ track: null }, { headers: NO_STORE });
   }

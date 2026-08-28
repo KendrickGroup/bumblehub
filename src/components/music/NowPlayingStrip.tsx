@@ -19,6 +19,8 @@ import {
 import type { NowPlayingResponse, PlaybackContext } from "@/lib/music/types";
 import { useNowPlaying } from "@/lib/music/use-now-playing";
 import { stopRadioPlayback, useRadioPlayer } from "@/lib/radio/use-radio-player";
+import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
+import type { RadioNowPlayingTrack } from "@/lib/radio/icy";
 
 type ConnectedState = Extract<
   NowPlayingResponse,
@@ -46,6 +48,10 @@ export function NowPlayingStrip({
   const radio = useRadioPlayer();
   const radioLive =
     radio.status === "playing" || radio.status === "buffering";
+  const song = useRadioNowPlaying(
+    radio.streamUrl,
+    radio.status === "playing",
+  );
 
   if (radioLive) {
     return (
@@ -54,6 +60,8 @@ export function NowPlayingStrip({
           stationName={radio.stationName || "Ranch House Radio"}
           cityLabel={radio.cityLabel || "the dial"}
           buffering={radio.status === "buffering"}
+          reconnecting={radio.reconnectAttempt > 0}
+          song={song}
         />
       </ShellChrome>
     );
@@ -186,27 +194,46 @@ function RadioNowPlaying({
   stationName,
   cityLabel,
   buffering,
+  reconnecting,
+  song,
 }: {
   stationName: string;
   cityLabel: string;
   buffering: boolean;
+  reconnecting: boolean;
+  song: RadioNowPlayingTrack | null;
 }) {
   return (
     <div className="flex min-h-[88px] items-center gap-4 rounded-[18px] bg-white px-5 py-4 shadow-sm ring-2 ring-red-500/20 sm:min-h-[72px]">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FBF0D0] text-stone-800">
-        <RadioTowerMark size={22} />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FBF0D0] text-stone-800">
+        {song?.artworkUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- iTunes CDN hosts vary
+          <img
+            key={song.artworkUrl}
+            src={song.artworkUrl}
+            alt=""
+            className="radio-sleeve-photo h-full w-full object-cover"
+          />
+        ) : (
+          <RadioTowerMark size={18} />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2">
           <RadioLiveBadge />
           <span className="truncate text-base font-semibold text-stone-900">
-            {stationName}
+            {song?.title ?? stationName}
           </span>
         </p>
+        {song?.artist ? (
+          <p className="truncate text-sm text-stone-500">{song.artist}</p>
+        ) : null}
         <p className="truncate text-sm text-stone-500">
           Ranch House Radio · {stationName} — {cityLabel}
         </p>
-        {buffering ? (
+        {reconnecting ? (
+          <p className="text-xs font-medium text-stone-400">reconnecting…</p>
+        ) : buffering ? (
           <p className="text-xs font-medium text-stone-400">Connecting…</p>
         ) : null}
       </div>

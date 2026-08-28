@@ -52,6 +52,7 @@ export function RadioDial() {
 
   const playing = player.status === "playing";
   const buffering = player.status === "buffering";
+  const reconnecting = player.reconnectAttempt > 0;
   const failed = player.status === "failed" && player.stationId === selected?.id;
   const live = playing || buffering;
   const tunedStillOnDial =
@@ -173,6 +174,11 @@ export function RadioDial() {
                 <p className="mt-1.5 font-[family-name:var(--font-elite)] text-[14px] text-[#6B5636]">
                   {formatTunedPlace(selected.city_label)}
                 </p>
+                {reconnecting ? (
+                  <p className="mt-1 text-[10px] font-semibold tracking-[0.16em] text-[#8A6F45] uppercase">
+                    reconnecting…
+                  </p>
+                ) : null}
               </>
             ) : loaded ? (
               <p className="pt-6 font-[family-name:var(--font-elite)] text-[#8A6F45]">
@@ -285,7 +291,7 @@ export function RadioDial() {
               aria-pressed={live}
               className={`radio-play-honey ${live ? "is-pressed" : ""}`}
             >
-              {buffering ? (
+              {buffering && !reconnecting ? (
                 <LoaderCircle
                   className="h-8 w-8 animate-spin text-[#3E2A1E]"
                   strokeWidth={2.25}

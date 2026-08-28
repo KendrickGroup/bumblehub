@@ -9,8 +9,6 @@ export function NowSpinningPanel({
   track: RadioNowPlayingTrack;
   stationLine: string;
 }) {
-  const artWords = track.title.split(/\s+/).slice(0, 3).join("\n");
-
   return (
     <div
       key={`${track.title}|${track.artist ?? ""}`}
@@ -19,22 +17,19 @@ export function NowSpinningPanel({
       <span className="radio-spin-tag">NOW SPINNING</span>
       <div className="relative h-[84px] w-[106px] shrink-0">
         <div className="radio-vinyl" aria-hidden />
-        {track.artworkUrl ? (
-          <div className="relative z-[2] h-[84px] w-[84px] overflow-hidden rounded-[6px] shadow-[0_4px_10px_rgba(0,0,0,.35)]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- stream artwork hosts vary */}
+        <div className="relative z-[2] h-[84px] w-[84px] overflow-hidden rounded-[6px] shadow-[0_4px_10px_rgba(0,0,0,.35)]">
+          {track.artworkUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- iTunes CDN hosts vary
             <img
+              key={track.artworkUrl}
               src={track.artworkUrl}
               alt=""
-              className="h-full w-full object-cover"
+              className="radio-sleeve-photo h-full w-full object-cover"
             />
-          </div>
-        ) : (
-          <div className="radio-sleeve-art relative z-[2] flex h-[84px] w-[84px] items-end rounded-[6px] p-1.5">
-            <span className="font-[family-name:var(--font-rye)] text-[10px] leading-[1.15] whitespace-pre-line text-[#F3E9CF] [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">
-              {artWords}
-            </span>
-          </div>
-        )}
+          ) : (
+            <div className="radio-sleeve-kraft h-full w-full" aria-hidden />
+          )}
+        </div>
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <p className="truncate text-[17px] font-extrabold text-[#241A12]">
