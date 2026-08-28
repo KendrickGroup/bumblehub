@@ -23,6 +23,8 @@ type Props = {
     city_label: string;
     station_name: string;
     stream_url: string;
+    call_sign?: string;
+    frequency?: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 

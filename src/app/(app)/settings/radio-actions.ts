@@ -8,6 +8,7 @@ import {
   isHttpsStreamUrl,
   type RadioStation,
 } from "@/lib/radio/types";
+import { parseCallAndFreq } from "@/lib/radio/parse-identity";
 import { countVisibleStations, fetchRadioStations } from "@/lib/radio/queries";
 
 export type RadioActionResult =
@@ -36,11 +37,22 @@ function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
 }
 
+function emptyToNull(
+  value: string | undefined,
+  max: number,
+): string | null | undefined {
+  if (typeof value !== "string") return undefined;
+  const clipped = clip(value, max);
+  return clipped.length > 0 ? clipped : null;
+}
+
 export async function createRadioStation(input: {
   city_label: string;
   station_name: string;
   stream_url: string;
   is_visible?: boolean;
+  call_sign?: string;
+  frequency?: string;
 }): Promise<RadioActionResult> {
   const ctx = await requireProperty();
   if ("error" in ctx) return { ok: false, error: ctx.error };
@@ -58,6 +70,12 @@ export async function createRadioStation(input: {
   const visibleCount = await countVisibleStations(ctx.propertyId);
   const wantVisible = input.is_visible !== false;
   const is_visible = wantVisible && visibleCount < MAX_VISIBLE_STATIONS;
+
+  const parsed = parseCallAndFreq(station_name);
+  const call_sign =
+    emptyToNull(input.call_sign, 12) ?? parsed.callSign;
+  const frequency =
+    emptyToNull(input.frequency, 12) ?? parsed.frequency;
 
   const { data: maxRow } = await ctx.supabase
     .from("radio_stations")
@@ -78,6 +96,8 @@ export async function createRadioStation(input: {
       stream_url,
       display_order: nextOrder,
       is_visible,
+      call_sign,
+      frequency,
     })
     .select(RADIO_STATION_COLUMNS)
     .single();
@@ -94,6 +114,8 @@ export async function updateRadioStation(input: {
   station_name?: string;
   stream_url?: string;
   is_visible?: boolean;
+  call_sign?: string;
+  frequency?: string;
 }): Promise<RadioActionResult> {
   const ctx = await requireProperty();
   if ("error" in ctx) return { ok: false, error: ctx.error };
@@ -116,6 +138,12 @@ export async function updateRadioStation(input: {
       return { ok: false, error: "Stream URL must start with https://." };
     }
     patch.stream_url = stream_url;
+  }
+  if (typeof input.call_sign === "string") {
+    patch.call_sign = emptyToNull(input.call_sign, 12);
+  }
+  if (typeof input.frequency === "string") {
+    patch.frequency = emptyToNull(input.frequency, 12);
   }
   if (typeof input.is_visible === "boolean") {
     if (input.is_visible) {

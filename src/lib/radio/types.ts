@@ -7,6 +7,8 @@ export type RadioStation = {
   display_order: number;
   is_visible: boolean;
   created_at: string;
+  call_sign: string | null;
+  frequency: string | null;
 };
 
 export type LaunchStation = {
@@ -30,7 +32,7 @@ export type RadioSearchResult = {
 };
 
 export const RADIO_STATION_COLUMNS =
-  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at";
+  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency";
 
 export const MAX_VISIBLE_STATIONS = 10;
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { LAUNCH_STATIONS } from "./launch-stations";
+import { parseCallAndFreq } from "./parse-identity";
 import {
   RADIO_STATION_COLUMNS,
   type RadioStation,
@@ -40,14 +41,19 @@ export async function ensureLaunchStations(
   const { data, error } = await supabase
     .from("radio_stations")
     .insert(
-      LAUNCH_STATIONS.map((station) => ({
-        property_id: propertyId,
-        city_label: station.city_label,
-        station_name: station.station_name,
-        stream_url: station.stream_url,
-        display_order: station.display_order,
-        is_visible: true,
-      })),
+      LAUNCH_STATIONS.map((station) => {
+        const parsed = parseCallAndFreq(station.station_name);
+        return {
+          property_id: propertyId,
+          city_label: station.city_label,
+          station_name: station.station_name,
+          stream_url: station.stream_url,
+          display_order: station.display_order,
+          is_visible: true,
+          call_sign: parsed.callSign,
+          frequency: parsed.frequency,
+        };
+      }),
     )
     .select(RADIO_STATION_COLUMNS);
 

@@ -41,6 +41,14 @@ type Props = {
 
 const TEXT_DEBOUNCE_MS = 600;
 
+type StationTextFields = {
+  city_label: string;
+  station_name: string;
+  stream_url: string;
+  call_sign: string;
+  frequency: string;
+};
+
 export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   const [stations, setStations] = useState(initialStations);
   const [error, setError] = useState<string | null>(null);
@@ -113,10 +121,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   );
 
   const commitFields = useCallback(
-    async (
-      id: string,
-      fields: { city_label: string; station_name: string; stream_url: string },
-    ) => {
+    async (id: string, fields: StationTextFields) => {
       setError(null);
       const result = await updateRadioStation({ id, ...fields });
       if (result.ok && "station" in result && result.station) {
@@ -145,6 +150,8 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
       city_label: string;
       station_name: string;
       stream_url: string;
+      call_sign?: string;
+      frequency?: string;
     }) => {
       setError(null);
       const result = await createRadioStation({
@@ -238,10 +245,7 @@ type StationRowProps = {
   onToggleEdit: () => void;
   onMove: (id: string, direction: -1 | 1) => void;
   onToggleVisible: (station: RadioStation) => void;
-  onCommitFields: (
-    id: string,
-    fields: { city_label: string; station_name: string; stream_url: string },
-  ) => void;
+  onCommitFields: (id: string, fields: StationTextFields) => void;
   onDelete: (id: string) => void;
 };
 
@@ -290,6 +294,11 @@ const StationRow = memo(function StationRow({
           <p className="truncate text-base font-semibold text-stone-900">
             {station.station_name}
           </p>
+          {station.call_sign || station.frequency ? (
+            <p className="truncate font-[family-name:var(--font-elite)] text-xs text-stone-500">
+              {[station.call_sign, station.frequency].filter(Boolean).join(" ")}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -337,6 +346,8 @@ const StationRow = memo(function StationRow({
           initialCity={station.city_label}
           initialName={station.station_name}
           initialUrl={station.stream_url}
+          initialCall={station.call_sign ?? ""}
+          initialFreq={station.frequency ?? ""}
           onCommit={onCommitFields}
         />
       ) : null}
@@ -378,36 +389,76 @@ function IconButton({
   );
 }
 
+function stationDraftEquals(
+  a: { city: string; name: string; url: string; call: string; freq: string },
+  b: { city: string; name: string; url: string; call: string; freq: string },
+) {
+  return (
+    a.city === b.city &&
+    a.name === b.name &&
+    a.url === b.url &&
+    a.call === b.call &&
+    a.freq === b.freq
+  );
+}
+
+function draftToFields(next: {
+  city: string;
+  name: string;
+  url: string;
+  call: string;
+  freq: string;
+}): StationTextFields {
+  return {
+    city_label: next.city,
+    station_name: next.name,
+    stream_url: next.url,
+    call_sign: next.call,
+    frequency: next.freq,
+  };
+}
+
 const StationEditFields = memo(function StationEditFields({
   stationId,
   initialCity,
   initialName,
   initialUrl,
+  initialCall,
+  initialFreq,
   onCommit,
 }: {
   stationId: string;
   initialCity: string;
   initialName: string;
   initialUrl: string;
-  onCommit: (
-    id: string,
-    fields: { city_label: string; station_name: string; stream_url: string },
-  ) => void;
+  initialCall: string;
+  initialFreq: string;
+  onCommit: (id: string, fields: StationTextFields) => void;
 }) {
   const [city, setCity] = useState(initialCity);
   const [name, setName] = useState(initialName);
   const [url, setUrl] = useState(initialUrl);
-  const latestRef = useRef({ city: initialCity, name: initialName, url: initialUrl });
+  const [call, setCall] = useState(initialCall);
+  const [freq, setFreq] = useState(initialFreq);
+  const latestRef = useRef({
+    city: initialCity,
+    name: initialName,
+    url: initialUrl,
+    call: initialCall,
+    freq: initialFreq,
+  });
   const committedRef = useRef({
     city: initialCity,
     name: initialName,
     url: initialUrl,
+    call: initialCall,
+    freq: initialFreq,
   });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    latestRef.current = { city, name, url };
-  }, [city, name, url]);
+    latestRef.current = { city, name, url, call, freq };
+  }, [city, name, url, call, freq]);
 
   const flush = useCallback(() => {
     if (debounceRef.current) {
@@ -415,19 +466,9 @@ const StationEditFields = memo(function StationEditFields({
       debounceRef.current = null;
     }
     const next = latestRef.current;
-    if (
-      next.city === committedRef.current.city &&
-      next.name === committedRef.current.name &&
-      next.url === committedRef.current.url
-    ) {
-      return;
-    }
+    if (stationDraftEquals(next, committedRef.current)) return;
     committedRef.current = next;
-    onCommit(stationId, {
-      city_label: next.city,
-      station_name: next.name,
-      stream_url: next.url,
-    });
+    onCommit(stationId, draftToFields(next));
   }, [onCommit, stationId]);
 
   const schedule = useCallback(() => {
@@ -439,18 +480,9 @@ const StationEditFields = memo(function StationEditFields({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       const next = latestRef.current;
-      if (
-        next.city !== committedRef.current.city ||
-        next.name !== committedRef.current.name ||
-        next.url !== committedRef.current.url
-      ) {
-        committedRef.current = next;
-        onCommit(stationId, {
-          city_label: next.city,
-          station_name: next.name,
-          stream_url: next.url,
-        });
-      }
+      if (stationDraftEquals(next, committedRef.current)) return;
+      committedRef.current = next;
+      onCommit(stationId, draftToFields(next));
     };
   }, [onCommit, stationId]);
 
@@ -460,6 +492,9 @@ const StationEditFields = memo(function StationEditFields({
       setter(e.currentTarget.value);
       schedule();
     };
+
+  const fieldClass =
+    "min-h-[48px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30";
 
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -473,7 +508,7 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={40}
           onChange={onField(setCity)}
           onBlur={flush}
-          className="min-h-[48px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+          className={fieldClass}
         />
       </label>
       <label className="block sm:col-span-1">
@@ -486,7 +521,35 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={80}
           onChange={onField(setName)}
           onBlur={flush}
-          className="min-h-[48px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Call sign
+        </span>
+        <input
+          type="text"
+          value={call}
+          maxLength={12}
+          placeholder="KUZZ"
+          onChange={onField(setCall)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Frequency
+        </span>
+        <input
+          type="text"
+          value={freq}
+          maxLength={12}
+          placeholder="107.9"
+          onChange={onField(setFreq)}
+          onBlur={flush}
+          className={fieldClass}
         />
       </label>
       <label className="block sm:col-span-2">
@@ -499,7 +562,7 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={500}
           onChange={onField(setUrl)}
           onBlur={flush}
-          className="min-h-[48px] w-full rounded-[12px] border border-stone-200 bg-white px-3 font-mono text-xs text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+          className={`${fieldClass} font-mono text-xs`}
         />
       </label>
     </div>
@@ -515,11 +578,15 @@ function AddStationPanel({
     city_label: string;
     station_name: string;
     stream_url: string;
+    call_sign?: string;
+    frequency?: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [city, setCity] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [call, setCall] = useState("");
+  const [freq, setFreq] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -528,12 +595,16 @@ function AddStationPanel({
       city_label: city,
       station_name: name,
       stream_url: url,
+      call_sign: call,
+      frequency: freq,
     });
     setSaving(false);
     if (result.ok) {
       setCity("");
       setName("");
       setUrl("");
+      setCall("");
+      setFreq("");
     }
   };
 
@@ -541,7 +612,8 @@ function AddStationPanel({
     <div className="mt-8 border-t border-stone-100 pt-8">
       <h3 className="text-base font-semibold text-stone-900">Paste a stream</h3>
       <p className="mt-1 text-sm text-stone-600">
-        City label, station name, and an https stream URL.
+        City label, station name, and an https stream URL. Call sign and
+        frequency are optional — the dial can parse them from the name.
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <input
@@ -558,6 +630,22 @@ function AddStationPanel({
           maxLength={80}
           placeholder="Station name"
           onChange={(e) => setName(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+        <input
+          type="text"
+          value={call}
+          maxLength={12}
+          placeholder="Call sign (optional)"
+          onChange={(e) => setCall(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+        <input
+          type="text"
+          value={freq}
+          maxLength={12}
+          placeholder="Frequency (optional)"
+          onChange={(e) => setFreq(e.target.value)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
         />
         <input
