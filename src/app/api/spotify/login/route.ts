@@ -4,13 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { getOriginFromRequest } from "@/lib/site";
 import {
-  getSpotifyClientId,
+  buildSpotifyAuthorizeUrl,
   getSpotifyRedirectUri,
   OAUTH_COOKIE_MAX_AGE,
   SPOTIFY_OAUTH_PROPERTY_COOKIE,
   SPOTIFY_OAUTH_STATE_COOKIE,
-  SPOTIFY_SCOPES,
 } from "@/lib/spotify/config";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -32,15 +33,10 @@ export async function GET(request: NextRequest) {
   const origin = getOriginFromRequest(request);
   const redirectUri = getSpotifyRedirectUri(origin);
   const state = randomBytes(32).toString("hex");
-  const authorizeUrl = new URL("https://accounts.spotify.com/authorize");
-  authorizeUrl.searchParams.set("client_id", getSpotifyClientId());
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("scope", SPOTIFY_SCOPES);
-  authorizeUrl.searchParams.set("state", state);
-  authorizeUrl.searchParams.set("show_dialog", "true");
+  const authorizeUrl = buildSpotifyAuthorizeUrl({ redirectUri, state });
 
-  const response = NextResponse.redirect(authorizeUrl.toString());
+  const response = NextResponse.redirect(authorizeUrl);
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   const secure = process.env.NODE_ENV === "production";
 
   response.cookies.set(SPOTIFY_OAUTH_STATE_COOKIE, state, {

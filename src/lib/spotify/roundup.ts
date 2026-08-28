@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { hasAllScopes, LASSO_REQUIRED_SCOPES } from "./config";
 import { spotifyApiFetch } from "./http";
-import { SpotifyNotConnectedError } from "./tokens";
+import {
+  loadSpotifyCredentials,
+  SpotifyNotConnectedError,
+} from "./tokens";
 
 export const ROUNDUP_NAME = "The Latigo Roundup";
 export const ROUNDUP_DESCRIPTION =
@@ -60,19 +64,27 @@ function storedPlaylistId(layout: Record<string, unknown>): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function isInsufficientScope(status: number, body: unknown, text: string) {
+  if (status !== 403) return false;
+  const blob = text.toLowerCase();
+  if (blob.includes("insufficient client scope")) return true;
+  if (!body || typeof body !== "object") return false;
+  const nested = (body as { error?: { message?: unknown } }).error;
+  const message =
+    nested && typeof nested === "object" && typeof nested.message === "string"
+      ? nested.message.toLowerCase()
+      : "";
+  return message.includes("insufficient client scope");
+}
+
 async function spotifyJson<T>(
   propertyId: string,
   path: string,
   init?: RequestInit,
 ): Promise<{ status: number; body: T | null }> {
   const response = await spotifyApiFetch(propertyId, path, init);
-  if (response.status === 403) {
-    throw new SpotifyReconnectNeededError();
-  }
-  if (response.status === 204) {
-    return { status: 204, body: null };
-  }
-  const text = await response.text();
+  const text =
+    response.status === 204 ? "" : await response.text().catch(() => "");
   let body: T | null = null;
   if (text) {
     try {
@@ -80,6 +92,12 @@ async function spotifyJson<T>(
     } catch {
       body = null;
     }
+  }
+  if (isInsufficientScope(response.status, body, text)) {
+    throw new SpotifyReconnectNeededError();
+  }
+  if (response.status === 204) {
+    return { status: 204, body: null };
   }
   return { status: response.status, body };
 }
@@ -141,12 +159,12 @@ async function resolveRoundupPlaylistId(propertyId: string): Promise<string> {
       `/playlists/${encodeURIComponent(stored)}`,
     );
     if (existing.status === 200 && existing.body?.id) return stored;
-    if (existing.status !== 404) {
-      throw new Error(`Spotify playlist lookup failed (${existing.status})`);
+    if (existing.status === 404 || existing.status === 403) {
+      const created = await createRoundup(propertyId);
+      await savePlaylistId(propertyId, created);
+      return created;
     }
-    const created = await createRoundup(propertyId);
-    await savePlaylistId(propertyId, created);
-    return created;
+    throw new Error(`Spotify playlist lookup failed (${existing.status})`);
   }
 
   const found = await findRoundupByName(propertyId);
@@ -208,6 +226,14 @@ export async function lassoTrackToRoundup(
   artist: string | null,
 ): Promise<LassoStatus> {
   try {
+    const credentials = await loadSpotifyCredentials(propertyId);
+    if (
+      credentials.scope &&
+      !hasAllScopes(credentials.scope, LASSO_REQUIRED_SCOPES)
+    ) {
+      throw new SpotifyReconnectNeededError();
+    }
+
     const trackId = await searchSpotifyTrack(propertyId, title, artist);
     if (!trackId) return "not_found";
 

@@ -3,13 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import { getOriginFromRequest } from "@/lib/site";
 import {
   getSpotifyRedirectUri,
+  parseGrantedScopes,
   SPOTIFY_OAUTH_PROPERTY_COOKIE,
   SPOTIFY_OAUTH_STATE_COOKIE,
 } from "@/lib/spotify/config";
 import {
   exchangeSpotifyCode,
+  loadSpotifyCredentials,
   saveSpotifyCredentials,
+  SpotifyNotConnectedError,
 } from "@/lib/spotify/tokens";
+
+export const dynamic = "force-dynamic";
 
 function dashboardRedirect(
   request: NextRequest,
@@ -61,7 +66,27 @@ export async function GET(request: NextRequest) {
 
   try {
     const redirectUri = getSpotifyRedirectUri(getOriginFromRequest(request));
-    const credentials = await exchangeSpotifyCode(code, redirectUri);
+    let existingRefreshToken: string | undefined;
+    try {
+      existingRefreshToken = (await loadSpotifyCredentials(propertyId))
+        .refresh_token;
+    } catch (err) {
+      if (!(err instanceof SpotifyNotConnectedError)) throw err;
+    }
+
+    const credentials = await exchangeSpotifyCode(
+      code,
+      redirectUri,
+      existingRefreshToken,
+    );
+    const granted = parseGrantedScopes(credentials.scope);
+    console.info(
+      JSON.stringify({
+        msg: "spotify.oauth.granted_scopes",
+        propertyId,
+        granted,
+      }),
+    );
     await saveSpotifyCredentials(propertyId, credentials);
 
     const response = dashboardRedirect(request, { spotify: "connected" });

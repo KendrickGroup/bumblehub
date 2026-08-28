@@ -44,7 +44,7 @@ export function credentialsFromTokenResponse(
     refresh_token: refreshToken,
     expires_at: Math.floor(Date.now() / 1000) + body.expires_in,
     token_type: body.token_type,
-    scope: body.scope,
+    scope: typeof body.scope === "string" ? body.scope : undefined,
   };
 }
 

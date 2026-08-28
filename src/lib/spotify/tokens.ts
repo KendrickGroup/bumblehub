@@ -5,7 +5,11 @@ import {
   type SpotifyCredentials,
   type SpotifyTokenResponse,
 } from "./credentials";
-import { getSpotifyClientId, getSpotifyClientSecret } from "./config";
+import {
+  getSpotifyClientId,
+  getSpotifyClientSecret,
+  normalizeScopeString,
+} from "./config";
 
 const EXPIRY_MARGIN_SECONDS = 60;
 
@@ -30,6 +34,7 @@ async function fetchSpotifyTokens(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params.toString(),
+    cache: "no-store",
   });
 
   const body = (await response.json()) as SpotifyTokenResponse & {
@@ -49,6 +54,7 @@ async function fetchSpotifyTokens(
 export async function exchangeSpotifyCode(
   code: string,
   redirectUri: string,
+  existingRefreshToken?: string,
 ): Promise<SpotifyCredentials> {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
@@ -56,21 +62,29 @@ export async function exchangeSpotifyCode(
     redirect_uri: redirectUri,
   });
 
-  return credentialsFromTokenResponse(await fetchSpotifyTokens(params));
+  return credentialsFromTokenResponse(
+    await fetchSpotifyTokens(params),
+    existingRefreshToken,
+  );
 }
 
 async function refreshSpotifyCredentials(
-  refreshToken: string,
+  current: SpotifyCredentials,
 ): Promise<SpotifyCredentials> {
   const params = new URLSearchParams({
     grant_type: "refresh_token",
-    refresh_token: refreshToken,
+    refresh_token: current.refresh_token,
   });
 
-  return credentialsFromTokenResponse(
+  const refreshed = credentialsFromTokenResponse(
     await fetchSpotifyTokens(params),
-    refreshToken,
+    current.refresh_token,
   );
+  // Refresh responses sometimes omit scope; never wipe a known grant.
+  if (!refreshed.scope && current.scope) {
+    refreshed.scope = current.scope;
+  }
+  return refreshed;
 }
 
 export async function saveSpotifyCredentials(
@@ -79,13 +93,17 @@ export async function saveSpotifyCredentials(
 ): Promise<void> {
   const supabase = createServiceClient();
   const now = new Date().toISOString();
+  const stored: SpotifyCredentials = {
+    ...credentials,
+    scope: normalizeScopeString(credentials.scope),
+  };
 
   const { error } = await supabase.from("integrations").upsert(
     {
       property_id: propertyId,
       integration_type: "spotify",
       display_name: "Spotify",
-      credentials,
+      credentials: stored,
       is_connected: true,
       last_synced_at: now,
       updated_at: now,
@@ -114,9 +132,9 @@ async function loadSpotifyIntegration(propertyId: string) {
   return data;
 }
 
-export async function getValidSpotifyAccessToken(
+export async function loadSpotifyCredentials(
   propertyId: string,
-): Promise<string> {
+): Promise<SpotifyCredentials> {
   const row = await loadSpotifyIntegration(propertyId);
   if (!row?.is_connected) {
     throw new SpotifyNotConnectedError();
@@ -126,18 +144,29 @@ export async function getValidSpotifyAccessToken(
   if (!credentials) {
     throw new SpotifyNotConnectedError();
   }
+  return credentials;
+}
 
+export async function getValidSpotifyAccessToken(
+  propertyId: string,
+): Promise<string> {
+  const credentials = await loadSpotifyCredentials(propertyId);
   const now = Math.floor(Date.now() / 1000);
   if (credentials.expires_at - EXPIRY_MARGIN_SECONDS > now) {
     return credentials.access_token;
   }
 
-  const refreshed = await refreshSpotifyCredentials(credentials.refresh_token);
+  const refreshed = await refreshSpotifyCredentials(credentials);
   await saveSpotifyCredentials(propertyId, refreshed);
   return refreshed.access_token;
 }
 
 export async function isSpotifyConnected(propertyId: string): Promise<boolean> {
-  const row = await loadSpotifyIntegration(propertyId);
-  return !!row?.is_connected && !!parseSpotifyCredentials(row.credentials);
+  try {
+    await loadSpotifyCredentials(propertyId);
+    return true;
+  } catch (error) {
+    if (error instanceof SpotifyNotConnectedError) return false;
+    throw error;
+  }
 }
