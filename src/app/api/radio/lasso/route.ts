@@ -73,8 +73,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const status = await lassoTrackToRoundup(propertyId, title, artist);
-    return NextResponse.json({ ok: true, status });
+    const result = await lassoTrackToRoundup(propertyId, title, artist);
+    return NextResponse.json({
+      ok: true,
+      status: result.status,
+      ...(result.note ? { note: result.note } : {}),
+    });
   } catch (error) {
     if (error instanceof LassoFailure) {
       console.info(

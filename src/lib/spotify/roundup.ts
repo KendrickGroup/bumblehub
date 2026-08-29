@@ -128,6 +128,7 @@ async function spotifyJson<T>(
   path: string,
   step: LassoStep,
   init?: RequestInit,
+  opts?: { suppressInsufficientScope?: boolean },
 ): Promise<{ status: number; body: T | null; text: string }> {
   let response: Response;
   try {
@@ -158,7 +159,10 @@ async function spotifyJson<T>(
     }
   }
 
-  if (isInsufficientScope(response.status, body, text)) {
+  if (
+    isInsufficientScope(response.status, body, text) &&
+    !opts?.suppressInsufficientScope
+  ) {
     throw new LassoFailure({
       step,
       spotifyStatus: response.status,
@@ -201,44 +205,126 @@ async function findRoundupByName(propertyId: string): Promise<string | null> {
   return null;
 }
 
-async function createRoundup(propertyId: string): Promise<string> {
-  const me = await spotifyJson<{ id: string }>(
-    propertyId,
-    "/me",
-    "playlist-create",
-  );
-  if (me.status !== 200 || !me.body?.id) {
-    throw new LassoFailure({
-      step: "playlist-create",
-      spotifyStatus: me.status,
-      spotifyError: verbatimSpotifyError(me.body, me.text),
-    });
-  }
+type CreatedRoundup = { id: string; note?: string };
 
-  const created = await spotifyJson<{ id: string }>(
-    propertyId,
-    `/users/${encodeURIComponent(me.body.id)}/playlists`,
-    "playlist-create",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        name: ROUNDUP_NAME,
-        public: true,
-        description: ROUNDUP_DESCRIPTION,
-      }),
-    },
+const ROUNDUP_CREATE_BODY = {
+  name: ROUNDUP_NAME,
+  description: ROUNDUP_DESCRIPTION,
+} as const;
+
+const PRIVATE_VISIBILITY_NOTE =
+  "The Latigo Roundup was created private; making it public failed. Tracks still save.";
+
+function logPlaylistCreate(
+  endpoint: string,
+  body: unknown,
+  status: number,
+  responseText: string,
+) {
+  console.info(
+    JSON.stringify({
+      msg: "radio.lasso.playlist-create",
+      endpoint,
+      body,
+      status,
+      response: responseText.slice(0, 800),
+    }),
   );
-  if ((created.status !== 201 && created.status !== 200) || !created.body?.id) {
-    throw new LassoFailure({
-      step: "playlist-create",
-      spotifyStatus: created.status,
-      spotifyError: verbatimSpotifyError(created.body, created.text),
-    });
-  }
-  return created.body.id;
 }
 
-async function resolveRoundupPlaylistId(propertyId: string): Promise<string> {
+async function postMePlaylist(
+  propertyId: string,
+  isPublic: boolean,
+): Promise<{ status: number; body: { id?: string } | null; text: string }> {
+  const payload = {
+    name: ROUNDUP_CREATE_BODY.name,
+    public: isPublic,
+    description: ROUNDUP_CREATE_BODY.description,
+  };
+  const result = await spotifyJson<{ id: string }>(
+    propertyId,
+    "/me/playlists",
+    "playlist-create",
+    { method: "POST", body: JSON.stringify(payload) },
+    { suppressInsufficientScope: true },
+  );
+  logPlaylistCreate(
+    "POST https://api.spotify.com/v1/me/playlists",
+    payload,
+    result.status,
+    result.text,
+  );
+  return result;
+}
+
+async function createRoundup(propertyId: string): Promise<CreatedRoundup> {
+  const createdPublic = await postMePlaylist(propertyId, true);
+  if (
+    (createdPublic.status === 201 || createdPublic.status === 200) &&
+    createdPublic.body?.id
+  ) {
+    return { id: createdPublic.body.id };
+  }
+
+  if (createdPublic.status !== 403) {
+    throw new LassoFailure({
+      step: "playlist-create",
+      spotifyStatus: createdPublic.status,
+      spotifyError: verbatimSpotifyError(createdPublic.body, createdPublic.text),
+    });
+  }
+
+  const createdPrivate = await postMePlaylist(propertyId, false);
+  if (
+    (createdPrivate.status !== 201 && createdPrivate.status !== 200) ||
+    !createdPrivate.body?.id
+  ) {
+    throw new LassoFailure({
+      step: "playlist-create",
+      spotifyStatus: createdPrivate.status,
+      spotifyError: verbatimSpotifyError(
+        createdPrivate.body,
+        createdPrivate.text || createdPublic.text,
+      ),
+      reconnect:
+        isInsufficientScope(
+          createdPrivate.status,
+          createdPrivate.body,
+          createdPrivate.text,
+        ) ||
+        isInsufficientScope(
+          createdPublic.status,
+          createdPublic.body,
+          createdPublic.text,
+        ),
+    });
+  }
+
+  const playlistId = createdPrivate.body.id;
+  const flipPayload = { public: true };
+  const flip = await spotifyJson(
+    propertyId,
+    `/playlists/${encodeURIComponent(playlistId)}`,
+    "playlist-create",
+    { method: "PUT", body: JSON.stringify(flipPayload) },
+    { suppressInsufficientScope: true },
+  );
+  logPlaylistCreate(
+    `PUT https://api.spotify.com/v1/playlists/${playlistId}`,
+    flipPayload,
+    flip.status,
+    flip.text,
+  );
+
+  if (flip.status === 200 || flip.status === 201 || flip.status === 204) {
+    return { id: playlistId };
+  }
+  return { id: playlistId, note: PRIVATE_VISIBILITY_NOTE };
+}
+
+async function resolveRoundupPlaylistId(
+  propertyId: string,
+): Promise<CreatedRoundup> {
   const layout = await readLayout(propertyId);
   const stored = storedPlaylistId(layout);
 
@@ -248,10 +334,10 @@ async function resolveRoundupPlaylistId(propertyId: string): Promise<string> {
       `/playlists/${encodeURIComponent(stored)}`,
       "playlist-lookup",
     );
-    if (existing.status === 200 && existing.body?.id) return stored;
+    if (existing.status === 200 && existing.body?.id) return { id: stored };
     if (existing.status === 404 || existing.status === 403) {
       const created = await createRoundup(propertyId);
-      await savePlaylistId(propertyId, created);
+      await savePlaylistId(propertyId, created.id);
       return created;
     }
     throw new LassoFailure({
@@ -264,11 +350,11 @@ async function resolveRoundupPlaylistId(propertyId: string): Promise<string> {
   const found = await findRoundupByName(propertyId);
   if (found) {
     await savePlaylistId(propertyId, found);
-    return found;
+    return { id: found };
   }
 
   const created = await createRoundup(propertyId);
-  await savePlaylistId(propertyId, created);
+  await savePlaylistId(propertyId, created.id);
   return created;
 }
 
@@ -328,7 +414,7 @@ export async function lassoTrackToRoundup(
   propertyId: string,
   title: string,
   artist: string | null,
-): Promise<LassoStatus> {
+): Promise<{ status: LassoStatus; note?: string }> {
   try {
     const credentials = await loadSpotifyCredentials(propertyId);
     if (
@@ -343,16 +429,16 @@ export async function lassoTrackToRoundup(
     }
 
     const trackId = await searchSpotifyTrack(propertyId, title, artist);
-    if (!trackId) return "not_found";
+    if (!trackId) return { status: "not_found" };
 
-    const playlistId = await resolveRoundupPlaylistId(propertyId);
-    if (await playlistHasTrack(propertyId, playlistId, trackId)) {
-      return "duplicate";
+    const playlist = await resolveRoundupPlaylistId(propertyId);
+    if (await playlistHasTrack(propertyId, playlist.id, trackId)) {
+      return { status: "duplicate", note: playlist.note };
     }
 
     const added = await spotifyJson(
       propertyId,
-      `/playlists/${encodeURIComponent(playlistId)}/tracks`,
+      `/playlists/${encodeURIComponent(playlist.id)}/tracks`,
       "add-track",
       {
         method: "POST",
@@ -366,7 +452,7 @@ export async function lassoTrackToRoundup(
         spotifyError: verbatimSpotifyError(added.body, added.text),
       });
     }
-    return "roped";
+    return { status: "roped", note: playlist.note };
   } catch (error) {
     if (error instanceof LassoFailure) throw error;
     if (error instanceof SpotifyNotConnectedError) {
