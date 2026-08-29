@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ListMusic, Music2, X } from "lucide-react";
 import type { DevicesResponse, MusicPlaylist, PlaylistsResponse } from "@/lib/music/types";
 import { notifyMusicUpdated } from "@/lib/music/events";
+import { stopRadioForSpotifyPlayback } from "@/lib/radio/use-radio-player";
 
 type PlaylistPickerModalProps = {
   open: boolean;
@@ -64,6 +65,7 @@ export function PlaylistPickerModal({ open, onClose }: PlaylistPickerModalProps)
     setPlayingId(playlistId);
     setError(null);
     try {
+      stopRadioForSpotifyPlayback();
       const response = await fetch("/api/music/playlists/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

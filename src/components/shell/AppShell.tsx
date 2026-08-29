@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AppTabBar } from "./AppTabBar";
 import { BuildStamp } from "./BuildStamp";
 import { IdleDriftWatcher } from "./IdleDriftWatcher";
+import { MusicSourceGuard } from "@/components/music/MusicSourceGuard";
 import { ShellNowPlaying } from "./ShellNowPlaying";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
 
           <div className="z-40 shrink-0">
+            <MusicSourceGuard />
             <ShellNowPlaying />
             <AppTabBar />
           </div>

@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MUSIC_UPDATED_EVENT } from "@/lib/music/events";
+import {
+  shouldYieldRadioToSpotify,
+  showSpotifyTakeoverToast,
+} from "@/lib/music/source-exclusive";
 import type { NowPlayingResponse, PlaybackCommand } from "@/lib/music/types";
+import {
+  radioIsLive,
+  stopRadioForSpotifyPlayback,
+} from "@/lib/radio/use-radio-player";
 
 const POLL_MS = 5000;
 const REFRESH_AFTER_COMMAND_MS = 350;
@@ -21,10 +29,19 @@ function emit(next: NowPlayingResponse | null) {
   }
 }
 
+function commandStartsSpotify(cmd: PlaybackCommand) {
+  return (
+    cmd.command === "play" ||
+    cmd.command === "next" ||
+    cmd.command === "previous"
+  );
+}
+
 async function fetchNowPlaying(): Promise<void> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
+    const startedAt = Date.now();
     try {
       const response = await fetch("/api/music/now-playing", {
         cache: "no-store",
@@ -32,6 +49,12 @@ async function fetchNowPlaying(): Promise<void> {
       if (!response.ok) return;
       const body = (await response.json()) as NowPlayingResponse;
       emit(body);
+      if (
+        shouldYieldRadioToSpotify(body, startedAt, radioIsLive())
+      ) {
+        stopRadioForSpotifyPlayback();
+        showSpotifyTakeoverToast();
+      }
     } catch {
       // Keep last known state on transient errors.
     } finally {
@@ -107,6 +130,9 @@ export function useNowPlaying() {
 
   const sendCommand = useCallback(
     async (cmd: PlaybackCommand) => {
+      if (commandStartsSpotify(cmd)) {
+        stopRadioForSpotifyPlayback();
+      }
       setBusy(true);
       try {
         const response = await fetch("/api/music/control", {

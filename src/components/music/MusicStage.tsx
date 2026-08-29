@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MusicNowPlayingView } from "@/components/music/MusicNowPlayingView";
 import { RadioDial } from "@/components/music/RadioDial";
 import { SpotifyMark } from "@/components/music/AudioSourceMarks";
-import { stopRadioPlayback } from "@/lib/radio/use-radio-player";
+import { stopRadioForSpotifyPlayback } from "@/lib/radio/use-radio-player";
 
 type Source = "radio" | "spotify";
 
@@ -12,7 +12,7 @@ export function MusicStage() {
   const [source, setSource] = useState<Source>("radio");
 
   const onSource = (next: Source) => {
-    if (next === "spotify") stopRadioPlayback();
+    if (next === "spotify") stopRadioForSpotifyPlayback();
     setSource(next);
   };
 

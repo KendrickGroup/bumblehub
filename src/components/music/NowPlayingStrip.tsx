@@ -53,6 +53,8 @@ export function NowPlayingStrip({
     radio.status === "playing",
   );
 
+  // Radio wins the strip during a transition race; the next Spotify poll
+  // either pauses Spotify or yields the radio.
   if (radioLive) {
     return (
       <ShellChrome>

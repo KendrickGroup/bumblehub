@@ -112,6 +112,19 @@ export function MusicNowPlayingView() {
     );
   }
 
+  if (radioLive) {
+    return (
+      <>
+        {toast && <Toast message={toast} />}
+        <RadioSourcePanel
+          stationName={radio.stationName || "Ranch House Radio"}
+          cityLabel={radio.cityLabel || "the dial"}
+          buffering={radio.status === "buffering"}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {toast && <Toast message={toast} />}

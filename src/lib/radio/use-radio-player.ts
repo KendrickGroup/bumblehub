@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import {
+  claimMusicExclusive,
+  pauseSpotifyForRadio,
+} from "@/lib/music/source-exclusive";
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
@@ -253,6 +257,7 @@ function startReconnect() {
 }
 
 function reattach(station: PlayableStation) {
+  const claim = claimMusicExclusive("radio");
   const el = getAudio();
   const gen = ++generation;
   const url = station.stream_url.trim();
@@ -271,6 +276,7 @@ function reattach(station: PlayableStation) {
   }
   armFailTimer(gen);
   armWatchdog(gen);
+  void pauseSpotifyForRadio(claim);
 }
 
 function stopInternal() {
@@ -306,6 +312,7 @@ export function radioIsLive(): boolean {
  */
 export function playRadio(station: PlayableStation) {
   exclusiveRadio();
+  const claim = claimMusicExclusive("radio");
   const url = station.stream_url.trim();
   tuned = station;
   writeTunedStationId(station.id);
@@ -350,9 +357,16 @@ export function playRadio(station: PlayableStation) {
   }
   armFailTimer(gen);
   armWatchdog(gen);
+  void pauseSpotifyForRadio(claim);
 }
 
 export function stopRadioPlayback() {
+  stopInternal();
+}
+
+/** Tear down the house stream before BumbleHub starts Spotify. */
+export function stopRadioForSpotifyPlayback() {
+  claimMusicExclusive("spotify");
   stopInternal();
 }
 
