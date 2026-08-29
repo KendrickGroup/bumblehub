@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "render:cabinet-frame": "node scripts/render-cabinet-frame.mjs"
+    "render:cabinet-frame": "node scripts/render-cabinet-frame.mjs",
+    "device-census": "node scripts/device-census.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.99.0",

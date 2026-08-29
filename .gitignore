@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local network census output (diagnostic script)
+/device-census-*.json
+/device-census-*.md
