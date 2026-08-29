@@ -17,7 +17,7 @@ const TABS = [
     href: "/music",
     label: "Music",
     icon: Music,
-    match: (p: string) => p === "/music",
+    match: (p: string) => p === "/music" || p.startsWith("/music/"),
   },
   {
     href: "/recipes",

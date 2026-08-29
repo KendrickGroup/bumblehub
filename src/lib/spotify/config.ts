@@ -4,17 +4,10 @@ export const SPOTIFY_SCOPE_LIST = [
   "user-modify-playback-state",
   "user-read-currently-playing",
   "playlist-read-private",
-  "playlist-modify-private",
-  "playlist-modify-public",
   "user-read-private",
 ] as const;
 
 export const SPOTIFY_SCOPES = SPOTIFY_SCOPE_LIST.join(" ");
-
-export const LASSO_REQUIRED_SCOPES = [
-  "playlist-modify-private",
-  "playlist-modify-public",
-] as const;
 
 export const SPOTIFY_OAUTH_STATE_COOKIE = "spotify_oauth_state";
 export const SPOTIFY_OAUTH_PROPERTY_COOKIE = "spotify_oauth_property_id";

@@ -1,22 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
-import {
-  LassoFailure,
-  RECONNECT_MESSAGE,
-  lassoTrackToRoundup,
-} from "@/lib/spotify/roundup";
-
-function failurePayload(error: LassoFailure) {
-  return {
-    ok: false as const,
-    code: error.reconnect ? ("reconnect" as const) : undefined,
-    error: error.reconnect ? RECONNECT_MESSAGE : error.message,
-    step: error.step,
-    spotifyStatus: error.spotifyStatus,
-    spotifyError: error.spotifyError,
-  };
-}
+import { lassoTrackToRoundup } from "@/lib/roundup/lasso";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -34,7 +19,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error: "No default property configured",
-        step: "scope-check",
+        step: "save",
         spotifyStatus: null,
         spotifyError: "No default property configured",
       },
@@ -50,7 +35,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error: "Invalid JSON",
-        step: "scope-check",
+        step: "save",
         spotifyStatus: null,
         spotifyError: "Invalid JSON",
       },
@@ -58,14 +43,30 @@ export async function POST(request: Request) {
     );
   }
 
-  const title =
-    typeof (body as { title?: unknown }).title === "string"
-      ? (body as { title: string }).title.trim()
-      : "";
-  const artistRaw = (body as { artist?: unknown }).artist;
+  const raw = body as {
+    title?: unknown;
+    artist?: unknown;
+    artworkUrl?: unknown;
+    stationName?: unknown;
+    stationCity?: unknown;
+  };
+
+  const title = typeof raw.title === "string" ? raw.title.trim() : "";
   const artist =
-    typeof artistRaw === "string" && artistRaw.trim()
-      ? artistRaw.trim()
+    typeof raw.artist === "string" && raw.artist.trim()
+      ? raw.artist.trim()
+      : null;
+  const artworkUrl =
+    typeof raw.artworkUrl === "string" && raw.artworkUrl.trim()
+      ? raw.artworkUrl.trim()
+      : null;
+  const stationName =
+    typeof raw.stationName === "string" && raw.stationName.trim()
+      ? raw.stationName.trim()
+      : null;
+  const stationCity =
+    typeof raw.stationCity === "string" && raw.stationCity.trim()
+      ? raw.stationCity.trim()
       : null;
 
   if (!title) {
@@ -73,35 +74,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await lassoTrackToRoundup(propertyId, title, artist);
+    const result = await lassoTrackToRoundup(propertyId, user.id, {
+      title,
+      artist,
+      artworkUrl,
+      stationName,
+      stationCity,
+    });
     return NextResponse.json({
       ok: true,
       status: result.status,
-      ...(result.note ? { note: result.note } : {}),
+      ...(result.status === "not_found" && result.spotifyError
+        ? {
+            step: result.step,
+            spotifyStatus: result.spotifyStatus,
+            spotifyError: result.spotifyError,
+          }
+        : {}),
     });
   } catch (error) {
-    if (error instanceof LassoFailure) {
-      console.info(
-        JSON.stringify({
-          msg: "radio.lasso.failure",
-          propertyId,
-          step: error.step,
-          spotifyStatus: error.spotifyStatus,
-          spotifyError: error.spotifyError,
-          reconnect: error.reconnect,
-        }),
-      );
-      return NextResponse.json(failurePayload(error), {
-        status: error.reconnect ? 403 : 502,
-      });
-    }
     const message =
       error instanceof Error ? error.message : "Could not save this song.";
     console.info(
       JSON.stringify({
         msg: "radio.lasso.failure",
         propertyId,
-        step: "scope-check",
+        step: "save",
         spotifyError: message,
       }),
     );
@@ -109,7 +107,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error: message,
-        step: "scope-check",
+        step: "save",
         spotifyStatus: null,
         spotifyError: message,
       },

@@ -67,3 +67,30 @@ export function RadioLiveBadge() {
     </span>
   );
 }
+
+export function RoundupRopeMark({
+  size = 18,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M8.5 12.5c0-3.2 2.4-5.6 5.4-5.6 3 0 5.1 2.2 5.1 5.1 0 3.4-2.7 5.8-6.1 5.8-2.6 0-4.4-1.3-5.4-3.2" />
+      <path d="M8.2 12.8c-1.6 1.2-3.4 1.4-4.7.4" />
+      <path d="M4.2 11.6c.4 1.6-.2 3.3-1.4 4.2" />
+    </svg>
+  );
+}

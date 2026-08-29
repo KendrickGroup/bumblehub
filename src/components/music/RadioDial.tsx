@@ -335,6 +335,8 @@ export function RadioDial() {
         {song && selected && playing ? (
           <NowSpinningPanel
             track={song}
+            stationName={selected.station_name}
+            stationCity={selected.city_label}
             stationLine={`${face?.callSign || selected.station_name}${
               face?.frequency ? ` ${face.frequency}` : ""
             } · ${selected.city_label.toUpperCase()}`}

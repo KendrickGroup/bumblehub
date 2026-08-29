@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
 import type { RadioNowPlayingTrack } from "@/lib/radio/icy";
 
 const TOAST_MS = 3000;
 
-type LassoKind = "roped" | "duplicate" | "not_found" | "reconnect" | "error";
+type LassoKind = "roped" | "duplicate" | "not_found" | "error";
 
 type LassoToast = {
   songKey: string;
@@ -21,19 +22,22 @@ type LassoDebug = {
 };
 
 const TOAST_COPY: Record<LassoKind, string> = {
-  roped: "Roped! Saved to The Latigo Roundup",
+  roped: "Roped!",
   duplicate: "Already in your Roundup",
   not_found: "Couldn't find this one on Spotify",
-  reconnect: "Reconnect Spotify in Settings to enable saving",
   error: "Couldn't lasso this one just now.",
 };
 
 export function NowSpinningPanel({
   track,
   stationLine,
+  stationName,
+  stationCity,
 }: {
   track: RadioNowPlayingTrack;
   stationLine: string;
+  stationName: string;
+  stationCity: string;
 }) {
   const songKey = `${track.title}|${track.artist ?? ""}`;
   const [savingFor, setSavingFor] = useState<string | null>(null);
@@ -65,6 +69,9 @@ export function NowSpinningPanel({
         body: JSON.stringify({
           title: track.title,
           artist: track.artist,
+          artworkUrl: track.artworkUrl,
+          stationName,
+          stationCity,
         }),
       });
       const body = (await response.json()) as {
@@ -84,10 +91,6 @@ export function NowSpinningPanel({
           spotifyError: body.spotifyError || body.error || `HTTP ${response.status}`,
         });
       }
-      if (response.status === 403 || body.code === "reconnect") {
-        showToast("reconnect", forSong);
-        return;
-      }
       if (body.status === "roped") {
         setDebug(null);
         showToast("roped", forSong);
@@ -95,15 +98,16 @@ export function NowSpinningPanel({
         setDebug(null);
         showToast("duplicate", forSong);
       } else if (body.status === "not_found") {
-        setDebug(null);
         showToast("not_found", forSong);
+      } else if (response.status === 403 || body.code === "reconnect") {
+        showToast("error", forSong);
       } else {
         showToast("error", forSong, body.error);
       }
     } catch (error) {
       setDebug({
         songKey: forSong,
-        step: "scope-check",
+        step: "save",
         spotifyStatus: null,
         spotifyError:
           error instanceof Error ? error.message : "Network error",
@@ -155,10 +159,10 @@ export function NowSpinningPanel({
           type="button"
           disabled={saving}
           onClick={() => void onLasso()}
-          aria-label="Lasso, save this song to The Latigo Roundup"
+          aria-label="Lasso, save this song to The Roundup"
           className={`radio-lasso ${saving ? "is-pressed" : ""}`}
         >
-          <RopeLoopIcon />
+          <RoundupRopeMark size={22} />
           <span>LASSO</span>
         </button>
       </div>
@@ -186,25 +190,5 @@ export function NowSpinningPanel({
         </p>
       ) : null}
     </div>
-  );
-}
-
-function RopeLoopIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="22"
-      height="22"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.15"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M8.5 12.5c0-3.2 2.4-5.6 5.4-5.6 3 0 5.1 2.2 5.1 5.1 0 3.4-2.7 5.8-6.1 5.8-2.6 0-4.4-1.3-5.4-3.2" />
-      <path d="M8.2 12.8c-1.6 1.2-3.4 1.4-4.7.4" />
-      <path d="M4.2 11.6c.4 1.6-.2 3.3-1.4 4.2" />
-    </svg>
   );
 }
