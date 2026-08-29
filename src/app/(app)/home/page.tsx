@@ -2,10 +2,11 @@ import Link from "next/link";
 import { Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countRecipesForProperty } from "@/lib/recipes/queries";
-import type { Property, Scene } from "@/lib/types";
+import type { Property, Scene, SceneAction } from "@/lib/types";
 import { Clock } from "@/components/home/Clock";
 import { HomeGreeting } from "@/components/home/HomeGreeting";
 import { SceneGrid } from "@/components/home/SceneGrid";
+import { listSceneActions } from "@/lib/home-assistant/queries";
 import { WeatherChip } from "@/components/home/WeatherChip";
 import {
   DEFAULT_HOUSE_GREETING,
@@ -27,6 +28,7 @@ export default async function HomePage() {
 
   let property: Property | null = null;
   let scenes: Scene[] = [];
+  let sceneActions: SceneAction[] = [];
   let houseGreeting = DEFAULT_HOUSE_GREETING;
 
   if (settings?.default_property_id) {
@@ -48,6 +50,22 @@ export default async function HomePage() {
         .order("display_order", { ascending: true });
 
       scenes = sceneRows ?? [];
+      try {
+        sceneActions = await listSceneActions(scenes.map((s) => s.id));
+      } catch {
+        if (scenes.length > 0) {
+          const { data: actionRows } = await supabase
+            .from("scene_actions")
+            .select(
+              "id, scene_id, action_type, device_id, payload, delay_seconds, display_order",
+            )
+            .in(
+              "scene_id",
+              scenes.map((s) => s.id),
+            );
+          sceneActions = (actionRows ?? []) as SceneAction[];
+        }
+      }
 
       const { data: propertySettings } = await supabase
         .from("property_settings")
@@ -145,7 +163,7 @@ export default async function HomePage() {
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-stone-500">
             Scenes
           </h2>
-          <SceneGrid scenes={scenes} />
+          <SceneGrid scenes={scenes} actions={sceneActions} />
         </section>
       </div>
     </>

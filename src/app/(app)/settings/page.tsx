@@ -20,15 +20,25 @@ import {
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
+import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
+import {
+  listDevices,
+  listRooms,
+  listSceneActions,
+  listScenes,
+} from "@/lib/home-assistant/queries";
 import { SettingsGate } from "@/components/house-mode/SettingsGate";
 import { HouseModeSettingsPanel } from "@/components/house-mode/HouseModeSettingsPanel";
 import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
+import { DevicesSettingsPanel } from "./DevicesSettingsPanel";
+import { ScenesSettingsPanel } from "./ScenesSettingsPanel";
 import { PhotoBoothSettingsSection } from "./PhotoBoothSettingsSection";
 import { RadioSettingsPanel } from "./RadioSettingsPanel";
 import { ensureLaunchStations } from "@/lib/radio/queries";
 import type { RadioStation } from "@/lib/radio/types";
+import type { Device, Room, Scene, SceneAction } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -60,9 +70,14 @@ export default async function SettingsPage() {
   let propertyName: string | null = null;
   let isOwner = false;
   let homeAssistantUrl = "";
+  let homeAssistantHasToken = false;
   let customBackdrops = parseCustomBackdrops(null);
   let photos: Awaited<ReturnType<typeof fetchGuestbookPhotos>> = [];
   let radioStations: RadioStation[] = [];
+  let devices: Device[] = [];
+  let rooms: Room[] = [];
+  let scenes: Scene[] = [];
+  let sceneActions: SceneAction[] = [];
   let spotify = {
     connected: false,
     displayName: null as string | null,
@@ -109,6 +124,16 @@ export default async function SettingsPage() {
       };
     } catch {
       // Service role missing in some envs — leave disconnected.
+    }
+
+    try {
+      homeAssistantHasToken = await isHomeAssistantConnected(propertyId);
+      devices = await listDevices(propertyId);
+      rooms = await listRooms(propertyId);
+      scenes = await listScenes(propertyId);
+      sceneActions = await listSceneActions(scenes.map((s) => s.id));
+    } catch {
+      // Service role missing — devices/scenes panels stay empty.
     }
   }
 
@@ -161,7 +186,25 @@ export default async function SettingsPage() {
           <IntegrationsSettingsPanel
             hasProperty={!!propertyId}
             initialHomeAssistantUrl={homeAssistantUrl}
+            initialHasToken={homeAssistantHasToken}
             initialSpotify={spotify}
+          />
+        </div>
+
+        <div className="mt-6">
+          <DevicesSettingsPanel
+            hasProperty={!!propertyId}
+            initialDevices={devices}
+            initialRooms={rooms}
+          />
+        </div>
+
+        <div className="mt-6">
+          <ScenesSettingsPanel
+            hasProperty={!!propertyId}
+            initialScenes={scenes}
+            initialActions={sceneActions}
+            initialDevices={devices}
           />
         </div>
 
