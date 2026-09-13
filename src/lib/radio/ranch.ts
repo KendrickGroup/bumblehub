@@ -19,6 +19,28 @@ export type RadioFaceBand = RadioBand | "wx";
 
 export const RADIO_BANDS: RadioFaceBand[] = ["fm", "am", "sports", "wx"];
 
+export function isPinnedSportsFeed(station: {
+  band: RadioBand;
+  station_type: RadioStationType;
+}): boolean {
+  return station.band === "sports" && station.station_type === "feed";
+}
+
+/** Band keys, with sports-feed archives pinned at the end of every non-sports row. */
+export function presetsWithPinnedFeeds<
+  T extends { band: RadioBand; station_type: RadioStationType },
+>(stations: T[], band: RadioBand, cap: number): T[] {
+  const pinned = stations.filter(isPinnedSportsFeed);
+  if (band === "sports") {
+    return stations.filter((s) => s.band === "sports").slice(0, cap);
+  }
+  const rest = stations.filter(
+    (s) => s.band === band && !isPinnedSportsFeed(s),
+  );
+  const room = Math.max(0, cap - pinned.length);
+  return [...rest.slice(0, room), ...pinned];
+}
+
 export function milesFromRanch(lat: number, lon: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const r = 3958.8;

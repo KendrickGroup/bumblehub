@@ -15,6 +15,7 @@ import {
   formatStationTime,
   milesFromRanch,
   needlePercent,
+  presetsWithPinnedFeeds,
   PUBLIC_ROUNDUP_PLAYLIST_URL,
   spotifySearchUrl,
   stateCodeFromLabel,
@@ -22,10 +23,13 @@ import {
   type RadioFaceBand,
 } from "@/lib/radio/ranch";
 import {
+  MAX_VISIBLE_STATIONS,
+  type RadioStation,
+} from "@/lib/radio/types";
+import {
   playStaticCrackle,
   unlockStaticCrackle,
 } from "@/lib/radio/static-crackle";
-import type { RadioStation } from "@/lib/radio/types";
 import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
 import {
   getRadioFeedNow,
@@ -150,7 +154,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
   const presets = useMemo(() => {
     const band = browseBand === "wx" ? presetBand : browseBand;
-    return visible.filter((s) => s.band === band).slice(0, 10);
+    return presetsWithPinnedFeeds(visible, band, MAX_VISIBLE_STATIONS);
   }, [visible, browseBand, presetBand]);
 
   const parked = !loaded;
