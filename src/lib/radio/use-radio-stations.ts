@@ -13,18 +13,22 @@ type Payload = {
   hasProperty: boolean;
 };
 
-export function useRadioStations(opts?: { all?: boolean }) {
+export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
   const all = opts?.all === true;
+  const publicMode = opts?.publicMode === true;
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
+  const path = publicMode
+    ? "/api/radio/public/stations"
+    : all
+      ? "/api/radio/stations?all=1"
+      : "/api/radio/stations";
+
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch(
-        all ? "/api/radio/stations?all=1" : "/api/radio/stations",
-        { cache: "no-store" },
-      );
+      const response = await fetch(path, { cache: "no-store" });
       if (!response.ok) return;
       const body = (await response.json()) as Payload;
       setStations(body.stations ?? []);
@@ -34,16 +38,13 @@ export function useRadioStations(opts?: { all?: boolean }) {
     } finally {
       setLoaded(true);
     }
-  }, [all]);
+  }, [path]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch(
-          all ? "/api/radio/stations?all=1" : "/api/radio/stations",
-          { cache: "no-store" },
-        );
+        const response = await fetch(path, { cache: "no-store" });
         if (cancelled || !response.ok) return;
         const body = (await response.json()) as Payload;
         if (cancelled) return;
@@ -58,7 +59,7 @@ export function useRadioStations(opts?: { all?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [all]);
+  }, [path]);
 
   useEffect(() => {
     const onChange = () => {

@@ -8,6 +8,7 @@ import {
   RANCH_SUGGESTIONS,
   cityLabelFromResult,
   displayTags,
+  extrasFromSearchResult,
   resultAlreadyOnDial,
   resultPlace,
   suggestionAlreadyOnDial,
@@ -15,16 +16,23 @@ import {
   type RanchSuggestion,
 } from "@/lib/radio/browser";
 import type { RadioSearchResult, RadioStation } from "@/lib/radio/types";
+import { MAX_VISIBLE_STATIONS } from "@/lib/radio/types";
+import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
 
 type Props = {
   stations: RadioStation[];
-  atVisibleCap: boolean;
   onAdd: (input: {
     city_label: string;
     station_name: string;
     stream_url: string;
     call_sign?: string;
     frequency?: string;
+    band?: RadioBand;
+    station_type?: RadioStationType;
+    latitude?: number | null;
+    longitude?: number | null;
+    state_code?: string | null;
+    timezone?: string | null;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
@@ -35,7 +43,7 @@ type SuggestionState = {
   result: RadioSearchResult | null;
 };
 
-export function FindStationsPanel({ stations, atVisibleCap, onAdd }: Props) {
+export function FindStationsPanel({ stations, onAdd }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState<RadioGenreId | null>(null);
@@ -151,10 +159,12 @@ export function FindStationsPanel({ stations, atVisibleCap, onAdd }: Props) {
   ) => {
     if (resultAlreadyOnDial(result, stations)) return;
     setAddingKey(key);
+    const extras = extrasFromSearchResult(result);
     await onAdd({
       city_label: cityFallback || cityLabelFromResult(result),
       station_name: result.name.slice(0, 80),
       stream_url: result.streamUrl,
+      ...extras,
     });
     setAddingKey(null);
   };
@@ -225,7 +235,14 @@ export function FindStationsPanel({ stations, atVisibleCap, onAdd }: Props) {
                         />
                         <AddToDialButton
                           busy={addingKey === suggestion.id}
-                          atVisibleCap={atVisibleCap}
+                          atVisibleCap={
+                            stations.filter(
+                              (s) =>
+                                s.is_visible &&
+                                s.band ===
+                                  extrasFromSearchResult(state.result!).band,
+                            ).length >= MAX_VISIBLE_STATIONS
+                          }
                           onClick={() =>
                             void addResult(
                               suggestion.id,
@@ -341,7 +358,13 @@ export function FindStationsPanel({ stations, atVisibleCap, onAdd }: Props) {
                         />
                         <AddToDialButton
                           busy={addingKey === result.stationuuid}
-                          atVisibleCap={atVisibleCap}
+                          atVisibleCap={
+                            stations.filter(
+                              (s) =>
+                                s.is_visible &&
+                                s.band === extrasFromSearchResult(result).band,
+                            ).length >= MAX_VISIBLE_STATIONS
+                          }
                           onClick={() =>
                             void addResult(result.stationuuid, result)
                           }
@@ -379,7 +402,7 @@ function AddToDialButton({
       onClick={onClick}
       title={
         atVisibleCap
-          ? "The dial holds 10 — hide one to add another."
+          ? "Each band holds 10 — hide one to add another."
           : undefined
       }
       className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4B400] px-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
@@ -387,7 +410,7 @@ function AddToDialButton({
       {busy ? "Adding…" : "Add to dial"}
       {atVisibleCap ? (
         <span className="sr-only">
-          The dial holds 10. This station will be hidden until you free a slot.
+          Each band holds 10. This station will be hidden until you free a slot.
         </span>
       ) : null}
     </button>

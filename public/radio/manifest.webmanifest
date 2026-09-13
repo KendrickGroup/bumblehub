@@ -1,0 +1,31 @@
+{
+  "name": "Ranch House Radio",
+  "short_name": "Ranch Radio",
+  "description": "The ranch radio, to go.",
+  "start_url": "/radio",
+  "scope": "/radio",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#6B4F36",
+  "background_color": "#FAF8F3",
+  "icons": [
+    {
+      "src": "/radio/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/radio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/radio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

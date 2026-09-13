@@ -6,10 +6,17 @@ import {
   MAX_VISIBLE_STATIONS,
   RADIO_STATION_COLUMNS,
   isHttpsStreamUrl,
+  normalizeRadioStation,
   type RadioStation,
 } from "@/lib/radio/types";
 import { parseCallAndFreq } from "@/lib/radio/parse-identity";
 import { countVisibleStations, fetchRadioStations } from "@/lib/radio/queries";
+import {
+  stateCodeFromLabel,
+  timezoneFromStateCode,
+  type RadioBand,
+  type RadioStationType,
+} from "@/lib/radio/ranch";
 
 export type RadioActionResult =
   | { ok: true; station: RadioStation }
@@ -46,6 +53,23 @@ function emptyToNull(
   return clipped.length > 0 ? clipped : null;
 }
 
+function parseBand(value: unknown): RadioBand | undefined {
+  if (value === "fm" || value === "am" || value === "sports") return value;
+  return undefined;
+}
+
+function parseStationType(value: unknown): RadioStationType | undefined {
+  if (value === "stream" || value === "feed") return value;
+  return undefined;
+}
+
+function parseCoord(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function createRadioStation(input: {
   city_label: string;
   station_name: string;
@@ -53,6 +77,12 @@ export async function createRadioStation(input: {
   is_visible?: boolean;
   call_sign?: string;
   frequency?: string;
+  band?: RadioBand;
+  station_type?: RadioStationType;
+  latitude?: number | null;
+  longitude?: number | null;
+  state_code?: string | null;
+  timezone?: string | null;
 }): Promise<RadioActionResult> {
   const ctx = await requireProperty();
   if ("error" in ctx) return { ok: false, error: ctx.error };
@@ -67,15 +97,28 @@ export async function createRadioStation(input: {
     return { ok: false, error: "Stream URL must start with https://." };
   }
 
-  const visibleCount = await countVisibleStations(ctx.propertyId);
-  const wantVisible = input.is_visible !== false;
-  const is_visible = wantVisible && visibleCount < MAX_VISIBLE_STATIONS;
-
   const parsed = parseCallAndFreq(station_name);
   const call_sign =
     emptyToNull(input.call_sign, 12) ?? parsed.callSign;
   const frequency =
     emptyToNull(input.frequency, 12) ?? parsed.frequency;
+  const band: RadioBand =
+    parseBand(input.band) ??
+    (frequency && !frequency.includes(".") && Number(frequency) >= 530
+      ? "am"
+      : "fm");
+  const station_type: RadioStationType =
+    parseStationType(input.station_type) ?? "stream";
+  const state_code =
+    emptyToNull(input.state_code ?? undefined, 2) ??
+    stateCodeFromLabel(city_label);
+  const timezone =
+    emptyToNull(input.timezone ?? undefined, 64) ??
+    timezoneFromStateCode(state_code);
+
+  const visibleCount = await countVisibleStations(ctx.propertyId, band);
+  const wantVisible = input.is_visible !== false;
+  const is_visible = wantVisible && visibleCount < MAX_VISIBLE_STATIONS;
 
   const { data: maxRow } = await ctx.supabase
     .from("radio_stations")
@@ -98,6 +141,12 @@ export async function createRadioStation(input: {
       is_visible,
       call_sign,
       frequency,
+      band,
+      station_type,
+      latitude: parseCoord(input.latitude) ?? null,
+      longitude: parseCoord(input.longitude) ?? null,
+      state_code,
+      timezone,
     })
     .select(RADIO_STATION_COLUMNS)
     .single();
@@ -105,7 +154,7 @@ export async function createRadioStation(input: {
   if (error || !data) {
     return { ok: false, error: error?.message ?? "Could not add station." };
   }
-  return { ok: true, station: data as RadioStation };
+  return { ok: true, station: normalizeRadioStation(data as RadioStation) };
 }
 
 export async function updateRadioStation(input: {
@@ -116,6 +165,12 @@ export async function updateRadioStation(input: {
   is_visible?: boolean;
   call_sign?: string;
   frequency?: string;
+  band?: RadioBand;
+  station_type?: RadioStationType;
+  latitude?: number | null;
+  longitude?: number | null;
+  state_code?: string | null;
+  timezone?: string | null;
 }): Promise<RadioActionResult> {
   const ctx = await requireProperty();
   if ("error" in ctx) return { ok: false, error: ctx.error };
@@ -145,20 +200,40 @@ export async function updateRadioStation(input: {
   if (typeof input.frequency === "string") {
     patch.frequency = emptyToNull(input.frequency, 12);
   }
+  const nextBand = parseBand(input.band);
+  if (nextBand) patch.band = nextBand;
+  const nextType = parseStationType(input.station_type);
+  if (nextType) patch.station_type = nextType;
+  if (input.latitude !== undefined) patch.latitude = parseCoord(input.latitude);
+  if (input.longitude !== undefined) {
+    patch.longitude = parseCoord(input.longitude);
+  }
+  if (input.state_code !== undefined) {
+    patch.state_code = emptyToNull(input.state_code ?? "", 2);
+  }
+  if (input.timezone !== undefined) {
+    patch.timezone = emptyToNull(input.timezone ?? "", 64);
+  }
   if (typeof input.is_visible === "boolean") {
     if (input.is_visible) {
       const { data: current } = await ctx.supabase
         .from("radio_stations")
-        .select("is_visible")
+        .select("is_visible, band")
         .eq("id", input.id)
         .eq("property_id", ctx.propertyId)
         .maybeSingle();
       if (!current?.is_visible) {
-        const visibleCount = await countVisibleStations(ctx.propertyId);
+        const capBand = (nextBand ?? current?.band ?? "fm") as RadioBand;
+        const visibleCount = await countVisibleStations(
+          ctx.propertyId,
+          capBand === "am" || capBand === "sports" || capBand === "fm"
+            ? capBand
+            : "fm",
+        );
         if (visibleCount >= MAX_VISIBLE_STATIONS) {
           return {
             ok: false,
-            error: "The dial holds 10 — hide one to add another.",
+            error: "Each band holds 10 — hide one to add another.",
           };
         }
       }
@@ -181,7 +256,7 @@ export async function updateRadioStation(input: {
   if (error || !data) {
     return { ok: false, error: error?.message ?? "Could not save station." };
   }
-  return { ok: true, station: data as RadioStation };
+  return { ok: true, station: normalizeRadioStation(data as RadioStation) };
 }
 
 export async function deleteRadioStation(

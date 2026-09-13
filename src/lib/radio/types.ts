@@ -1,3 +1,7 @@
+import type { RadioBand, RadioStationType } from "./ranch";
+
+export type { RadioBand, RadioStationType };
+
 export type RadioStation = {
   id: string;
   property_id: string;
@@ -9,6 +13,12 @@ export type RadioStation = {
   created_at: string;
   call_sign: string | null;
   frequency: string | null;
+  band: RadioBand;
+  station_type: RadioStationType;
+  latitude: number | null;
+  longitude: number | null;
+  state_code: string | null;
+  timezone: string | null;
 };
 
 export type LaunchStation = {
@@ -29,10 +39,12 @@ export type RadioSearchResult = {
   clickcount: number;
   tags: string[];
   streamUrl: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export const RADIO_STATION_COLUMNS =
-  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency";
+  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency, band, station_type, latitude, longitude, state_code, timezone";
 
 export const MAX_VISIBLE_STATIONS = 10;
 
@@ -51,4 +63,21 @@ export function isHttpsStreamUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function normalizeRadioStation(row: RadioStation): RadioStation {
+  const band =
+    row.band === "am" || row.band === "sports" || row.band === "fm"
+      ? row.band
+      : "fm";
+  const station_type = row.station_type === "feed" ? "feed" : "stream";
+  return {
+    ...row,
+    band,
+    station_type,
+    latitude: typeof row.latitude === "number" ? row.latitude : null,
+    longitude: typeof row.longitude === "number" ? row.longitude : null,
+    state_code: row.state_code ?? null,
+    timezone: row.timezone ?? null,
+  };
 }

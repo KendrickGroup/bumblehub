@@ -26,6 +26,7 @@ import {
   notifyRadioStationsChanged,
   type RadioStation,
 } from "@/lib/radio/types";
+import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
 import { FindStationsPanel } from "./FindStationsPanel";
 import {
   createRadioStation,
@@ -47,6 +48,26 @@ type StationTextFields = {
   stream_url: string;
   call_sign: string;
   frequency: string;
+  band: RadioBand;
+  station_type: RadioStationType;
+  latitude: string;
+  longitude: string;
+  state_code: string;
+  timezone: string;
+};
+
+type StationCreateInput = {
+  city_label: string;
+  station_name: string;
+  stream_url: string;
+  call_sign?: string;
+  frequency?: string;
+  band?: RadioBand;
+  station_type?: RadioStationType;
+  latitude?: number | null;
+  longitude?: number | null;
+  state_code?: string | null;
+  timezone?: string | null;
 };
 
 export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
@@ -58,8 +79,10 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
     return () => stopStationTest();
   }, []);
 
-  const visibleCount = stations.filter((s) => s.is_visible).length;
-  const atVisibleCap = visibleCount >= MAX_VISIBLE_STATIONS;
+  const bandAtCap = (band: RadioBand) =>
+    stations.filter((s) => s.is_visible && s.band === band).length >=
+    MAX_VISIBLE_STATIONS;
+  const anyBandAtCap = bandAtCap("fm") || bandAtCap("am") || bandAtCap("sports");
 
   const applyStation = useCallback((station: RadioStation) => {
     setStations((prev) => prev.map((s) => (s.id === station.id ? station : s)));
@@ -92,8 +115,8 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   const toggleVisible = useCallback(
     async (station: RadioStation) => {
       setError(null);
-      if (!station.is_visible && atVisibleCap) {
-        setError("The dial holds 10 — hide one to add another.");
+      if (!station.is_visible && bandAtCap(station.band)) {
+        setError("Each band holds 10 — hide one to add another.");
         return;
       }
       const nextVisible = !station.is_visible;
@@ -117,13 +140,28 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         setError(result.error);
       }
     },
-    [applyStation, atVisibleCap],
+    [applyStation, stations],
   );
 
   const commitFields = useCallback(
     async (id: string, fields: StationTextFields) => {
       setError(null);
-      const result = await updateRadioStation({ id, ...fields });
+      const lat = fields.latitude.trim();
+      const lon = fields.longitude.trim();
+      const result = await updateRadioStation({
+        id,
+        city_label: fields.city_label,
+        station_name: fields.station_name,
+        stream_url: fields.stream_url,
+        call_sign: fields.call_sign,
+        frequency: fields.frequency,
+        band: fields.band,
+        station_type: fields.station_type,
+        latitude: lat === "" ? null : Number(lat),
+        longitude: lon === "" ? null : Number(lon),
+        state_code: fields.state_code,
+        timezone: fields.timezone,
+      });
       if (result.ok && "station" in result && result.station) {
         applyStation(result.station);
       } else if (!result.ok) {
@@ -146,17 +184,11 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   }, []);
 
   const addStation = useCallback(
-    async (input: {
-      city_label: string;
-      station_name: string;
-      stream_url: string;
-      call_sign?: string;
-      frequency?: string;
-    }) => {
+    async (input: StationCreateInput) => {
       setError(null);
       const result = await createRadioStation({
         ...input,
-        is_visible: !atVisibleCap,
+        is_visible: true,
       });
       if (result.ok && "station" in result && result.station) {
         setStations((prev) => [...prev, result.station]);
@@ -169,7 +201,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
       }
       return { ok: false as const, error: "Could not add station." };
     },
-    [atVisibleCap],
+    [],
   );
 
   if (!hasProperty) {
@@ -190,9 +222,10 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         screen edits the list.
       </p>
 
-      {atVisibleCap ? (
+      {anyBandAtCap ? (
         <p className="mt-4 rounded-[14px] bg-[#FBF0D0] px-4 py-3 text-sm font-medium text-stone-800">
-          The dial holds 10 — hide one to add another.
+          Each band holds 10 visible stations — hide one to add another on that
+          band.
         </p>
       ) : null}
 
@@ -200,11 +233,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         <p className="mt-3 text-sm font-medium text-red-700">{error}</p>
       ) : null}
 
-      <FindStationsPanel
-        stations={stations}
-        atVisibleCap={atVisibleCap}
-        onAdd={addStation}
-      />
+      <FindStationsPanel stations={stations} onAdd={addStation} />
 
       <div className="mt-5 space-y-3">
         {stations.map((station, index) => (
@@ -214,7 +243,9 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
             isFirst={index === 0}
             isLast={index === stations.length - 1}
             editing={editingId === station.id}
-            canShow={!station.is_visible && !atVisibleCap}
+            canShow={
+              !station.is_visible && !bandAtCap(station.band)
+            }
             onToggleEdit={() =>
               setEditingId((id) => (id === station.id ? null : station.id))
             }
@@ -231,7 +262,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
         ) : null}
       </div>
 
-      <AddStationPanel atVisibleCap={atVisibleCap} onAdd={addStation} />
+      <AddStationPanel onAdd={addStation} />
     </section>
   );
 }
@@ -294,11 +325,18 @@ const StationRow = memo(function StationRow({
           <p className="truncate text-base font-semibold text-stone-900">
             {station.station_name}
           </p>
-          {station.call_sign || station.frequency ? (
             <p className="truncate font-[family-name:var(--font-elite)] text-xs text-stone-500">
-              {[station.call_sign, station.frequency].filter(Boolean).join(" ")}
+              {[
+                station.band === "sports"
+                  ? "AM SPORTS"
+                  : station.band.toUpperCase(),
+                station.station_type === "feed" ? "feed" : null,
+                station.call_sign,
+                station.frequency,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
-          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -348,6 +386,12 @@ const StationRow = memo(function StationRow({
           initialUrl={station.stream_url}
           initialCall={station.call_sign ?? ""}
           initialFreq={station.frequency ?? ""}
+          initialBand={station.band}
+          initialType={station.station_type}
+          initialLat={station.latitude != null ? String(station.latitude) : ""}
+          initialLon={station.longitude != null ? String(station.longitude) : ""}
+          initialState={station.state_code ?? ""}
+          initialTz={station.timezone ?? ""}
           onCommit={onCommitFields}
         />
       ) : null}
@@ -389,32 +433,49 @@ function IconButton({
   );
 }
 
-function stationDraftEquals(
-  a: { city: string; name: string; url: string; call: string; freq: string },
-  b: { city: string; name: string; url: string; call: string; freq: string },
-) {
+function stationDraftEquals(a: StationDraft, b: StationDraft) {
   return (
     a.city === b.city &&
     a.name === b.name &&
     a.url === b.url &&
     a.call === b.call &&
-    a.freq === b.freq
+    a.freq === b.freq &&
+    a.band === b.band &&
+    a.type === b.type &&
+    a.lat === b.lat &&
+    a.lon === b.lon &&
+    a.state === b.state &&
+    a.tz === b.tz
   );
 }
 
-function draftToFields(next: {
+type StationDraft = {
   city: string;
   name: string;
   url: string;
   call: string;
   freq: string;
-}): StationTextFields {
+  band: RadioBand;
+  type: RadioStationType;
+  lat: string;
+  lon: string;
+  state: string;
+  tz: string;
+};
+
+function draftToFields(next: StationDraft): StationTextFields {
   return {
     city_label: next.city,
     station_name: next.name,
     stream_url: next.url,
     call_sign: next.call,
     frequency: next.freq,
+    band: next.band,
+    station_type: next.type,
+    latitude: next.lat,
+    longitude: next.lon,
+    state_code: next.state,
+    timezone: next.tz,
   };
 }
 
@@ -425,6 +486,12 @@ const StationEditFields = memo(function StationEditFields({
   initialUrl,
   initialCall,
   initialFreq,
+  initialBand,
+  initialType,
+  initialLat,
+  initialLon,
+  initialState,
+  initialTz,
   onCommit,
 }: {
   stationId: string;
@@ -433,6 +500,12 @@ const StationEditFields = memo(function StationEditFields({
   initialUrl: string;
   initialCall: string;
   initialFreq: string;
+  initialBand: RadioBand;
+  initialType: RadioStationType;
+  initialLat: string;
+  initialLon: string;
+  initialState: string;
+  initialTz: string;
   onCommit: (id: string, fields: StationTextFields) => void;
 }) {
   const [city, setCity] = useState(initialCity);
@@ -440,25 +513,44 @@ const StationEditFields = memo(function StationEditFields({
   const [url, setUrl] = useState(initialUrl);
   const [call, setCall] = useState(initialCall);
   const [freq, setFreq] = useState(initialFreq);
-  const latestRef = useRef({
+  const [band, setBand] = useState<RadioBand>(initialBand);
+  const [type, setType] = useState<RadioStationType>(initialType);
+  const [lat, setLat] = useState(initialLat);
+  const [lon, setLon] = useState(initialLon);
+  const [state, setState] = useState(initialState);
+  const [tz, setTz] = useState(initialTz);
+  const initialDraft: StationDraft = {
     city: initialCity,
     name: initialName,
     url: initialUrl,
     call: initialCall,
     freq: initialFreq,
-  });
-  const committedRef = useRef({
-    city: initialCity,
-    name: initialName,
-    url: initialUrl,
-    call: initialCall,
-    freq: initialFreq,
-  });
+    band: initialBand,
+    type: initialType,
+    lat: initialLat,
+    lon: initialLon,
+    state: initialState,
+    tz: initialTz,
+  };
+  const latestRef = useRef(initialDraft);
+  const committedRef = useRef(initialDraft);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    latestRef.current = { city, name, url, call, freq };
-  }, [city, name, url, call, freq]);
+    latestRef.current = {
+      city,
+      name,
+      url,
+      call,
+      freq,
+      band,
+      type,
+      lat,
+      lon,
+      state,
+      tz,
+    };
+  }, [city, name, url, call, freq, band, type, lat, lon, state, tz]);
 
   const flush = useCallback(() => {
     if (debounceRef.current) {
@@ -552,6 +644,97 @@ const StationEditFields = memo(function StationEditFields({
           className={fieldClass}
         />
       </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Band
+        </span>
+        <select
+          value={band}
+          onChange={(e) => {
+            setBand(e.target.value as RadioBand);
+            schedule();
+          }}
+          onBlur={flush}
+          className={fieldClass}
+        >
+          <option value="fm">FM</option>
+          <option value="am">AM</option>
+          <option value="sports">AM Sports</option>
+        </select>
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Type
+        </span>
+        <select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value as RadioStationType);
+            schedule();
+          }}
+          onBlur={flush}
+          className={fieldClass}
+        >
+          <option value="stream">Stream</option>
+          <option value="feed">Feed (RSS archive)</option>
+        </select>
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Latitude
+        </span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={lat}
+          placeholder="38.39"
+          onChange={onField(setLat)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Longitude
+        </span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={lon}
+          placeholder="-120.8"
+          onChange={onField(setLon)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          State
+        </span>
+        <input
+          type="text"
+          value={state}
+          maxLength={2}
+          placeholder="CA"
+          onChange={onField(setState)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Timezone
+        </span>
+        <input
+          type="text"
+          value={tz}
+          maxLength={64}
+          placeholder="America/Los_Angeles"
+          onChange={onField(setTz)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
       <label className="block sm:col-span-2">
         <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
           Stream URL
@@ -570,23 +753,19 @@ const StationEditFields = memo(function StationEditFields({
 });
 
 function AddStationPanel({
-  atVisibleCap,
   onAdd,
 }: {
-  atVisibleCap: boolean;
-  onAdd: (input: {
-    city_label: string;
-    station_name: string;
-    stream_url: string;
-    call_sign?: string;
-    frequency?: string;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onAdd: (
+    input: StationCreateInput,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [city, setCity] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [call, setCall] = useState("");
   const [freq, setFreq] = useState("");
+  const [band, setBand] = useState<RadioBand>("fm");
+  const [type, setType] = useState<RadioStationType>("stream");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -597,6 +776,8 @@ function AddStationPanel({
       stream_url: url,
       call_sign: call,
       frequency: freq,
+      band,
+      station_type: type,
     });
     setSaving(false);
     if (result.ok) {
@@ -605,6 +786,8 @@ function AddStationPanel({
       setUrl("");
       setCall("");
       setFreq("");
+      setBand("fm");
+      setType("stream");
     }
   };
 
@@ -648,6 +831,23 @@ function AddStationPanel({
           onChange={(e) => setFreq(e.target.value)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
         />
+        <select
+          value={band}
+          onChange={(e) => setBand(e.target.value as RadioBand)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        >
+          <option value="fm">FM</option>
+          <option value="am">AM</option>
+          <option value="sports">AM Sports</option>
+        </select>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as RadioStationType)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        >
+          <option value="stream">Stream</option>
+          <option value="feed">Feed (RSS archive)</option>
+        </select>
         <input
           type="url"
           value={url}
@@ -669,11 +869,10 @@ function AddStationPanel({
           Save station
         </button>
       </div>
-      {atVisibleCap ? (
-        <p className="mt-2 text-xs text-stone-500">
-          Saved stations stay hidden until you free a slot on the dial.
-        </p>
-      ) : null}
+      <p className="mt-2 text-xs text-stone-500">
+        Each band holds 10 visible stations. Extra stations stay hidden until
+        you free a slot on that band.
+      </p>
     </div>
   );
 }

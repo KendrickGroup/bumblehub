@@ -1,3 +1,9 @@
+import { parseCallAndFreq } from "./parse-identity";
+import {
+  stateCodeFromLabel,
+  timezoneFromStateCode,
+  type RadioBand,
+} from "./ranch";
 import type { RadioSearchResult } from "./types";
 import { isHttpsStreamUrl } from "./types";
 
@@ -48,6 +54,8 @@ type BrowserStation = {
   tags?: unknown;
   url?: unknown;
   url_resolved?: unknown;
+  geo_lat?: unknown;
+  geo_long?: unknown;
 };
 
 type FetchOpts = {
@@ -86,6 +94,8 @@ export function mapStation(raw: BrowserStation): RadioSearchResult | null {
   const stationuuid = asString(raw.stationuuid);
   if (!name || !stationuuid) return null;
   const tags = parseTags(raw.tags);
+  const lat = asNumber(raw.geo_lat);
+  const lon = asNumber(raw.geo_long);
   return {
     stationuuid,
     name,
@@ -97,6 +107,8 @@ export function mapStation(raw: BrowserStation): RadioSearchResult | null {
     clickcount: asNumber(raw.clickcount),
     tags: tags.slice(0, 8),
     streamUrl,
+    latitude: lat !== 0 ? lat : null,
+    longitude: lon !== 0 ? lon : null,
   };
 }
 
@@ -353,6 +365,33 @@ export function cityLabelFromResult(station: RadioSearchResult): string {
   if (station.state) return station.state.slice(0, 40);
   if (station.countrycode === "US") return "USA";
   return (station.country || "Radio").slice(0, 40);
+}
+
+export function extrasFromSearchResult(station: RadioSearchResult): {
+  latitude: number | null;
+  longitude: number | null;
+  state_code: string | null;
+  timezone: string | null;
+  band: RadioBand;
+} {
+  const state_code =
+    stateCodeFromLabel(station.state) ??
+    stateCodeFromLabel(cityLabelFromResult(station));
+  const parsed = parseCallAndFreq(station.name);
+  const freq = parsed.frequency ?? "";
+  const band: RadioBand =
+    freq.includes(".") || (Number(freq) >= 87 && Number(freq) <= 108)
+      ? "fm"
+      : freq && Number(freq) >= 530 && Number(freq) <= 1700
+        ? "am"
+        : "fm";
+  return {
+    latitude: station.latitude,
+    longitude: station.longitude,
+    state_code,
+    timezone: timezoneFromStateCode(state_code),
+    band,
+  };
 }
 
 export function normalizeStationKey(value: string): string {

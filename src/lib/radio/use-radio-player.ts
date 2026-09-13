@@ -8,6 +8,7 @@ import {
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
+import { loadFeedEpisodes, peekFeedEpisodes } from "./feed-cache";
 
 export type RadioPlayerStatus = "stopped" | "buffering" | "playing" | "failed";
 
@@ -24,7 +25,12 @@ export type RadioPlayerState = {
 type PlayableStation = Pick<
   RadioStation,
   "id" | "station_name" | "city_label" | "stream_url"
->;
+> & {
+  station_type?: RadioStation["station_type"];
+};
+
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
 const FAIL_MS = 12000;
 const STALL_MS = 8000;
@@ -45,6 +51,11 @@ let tuned: PlayableStation | null = null;
 let ignoreErrorUntil = 0;
 let lastTimeUpdate = 0;
 let attachInFlight = false;
+let feedRss: string | null = null;
+let feedUrls: string[] = [];
+let feedTitles: string[] = [];
+let feedDates: string[] = [];
+let feedIndex = 0;
 
 let snapshot: RadioPlayerState = {
   status: "stopped",
@@ -121,6 +132,26 @@ function detachSource(el: HTMLAudioElement) {
   el.load();
 }
 
+function currentPlayUrl(): string {
+  if (feedRss && feedUrls[feedIndex]) return feedUrls[feedIndex]!;
+  return tuned?.stream_url.trim() ?? "";
+}
+
+export function getRadioFeedNow(): {
+  title: string;
+  pubDate: string | null;
+  index: number;
+  total: number;
+} | null {
+  if (!feedRss || feedUrls.length === 0) return null;
+  return {
+    title: feedTitles[feedIndex] ?? "From the Archive",
+    pubDate: feedDates[feedIndex] ?? null,
+    index: feedIndex,
+    total: feedUrls.length,
+  };
+}
+
 function getAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio();
@@ -166,6 +197,15 @@ function getAudio(): HTMLAudioElement {
       }
     });
     audio.addEventListener("ended", () => {
+      if (feedRss && feedIndex + 1 < feedUrls.length && tuned) {
+        feedIndex += 1;
+        reattach(tuned);
+        return;
+      }
+      if (feedRss) {
+        stopInternal();
+        return;
+      }
       if (snapshot.status === "playing") {
         startReconnect();
         return;
@@ -260,11 +300,14 @@ function reattach(station: PlayableStation) {
   const claim = claimMusicExclusive("radio");
   const el = getAudio();
   const gen = ++generation;
-  const url = station.stream_url.trim();
+  const raw = currentPlayUrl() || station.stream_url.trim();
   attachInFlight = true;
   detachSource(el);
-  const join = url.includes("?") ? "&" : "?";
-  el.src = `${url}${join}_bh=${Date.now()}`;
+  patch({
+    status: "buffering",
+    streamUrl: raw,
+  });
+  el.src = feedRss ? raw : `${raw}${raw.includes("?") ? "&" : "?"}_bh=${Date.now()}`;
   el.volume = snapshot.volume;
   const started = el.play();
   if (started !== undefined) {
@@ -289,6 +332,11 @@ function stopInternal() {
   if (audio) {
     detachSource(audio);
   }
+  feedRss = null;
+  feedUrls = [];
+  feedTitles = [];
+  feedDates = [];
+  feedIndex = 0;
   patch({ status: "stopped", reconnectAttempt: 0 });
 }
 
@@ -313,11 +361,30 @@ export function radioIsLive(): boolean {
 export function playRadio(station: PlayableStation) {
   exclusiveRadio();
   const claim = claimMusicExclusive("radio");
-  const url = station.stream_url.trim();
   tuned = station;
   writeTunedStationId(station.id);
 
-  if (!url) {
+  const isFeed = station.station_type === "feed";
+  if (isFeed) {
+    feedRss = station.stream_url.trim();
+    const cached = peekFeedEpisodes(feedRss) ?? [];
+    feedUrls = cached.map((e) => e.audioUrl);
+    feedTitles = cached.map((e) => e.title);
+    feedDates = cached.map((e) => e.pubDate ?? "");
+    feedIndex = 0;
+  } else {
+    feedRss = null;
+    feedUrls = [];
+    feedTitles = [];
+    feedDates = [];
+    feedIndex = 0;
+  }
+
+  const url = isFeed ? feedUrls[0] ?? "" : station.stream_url.trim();
+  tuned = station;
+  writeTunedStationId(station.id);
+
+  if (!url && !isFeed) {
     patch({
       status: "failed",
       stationId: station.id,
@@ -339,9 +406,40 @@ export function playRadio(station: PlayableStation) {
     stationId: station.id,
     stationName: station.station_name,
     cityLabel: station.city_label,
-    streamUrl: url,
+    streamUrl: url || station.stream_url,
     reconnectAttempt: 0,
   });
+
+  if (isFeed && !url) {
+    el.src = SILENT_WAV;
+    el.volume = snapshot.volume;
+    void el.play()?.catch(() => {});
+    const rss = feedRss;
+    void loadFeedEpisodes(station.stream_url).then((episodes) => {
+      if (generation !== gen) return;
+      if (!rss || feedRss !== rss) return;
+      feedUrls = episodes.map((e) => e.audioUrl);
+      feedTitles = episodes.map((e) => e.title);
+      feedDates = episodes.map((e) => e.pubDate ?? "");
+      feedIndex = 0;
+      const next = feedUrls[0];
+      if (!next) {
+        attachInFlight = false;
+        patch({ status: "failed" });
+        return;
+      }
+      el.src = next;
+      void el.play()?.catch(() => {
+        if (generation !== gen) return;
+        attachInFlight = false;
+        patch({ status: "failed" });
+      });
+    });
+    armFailTimer(gen);
+    armWatchdog(gen);
+    void pauseSpotifyForRadio(claim);
+    return;
+  }
 
   if (!audioHasUrl(el, url)) {
     el.src = url;
