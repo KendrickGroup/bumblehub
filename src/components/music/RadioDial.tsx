@@ -309,7 +309,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       : "";
 
   return (
-    <section className="radio-world mx-auto w-full max-w-[900px]">
+    <section className="radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0">
       <div
         className={`radio-case ${parked ? "pointer-events-none opacity-40" : ""}`}
       >
@@ -594,7 +594,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           ) : null}
 
           <div className="radio-controls">
-            <div className="flex w-[54px] flex-col items-center">
+            <div className="radio-knob-col">
               <button
                 type="button"
                 disabled={parked}
@@ -633,7 +633,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 />
               )}
             </button>
-            <div className="flex w-[54px] flex-col items-center">
+            <div className="radio-knob-col">
               <button
                 type="button"
                 disabled={parked}

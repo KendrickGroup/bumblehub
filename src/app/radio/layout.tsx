@@ -90,7 +90,7 @@ export default function RadioLayout({
 }>) {
   return (
     <div
-      className={`${bricolage.variable} ${rye.variable} ${elite.variable} min-h-full bg-[#FAF8F3] font-[family-name:var(--font-bricolage)]`}
+      className={`${bricolage.variable} ${rye.variable} ${elite.variable} h-dvh overflow-hidden bg-[#FAF8F3] font-[family-name:var(--font-bricolage)]`}
     >
       <RadioPwa />
       {children}
