@@ -21,6 +21,12 @@ import { useNowPlaying } from "@/lib/music/use-now-playing";
 import { stopRadioPlayback, useRadioPlayer } from "@/lib/radio/use-radio-player";
 import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
 import type { RadioNowPlayingTrack } from "@/lib/radio/icy";
+import {
+  WX_NOW_PLAYING_CONTEXT,
+  WX_NOW_PLAYING_TITLE,
+  isWxBroadcast,
+} from "@/lib/radio/wx-stream";
+import { WxBroadcastBadge } from "@/components/radio/WxBroadcastBadge";
 
 type ConnectedState = Extract<
   NowPlayingResponse,
@@ -48,9 +54,10 @@ export function NowPlayingStrip({
   const radio = useRadioPlayer();
   const radioLive =
     radio.status === "playing" || radio.status === "buffering";
+  const wxLive = isWxBroadcast(radio.stationId);
   const song = useRadioNowPlaying(
-    radio.streamUrl,
-    radio.status === "playing",
+    wxLive ? null : radio.streamUrl,
+    radio.status === "playing" && !wxLive,
   );
 
   // Radio wins the strip during a transition race; the next Spotify poll
@@ -64,6 +71,7 @@ export function NowPlayingStrip({
           buffering={radio.status === "buffering"}
           reconnecting={radio.reconnectAttempt > 0}
           song={song}
+          wx={wxLive}
         />
       </ShellChrome>
     );
@@ -198,41 +206,55 @@ function RadioNowPlaying({
   buffering,
   reconnecting,
   song,
+  wx,
 }: {
   stationName: string;
   cityLabel: string;
   buffering: boolean;
   reconnecting: boolean;
   song: RadioNowPlayingTrack | null;
+  wx: boolean;
 }) {
   return (
     <div className="flex min-h-[88px] items-center gap-4 rounded-[18px] bg-white px-5 py-4 shadow-sm ring-2 ring-red-500/20 sm:min-h-[72px]">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FBF0D0] text-stone-800">
-        {song?.artworkUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- iTunes CDN hosts vary
-          <img
-            key={song.artworkUrl}
-            src={song.artworkUrl}
-            alt=""
-            className="radio-sleeve-photo h-full w-full object-cover"
-          />
-        ) : (
-          <RadioTowerMark size={18} />
-        )}
-      </div>
+      {wx ? (
+        <WxBroadcastBadge size={40} />
+      ) : (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FBF0D0] text-stone-800">
+          {song?.artworkUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- iTunes CDN hosts vary
+            <img
+              key={song.artworkUrl}
+              src={song.artworkUrl}
+              alt=""
+              className="radio-sleeve-photo h-full w-full object-cover"
+            />
+          ) : (
+            <RadioTowerMark size={18} />
+          )}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2">
           <RadioLiveBadge />
           <span className="truncate text-base font-semibold text-stone-900">
-            {song?.title ?? stationName}
+            {wx ? WX_NOW_PLAYING_TITLE : (song?.title ?? stationName)}
           </span>
         </p>
-        {song?.artist ? (
-          <p className="truncate text-sm text-stone-500">{song.artist}</p>
-        ) : null}
-        <p className="truncate text-sm text-stone-500">
-          Ranch House Radio · {stationName} — {cityLabel}
-        </p>
+        {wx ? (
+          <p className="truncate text-sm text-stone-500">
+            {WX_NOW_PLAYING_CONTEXT}
+          </p>
+        ) : (
+          <>
+            {song?.artist ? (
+              <p className="truncate text-sm text-stone-500">{song.artist}</p>
+            ) : null}
+            <p className="truncate text-sm text-stone-500">
+              Ranch House Radio · {stationName} — {cityLabel}
+            </p>
+          </>
+        )}
         {reconnecting ? (
           <p className="text-xs font-medium text-stone-400">reconnecting…</p>
         ) : buffering ? (

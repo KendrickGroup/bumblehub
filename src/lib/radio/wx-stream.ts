@@ -5,6 +5,16 @@ import { isHttpsStreamUrl, type RadioStation } from "./types";
 /** Virtual dial id — not a radio_stations row. */
 export const WX_STATION_ID = "wx:broadcast";
 
+export const WX_NOW_PLAYING_TITLE = "Ranch Weather Broadcast";
+export const WX_NOW_PLAYING_CONTEXT =
+  "NOAA Weather Radio · Sutter Creek, California";
+export const WX_BADGE_OLIVE = "#B4B45E";
+export const WX_BADGE_INK = "#241A12";
+
+export function isWxBroadcast(stationId: string | null | undefined): boolean {
+  return stationId === WX_STATION_ID;
+}
+
 /**
  * HTTPS listen URL for NOAA Weather Radio KEC57 (Zeno.FM relay).
  * Covers Amador & El Dorado (Wolf Mountain / Sacramento NWR).

@@ -5,6 +5,12 @@ import { Music2, Pause, Play, Square } from "lucide-react";
 import { useNowPlaying } from "@/lib/music/use-now-playing";
 import { stopRadioPlayback, useRadioPlayer } from "@/lib/radio/use-radio-player";
 import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
+import {
+  WX_NOW_PLAYING_CONTEXT,
+  WX_NOW_PLAYING_TITLE,
+  isWxBroadcast,
+} from "@/lib/radio/wx-stream";
+import { WxBroadcastBadge } from "@/components/radio/WxBroadcastBadge";
 
 export function HomeMusicPill() {
   const router = useRouter();
@@ -12,9 +18,10 @@ export function HomeMusicPill() {
   const radio = useRadioPlayer();
   const radioLive =
     radio.status === "playing" || radio.status === "buffering";
+  const wxLive = isWxBroadcast(radio.stationId);
   const song = useRadioNowPlaying(
-    radio.streamUrl,
-    radio.status === "playing",
+    wxLive ? null : radio.streamUrl,
+    radio.status === "playing" && !wxLive,
   );
 
   const openMusic = () => router.push("/music");
@@ -27,23 +34,32 @@ export function HomeMusicPill() {
           onClick={openMusic}
           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
         >
-          <span className="h-[38px] w-[38px] shrink-0 overflow-hidden rounded-[10px] bg-gradient-to-br from-[#3E5C76] to-[#8FA3B8]">
-            {song?.artworkUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={song.artworkUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : null}
-          </span>
+            {wxLive ? (
+              <WxBroadcastBadge size={38} />
+            ) : (
+              <span className="h-[38px] w-[38px] shrink-0 overflow-hidden rounded-[10px] bg-gradient-to-br from-[#3E5C76] to-[#8FA3B8]">
+                {song?.artworkUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={song.artworkUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : null}
+              </span>
+            )}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[12px] font-extrabold text-[#241A12]">
-              {song?.title ?? (radio.stationName || "Ranch House Radio")}
+              {wxLive
+                ? WX_NOW_PLAYING_TITLE
+                : (song?.title ?? (radio.stationName || "Ranch House Radio"))}
             </span>
             <span className="block truncate text-[10px] text-[#8A7F6E]">
-              {radio.stationName || "Ranch House Radio"}
-              {radio.cityLabel ? ` · ${radio.cityLabel}` : ""}
+              {wxLive
+                ? WX_NOW_PLAYING_CONTEXT
+                : `${radio.stationName || "Ranch House Radio"}${
+                    radio.cityLabel ? ` · ${radio.cityLabel}` : ""
+                  }`}
             </span>
           </span>
         </button>
