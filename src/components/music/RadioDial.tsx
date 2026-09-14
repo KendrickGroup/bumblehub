@@ -206,9 +206,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       : song?.artist ||
         (displayStation ? formatTunedPlace(displayStation.city_label) : "");
 
-  const showLasso = Boolean(
-    !wxFace && !isFeed && (song?.title || (publicMode && song)),
-  ) && Boolean(song?.title);
+  const showLasso = Boolean(!wxFace && !isFeed && song?.title);
 
   const retuneFx = useCallback(() => {
     setCrackle(false);
@@ -351,13 +349,13 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const readoutClass = wxFace ? "is-wx" : archiveFace ? "is-sports" : "";
 
   return (
-    <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "" : "app-radio"}`}>
+    <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "h-full" : "app-radio"}`}>
       <div
         className={`radio-case ${parked ? "pointer-events-none opacity-40" : ""}`}
       >
         <button
           type="button"
-          className="radio-carry"
+          className={`radio-carry ${publicMode ? "" : "max-sm:hidden"}`}
           onClick={() => setHandleOpen(true)}
           aria-label="Take the Ranch House Radio to go"
         >

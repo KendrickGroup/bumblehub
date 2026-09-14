@@ -47,11 +47,22 @@ export const STATE_SHAPES: Record<string, LonLat[]> = {
     [-87.5, 30.3],
   ],
   TN: [
-    [-90.05, 35.0],
-    [-81.7, 35.2],
-    [-81.65, 36.6],
-    [-89.5, 36.5],
-    [-89.7, 36.0],
+    [-90.31, 35.0],
+    [-90.22, 35.45],
+    [-89.97, 35.97],
+    [-89.73, 36.3],
+    [-89.54, 36.5],
+    [-88.07, 36.5],
+    [-86.37, 36.68],
+    [-84.15, 36.61],
+    [-81.65, 36.59],
+    [-81.68, 36.28],
+    [-82.05, 35.97],
+    [-83.47, 35.43],
+    [-84.02, 34.98],
+    [-85.61, 34.98],
+    [-88.07, 35.0],
+    [-90.31, 35.0],
   ],
   PA: [
     [-80.52, 39.72],
@@ -112,15 +123,22 @@ export function fitStateShape(
   const mxLo = Math.max(...lons);
   const mnLa = Math.min(...lats);
   const mxLa = Math.max(...lats);
-  const sc = Math.min(
-    (width - 2 * padding) / Math.max(mxLo - mnLo, 0.0001),
-    (height - 2 * padding) / Math.max(mxLa - mnLa, 0.0001),
-  );
-  const ox = (width - (mxLo - mnLo) * sc) / 2;
-  const oy = (height - (mxLa - mnLa) * sc) / 2;
+  const dLo = Math.max(mxLo - mnLo, 0.0001);
+  const dLa = Math.max(mxLa - mnLa, 0.0001);
+  const innerW = width - 2 * padding;
+  const innerH = height - 2 * padding;
+  const scX = innerW / dLo;
+  const scYUniform = innerH / dLa;
+  const sc = Math.min(scX, scYUniform);
+  // Wide, short states (Tennessee) collapse to a sliver under a uniform
+  // lon/lat scale. Floor vertical fill so the outline still reads, without
+  // stretching compact states like Texas or California into the full frame.
+  const scY = Math.min(scYUniform, Math.max(sc, (innerH * 0.42) / dLa));
+  const ox = (width - dLo * sc) / 2;
+  const oy = (height - dLa * scY) / 2;
   const project = (lon: number, lat: number): ProjectedPoint => ({
     x: ox + (lon - mnLo) * sc,
-    y: oy + (mxLa - lat) * sc,
+    y: oy + (mxLa - lat) * scY,
   });
   return {
     points: pts

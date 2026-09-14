@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchIcyNowPlaying } from "@/lib/radio/icy";
+import { fetchIcyNowPlaying, isUsableSongText } from "@/lib/radio/icy";
 import { lookupItunesArtwork } from "@/lib/radio/itunes-artwork";
 import { isHttpsStreamUrl } from "@/lib/radio/types";
 
@@ -31,16 +31,18 @@ export async function GET(request: Request) {
 
   try {
     const track = await fetchIcyNowPlaying(streamUrl);
-    if (!track) {
+    if (!track || !isUsableSongText(track.title)) {
       cache.set(streamUrl, { at: Date.now(), track: null });
       return NextResponse.json({ track: null }, { headers: NO_STORE });
     }
 
     let artworkUrl: string | null = null;
-    try {
-      artworkUrl = await lookupItunesArtwork(track.artist, track.title);
-    } catch {
-      artworkUrl = null;
+    if (track.artist && isUsableSongText(track.artist)) {
+      try {
+        artworkUrl = await lookupItunesArtwork(track.artist, track.title);
+      } catch {
+        artworkUrl = null;
+      }
     }
 
     const payload = {

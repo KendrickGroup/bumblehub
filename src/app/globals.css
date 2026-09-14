@@ -237,6 +237,9 @@ body {
 }
 
 .radio-world {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   --leather: #6B4F36;
@@ -274,6 +277,10 @@ body {
 
 .radio-case {
   position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   border-radius: 16px;
   padding: 28px 10px 10px;
   border: 1px solid #3A2C1D;
@@ -336,6 +343,10 @@ body {
 
 .radio-face {
   position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
   border-radius: 9px;
   padding: 12px 12px 14px;
   background:
@@ -355,6 +366,7 @@ body {
 
 .radio-maplid {
   position: relative;
+  flex-shrink: 0;
   margin-bottom: 10px;
   border-radius: 5px;
   padding: 24px 12px 10px;
@@ -506,6 +518,7 @@ body {
 
 .radio-gestrip {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
@@ -540,6 +553,7 @@ body {
 
 .radio-glass {
   position: relative;
+  flex-shrink: 0;
   overflow: hidden;
   border-radius: 5px;
   padding: 10px 12px 12px;
@@ -714,6 +728,7 @@ body {
 
 .radio-lower {
   display: flex;
+  flex-shrink: 0;
   align-items: stretch;
   gap: 8px;
   margin-top: 10px;
@@ -734,8 +749,11 @@ body {
   align-self: stretch;
 }
 .radio-grilleband {
-  height: 52px;
-  margin-top: 10px;
+  align-self: stretch;
+  flex: 1 1 auto;
+  min-height: 52px;
+  height: auto;
+  margin-top: 15px;
 }
 .radio-wx-temp {
   font-size: 28px;
@@ -809,10 +827,11 @@ body {
 
 .radio-controls {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
-  padding: 0 6px;
+  margin-top: 10px;
+  padding: 4px 6px 2px;
 }
 .radio-lasso-key {
   display: flex;
@@ -913,6 +932,7 @@ body {
 }
 
 .radio-public-foot {
+  flex-shrink: 0;
   margin-top: 16px;
   padding: 0 8px;
   text-align: center;
@@ -1191,14 +1211,15 @@ body {
     padding: 6px 3px;
   }
   .radio-grilleband {
-    flex-shrink: 0;
-    height: 34px;
-    margin-top: 6px;
+    flex: 1 1 auto;
+    min-height: 52px;
+    height: auto;
+    margin-top: 15px;
   }
   .radio-controls {
     flex-shrink: 0;
-    margin-top: auto;
-    padding: 0 2px;
+    margin-top: 10px;
+    padding: 4px 2px 0;
   }
   .radio-knob-col {
     width: 46px;
@@ -1222,6 +1243,7 @@ body {
   .radio-public-foot {
     display: none;
   }
+  /* In-app TO-GO handle stays off phones; public /radio keeps it. */
   .radio-world.app-radio .radio-carry {
     display: none;
   }
@@ -1256,7 +1278,7 @@ body {
     padding: 4px 2px;
   }
   .radio-grilleband {
-    height: 28px;
+    min-height: 40px;
   }
 }
 
@@ -1427,9 +1449,6 @@ body {
   }
   .radio-grillepad {
     display: block;
-  }
-  .radio-grilleband {
-    display: none;
   }
 }
 

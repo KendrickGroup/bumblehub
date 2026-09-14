@@ -8,17 +8,53 @@ function decodeLatin1(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => String.fromCharCode(b)).join("");
 }
 
-function parseStreamTitle(raw: string): RadioNowPlayingTrack | null {
+const SLOGAN_RE =
+  /\b(?:https?:\/\/|www\.|\.(?:com|net|org|fm)\b|listen\s+live|streaming\s+live|the\s+best\s+(?:of\s+)?(?:country|hits)|your\s+(?:home|hit|country)\s+for)\b/i;
+const CALL_ONLY_RE = /^[KW][A-Z]{2,3}(?:-FM)?(?:\s+\d{2,3}(?:\.\d{1,2})?)?$/i;
+const FREQ_ONLY_RE = /^\d{2,4}(?:\.\d{1,2})?$/;
+
+/** True when a StreamTitle part is real song text, not empty/junk. */
+export function isUsableSongText(value: string): boolean {
+  const text = value.trim();
+  if (text.length < 2) return false;
+  const letters = text.replace(/[^\p{L}\p{N}]+/gu, "");
+  return letters.length >= 2;
+}
+
+function isSloganSpam(value: string): boolean {
+  const text = value.trim();
+  if (!text) return true;
+  if (SLOGAN_RE.test(text)) return true;
+  if (CALL_ONLY_RE.test(text)) return true;
+  if (FREQ_ONLY_RE.test(text)) return true;
+  return false;
+}
+
+export function parseIcyStreamTitle(raw: string): RadioNowPlayingTrack | null {
   const match = /StreamTitle='([^']*)'/i.exec(raw);
-  const value = (match?.[1] ?? "").trim();
-  if (!value) return null;
-  const split = value.split(/\s+-\s+/);
+  const value = (match ? match[1] : raw).trim();
+  if (!isUsableSongText(value) || isSloganSpam(value)) return null;
+
+  const split = value.split(/\s+[-–—]\s+/);
   if (split.length >= 2) {
     const artist = split[0]!.trim();
     const title = split.slice(1).join(" - ").trim();
-    if (title) return { title, artist: artist || null, artworkUrl: null };
+    if (isUsableSongText(title) && !isSloganSpam(title)) {
+      return {
+        title,
+        artist: isUsableSongText(artist) && !isSloganSpam(artist) ? artist : null,
+        artworkUrl: null,
+      };
+    }
+    return null;
   }
-  return { title: value, artist: null, artworkUrl: null };
+
+  // No Artist - Title pair: station slogan / filler, not a song.
+  return null;
+}
+
+function parseStreamTitle(raw: string): RadioNowPlayingTrack | null {
+  return parseIcyStreamTitle(raw);
 }
 
 /** Read a short ICY metadata block from a live stream. Returns null if none. */
