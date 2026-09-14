@@ -79,7 +79,7 @@ export async function ensureLaunchStations(
     is_visible: true,
     call_sign: "BASEBALL",
     frequency: "CLASSIC",
-    band: "sports",
+    band: "am",
     station_type: "feed",
     timezone: "America/New_York",
   });

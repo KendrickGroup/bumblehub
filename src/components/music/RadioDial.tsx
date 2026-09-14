@@ -15,7 +15,7 @@ import {
   formatStationTime,
   milesFromRanch,
   needlePercent,
-  presetsWithPinnedFeeds,
+  presetsForBand,
   PUBLIC_ROUNDUP_PLAYLIST_URL,
   spotifySearchUrl,
   stateCodeFromLabel,
@@ -48,6 +48,10 @@ import {
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { useRadioMediaSession } from "@/components/radio/use-radio-media-session";
+import {
+  WX_STATION_ID,
+  makeWxStation,
+} from "@/lib/radio/wx-stream";
 
 const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
 const VOLUME_STEPS = [0.2, 0.4, 0.6, 0.8, 1] as const;
@@ -59,13 +63,12 @@ function volumeRotation(volume: number): number {
 }
 
 function bandLabel(band: RadioFaceBand): string {
-  if (band === "sports") return "AM SPORTS";
   if (band === "wx") return "WX";
   return band.toUpperCase();
 }
 
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
-  const { visible, loaded } = useRadioStations({ publicMode });
+  const { visible, loaded, wxStreamUrl } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
   const [crackle, setCrackle] = useState(false);
@@ -76,11 +79,24 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [weather, setWeather] = useState<RanchWeather | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
   const [lassoNote, setLassoNote] = useState<string | null>(null);
+  const [lastRealId, setLastRealId] = useState<string | null>(null);
+
+  const wxStation = useMemo(
+    () => (wxStreamUrl.trim() ? makeWxStation(wxStreamUrl.trim()) : null),
+    [wxStreamUrl],
+  );
+
+  if (tunedId && tunedId !== WX_STATION_ID && lastRealId !== tunedId) {
+    setLastRealId(tunedId);
+  }
 
   const playingStation =
-    visible.find((s) => s.id === player.stationId) ?? null;
+    player.stationId === WX_STATION_ID
+      ? wxStation
+      : (visible.find((s) => s.id === player.stationId) ?? null);
   const selected =
     visible.find((s) => s.id === tunedId) ??
+    visible.find((s) => s.id === lastRealId) ??
     (loaded ? (visible[0] ?? null) : null);
 
   const displayStation = selected;
@@ -91,19 +107,24 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     player.status === "failed" && player.stationId === selected?.id;
   const live = playing || buffering;
   const isFeed = selected?.station_type === "feed";
-  const sportsFace = Boolean(selected?.band === "sports" && browseBand !== "wx");
   const wxFace = browseBand === "wx";
+  const archiveFace = Boolean(isFeed && !wxFace);
+  const wxPlaying = player.stationId === WX_STATION_ID;
+  const wxBroadcastFailed =
+    Boolean(wxStreamUrl.trim()) &&
+    wxPlaying &&
+    player.status === "failed";
 
   const song = useRadioNowPlaying(
-    !isFeed && playing ? (playingStation?.stream_url ?? null) : null,
-    Boolean(!isFeed && playing),
+    !isFeed && !wxPlaying && playing ? (playingStation?.stream_url ?? null) : null,
+    Boolean(!isFeed && !wxPlaying && playing),
   );
-  const feedNow = isFeed ? getRadioFeedNow() : null;
+  const feedNow = isFeed && !wxPlaying ? getRadioFeedNow() : null;
 
   useRadioMediaSession(
     playingStation ?? displayStation,
     song,
-    feedNow?.title ?? null,
+    wxPlaying ? null : (feedNow?.title ?? null),
   );
 
   useEffect(() => {
@@ -116,9 +137,12 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
   useEffect(() => {
     if (!selected) return;
-    if (selected.band === "fm" || selected.band === "am" || selected.band === "sports") {
+    if (selected.band === "fm" || selected.band === "am") {
+      /* Keep the flags on a newly tuned station; leave WX browse in place. */
+      /* eslint-disable react-hooks/set-state-in-effect */
       setBrowseBand((current) => (current === "wx" ? current : selected.band));
       setPresetBand(selected.band);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [selected?.id, selected?.band]);
 
@@ -153,13 +177,14 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   }, [wxFace]);
 
   const presets = useMemo(() => {
-    const band = browseBand === "wx" ? presetBand : browseBand;
-    return presetsWithPinnedFeeds(visible, band, MAX_VISIBLE_STATIONS);
+    const band: RadioBand =
+      browseBand === "wx" ? presetBand : browseBand;
+    return presetsForBand(visible, band, MAX_VISIBLE_STATIONS);
   }, [visible, browseBand, presetBand]);
 
   const parked = !loaded;
   const face = displayStation ? stationFace(displayStation) : null;
-  const chartMode = wxFace ? "wx" : isFeed || sportsFace ? "sports" : "station";
+  const chartMode = wxFace ? "wx" : archiveFace ? "sports" : "station";
   const stateCode =
     displayStation?.state_code ??
     stateCodeFromLabel(displayStation?.city_label ?? null);
@@ -211,6 +236,13 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       stopRadioPlayback();
       return;
     }
+    if (wxFace && wxStation) {
+      playRadio(wxStation);
+      unlockStaticCrackle();
+      retuneFx();
+      playStaticCrackle();
+      return;
+    }
     if (!selected) return;
     playRadio(selected);
     unlockStaticCrackle();
@@ -227,7 +259,18 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
   const onBand = (band: RadioFaceBand) => {
     setBrowseBand(band);
-    if (band !== "wx") setPresetBand(band);
+    if (band !== "wx") {
+      setPresetBand(band);
+      return;
+    }
+    if (!wxStation) return;
+    const switching = getRadioPlayerState().stationId !== WX_STATION_ID;
+    playRadio(wxStation);
+    unlockStaticCrackle();
+    if (switching) {
+      retuneFx();
+      playStaticCrackle();
+    }
   };
 
   const onLasso = async () => {
@@ -275,38 +318,37 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         )
       : "—";
 
-  const scaleBand: RadioFaceBand = wxFace
+  const scaleBand: RadioFaceBand | "feed" = wxFace
     ? "wx"
-    : (displayStation?.band ?? browseBand);
+    : archiveFace
+      ? "feed"
+      : (displayStation?.band ?? browseBand);
   const scaleNums = scaleBand === "am" ? AM_NUMS : FM_NUMS;
-  const needleBand: RadioFaceBand = wxFace
-    ? "wx"
-    : (displayStation?.band ?? browseBand);
-  const needle = needlePercent(needleBand, displayStation?.frequency);
+  const needle = wxFace
+    ? needlePercent("wx", null)
+    : archiveFace
+      ? 50
+      : needlePercent(displayStation?.band ?? browseBand, displayStation?.frequency);
 
   const glassCall = wxFace
     ? "LATIGO"
-    : sportsFace || isFeed
+    : archiveFace
       ? "BASEBALL"
       : face?.readoutPrimary || "—";
   const glassFreq = wxFace
     ? "WX"
-    : sportsFace || isFeed
+    : archiveFace
       ? "CLASSIC"
       : face?.readoutFreq;
   const glassPlace = wxFace
     ? "Ranch House Weather Bureau — Sutter Creek, Calif."
-    : sportsFace || isFeed
+    : archiveFace
       ? "From the Archive"
       : displayStation
         ? formatTunedPlace(displayStation.city_label)
         : "";
 
-  const readoutClass = wxFace
-    ? "is-wx"
-    : sportsFace || isFeed
-      ? "is-sports"
-      : "";
+  const readoutClass = wxFace ? "is-wx" : archiveFace ? "is-sports" : "";
 
   return (
     <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "" : "app-radio"}`}>
@@ -373,28 +415,30 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   ) : null}
                 </div>
                 <div className="radio-readings">
-                  {wxFace && weather ? (
+                  {wxFace ? (
                     <>
                       <div>
                         <p className="k">Wind</p>
                         <p className="v">
-                          {weather.windDir} {weather.windSpeed} MPH
+                          {weather
+                            ? `${weather.windDir} ${weather.windSpeed} MPH`
+                            : "—"}
                         </p>
                       </div>
                       <div>
                         <p className="k">Humidity</p>
                         <p className="v">
-                          {weather.humidity != null ? `${weather.humidity}%` : "—"}
+                          {weather?.humidity != null ? `${weather.humidity}%` : "—"}
                         </p>
                       </div>
                       <div>
                         <p className="k">Sunset</p>
-                        <p className="v">{weather.sunset ?? "—"}</p>
+                        <p className="v">{weather?.sunset ?? "—"}</p>
                       </div>
                       <div>
                         <p className="k">High / Low</p>
                         <p className="v">
-                          {weather.high != null && weather.low != null
+                          {weather?.high != null && weather?.low != null
                             ? `${weather.high}° / ${weather.low}°`
                             : "—"}
                         </p>
@@ -440,7 +484,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 </div>
                 <p className="radio-foot">
                   {wxFace
-                    ? weather?.tomorrowLine ?? "At the ranch."
+                    ? wxBroadcastFailed
+                      ? "Broadcast off the air."
+                      : (weather?.tomorrowLine ?? "At the ranch.")
                     : isFeed
                       ? "Rebroadcast from the golden age of radio, 1934-1974."
                       : displayStation
@@ -481,7 +527,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           <div className="radio-glass">
             <div className="radio-toprow">
               <div className="radio-bandflags">
-                {(["fm", "am", "sports", "wx"] as const).map((band) => (
+                {(["fm", "am", "wx"] as const).map((band) => (
                   <button
                     key={band}
                     type="button"
@@ -491,7 +537,11 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     onClick={() => onBand(band)}
                   >
                     {bandLabel(band)}
-                    {playingStation?.band === band && live ? (
+                    {(band === "wx"
+                      ? wxPlaying && live
+                      : playingStation?.band === band &&
+                        playingStation.id !== WX_STATION_ID &&
+                        live) ? (
                       <span className="radio-band-dot" aria-hidden />
                     ) : null}
                   </button>
@@ -504,7 +554,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </div>
 
             <div className={`radio-readout ${readoutClass}`}>
-              {failed && selected ? (
+              {failed && selected && !wxFace ? (
                 <p className="radio-fail">
                   Could not load {selected.station_name}. Try another station.
                 </p>
@@ -526,7 +576,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
             <div className="radio-scaleline">
               <div className="nums">
-                {scaleBand === "sports" ? (
+                {scaleBand === "feed" ? (
                   <>
                     <span>CLASSIC BASEBALL</span>
                     <span>FROM THE ARCHIVE</span>

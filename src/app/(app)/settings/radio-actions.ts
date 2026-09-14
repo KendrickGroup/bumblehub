@@ -54,7 +54,7 @@ function emptyToNull(
 }
 
 function parseBand(value: unknown): RadioBand | undefined {
-  if (value === "fm" || value === "am" || value === "sports") return value;
+  if (value === "fm" || value === "am") return value;
   return undefined;
 }
 
@@ -226,9 +226,7 @@ export async function updateRadioStation(input: {
         const capBand = (nextBand ?? current?.band ?? "fm") as RadioBand;
         const visibleCount = await countVisibleStations(
           ctx.propertyId,
-          capBand === "am" || capBand === "sports" || capBand === "fm"
-            ? capBand
-            : "fm",
+          capBand === "am" || capBand === "fm" ? capBand : "fm",
         );
         if (visibleCount >= MAX_VISIBLE_STATIONS) {
           return {

@@ -40,6 +40,7 @@ import { ScenesSettingsPanel } from "./ScenesSettingsPanel";
 import { PhotoBoothSettingsSection } from "./PhotoBoothSettingsSection";
 import { RadioSettingsPanel } from "./RadioSettingsPanel";
 import { ensureLaunchStations } from "@/lib/radio/queries";
+import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import type { RadioStation } from "@/lib/radio/types";
 import type { Device, Room, Scene, SceneAction } from "@/lib/types";
 
@@ -78,6 +79,7 @@ export default async function SettingsPage() {
   let customBackdrops = parseCustomBackdrops(null);
   let photos: Awaited<ReturnType<typeof fetchGuestbookPhotos>> = [];
   let radioStations: RadioStation[] = [];
+  let wxStreamUrl = "";
   let devices: Device[] = [];
   let rooms: Room[] = [];
   let scenes: Scene[] = [];
@@ -105,6 +107,7 @@ export default async function SettingsPage() {
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
     photos = await fetchGuestbookPhotos(propertyId);
     radioStations = await ensureLaunchStations(propertyId);
+    wxStreamUrl = await ensureWxStreamUrl(supabase, propertyId);
 
     const { data: property } = await supabase
       .from("properties")
@@ -232,6 +235,7 @@ export default async function SettingsPage() {
           <RadioSettingsPanel
             hasProperty={!!propertyId}
             initialStations={radioStations}
+            initialWxStreamUrl={wxStreamUrl}
           />
         </div>
 

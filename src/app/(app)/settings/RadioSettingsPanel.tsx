@@ -38,6 +38,7 @@ import {
 type Props = {
   hasProperty: boolean;
   initialStations: RadioStation[];
+  initialWxStreamUrl: string;
 };
 
 const TEXT_DEBOUNCE_MS = 600;
@@ -70,7 +71,11 @@ type StationCreateInput = {
   timezone?: string | null;
 };
 
-export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
+export function RadioSettingsPanel({
+  hasProperty,
+  initialStations,
+  initialWxStreamUrl,
+}: Props) {
   const [stations, setStations] = useState(initialStations);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,7 +87,7 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
   const bandAtCap = (band: RadioBand) =>
     stations.filter((s) => s.is_visible && s.band === band).length >=
     MAX_VISIBLE_STATIONS;
-  const anyBandAtCap = bandAtCap("fm") || bandAtCap("am") || bandAtCap("sports");
+  const anyBandAtCap = bandAtCap("fm") || bandAtCap("am");
 
   const applyStation = useCallback((station: RadioStation) => {
     setStations((prev) => prev.map((s) => (s.id === station.id ? station : s)));
@@ -235,6 +240,8 @@ export function RadioSettingsPanel({ hasProperty, initialStations }: Props) {
 
       <FindStationsPanel stations={stations} onAdd={addStation} />
 
+      <WxStreamField initialUrl={initialWxStreamUrl} />
+
       <div className="mt-5 space-y-3">
         {stations.map((station, index) => (
           <StationRow
@@ -327,9 +334,7 @@ const StationRow = memo(function StationRow({
           </p>
             <p className="truncate font-[family-name:var(--font-elite)] text-xs text-stone-500">
               {[
-                station.band === "sports"
-                  ? "AM SPORTS"
-                  : station.band.toUpperCase(),
+                station.band.toUpperCase(),
                 station.station_type === "feed" ? "feed" : null,
                 station.call_sign,
                 station.frequency,
@@ -659,7 +664,6 @@ const StationEditFields = memo(function StationEditFields({
         >
           <option value="fm">FM</option>
           <option value="am">AM</option>
-          <option value="sports">AM Sports</option>
         </select>
       </label>
       <label className="block sm:col-span-1">
@@ -838,7 +842,6 @@ function AddStationPanel({
         >
           <option value="fm">FM</option>
           <option value="am">AM</option>
-          <option value="sports">AM Sports</option>
         </select>
         <select
           value={type}
@@ -873,6 +876,96 @@ function AddStationPanel({
         Each band holds 10 visible stations. Extra stations stay hidden until
         you free a slot on that band.
       </p>
+    </div>
+  );
+}
+
+function WxStreamField({ initialUrl }: { initialUrl: string }) {
+  const [url, setUrl] = useState(initialUrl);
+  const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef(url);
+
+  useEffect(() => {
+    pending.current = url;
+  }, [url]);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  const persist = useCallback(async (next: string) => {
+    const trimmed = next.trim();
+    if (trimmed && !trimmed.startsWith("https://")) {
+      setError("Weather stream URL must start with https://.");
+      return;
+    }
+    setError(null);
+    try {
+      const response = await fetch("/api/settings/radio-wx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wx_stream_url: trimmed }),
+      });
+      const body = (await response.json()) as {
+        wx_stream_url?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setError(body.error ?? "Could not save weather stream.");
+        return;
+      }
+      if (typeof body.wx_stream_url === "string") {
+        setUrl(body.wx_stream_url);
+      }
+      notifyRadioStationsChanged();
+    } catch {
+      setError("Could not save weather stream.");
+    }
+  }, []);
+
+  const schedule = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      void persist(pending.current);
+    }, TEXT_DEBOUNCE_MS);
+  };
+
+  return (
+    <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Weather broadcast stream
+        </span>
+        <input
+          type="url"
+          value={url}
+          maxLength={500}
+          placeholder="https://stream…"
+          onChange={(e) => {
+            setUrl(e.currentTarget.value);
+            schedule();
+          }}
+          onBlur={() => {
+            if (timer.current) clearTimeout(timer.current);
+            void persist(url);
+          }}
+          className="min-h-[52px] w-full rounded-[14px] border border-stone-200 bg-white px-4 font-mono text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <StationTestButton testKey="wx-broadcast" url={url} />
+      </div>
+      {error ? (
+        <p className="mt-2 text-sm font-medium text-red-700">{error}</p>
+      ) : (
+        <p className="mt-2 text-xs text-stone-500">
+          NOAA Weather Radio over https. Leave blank to keep WX as chart and
+          instruments only.
+        </p>
+      )}
     </div>
   );
 }

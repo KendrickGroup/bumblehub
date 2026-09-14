@@ -66,10 +66,8 @@ export function isHttpsStreamUrl(value: string): boolean {
 }
 
 export function normalizeRadioStation(row: RadioStation): RadioStation {
-  const band =
-    row.band === "am" || row.band === "sports" || row.band === "fm"
-      ? row.band
-      : "fm";
+  const rawBand = row.band as string;
+  const band = rawBand === "am" || rawBand === "sports" ? "am" : "fm";
   const station_type = row.station_type === "feed" ? "feed" : "stream";
   return {
     ...row,

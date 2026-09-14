@@ -11,12 +11,14 @@ import {
 type Payload = {
   stations: RadioStation[];
   hasProperty: boolean;
+  wx_stream_url?: string;
 };
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
   const all = opts?.all === true;
   const publicMode = opts?.publicMode === true;
   const [stations, setStations] = useState<RadioStation[]>([]);
+  const [wxStreamUrl, setWxStreamUrl] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
@@ -32,6 +34,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       if (!response.ok) return;
       const body = (await response.json()) as Payload;
       setStations(body.stations ?? []);
+      setWxStreamUrl(typeof body.wx_stream_url === "string" ? body.wx_stream_url : "");
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -49,6 +52,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
         const body = (await response.json()) as Payload;
         if (cancelled) return;
         setStations(body.stations ?? []);
+        setWxStreamUrl(
+          typeof body.wx_stream_url === "string" ? body.wx_stream_url : "",
+        );
         setHasProperty(body.hasProperty !== false);
       } catch {
         // Keep last known list.
@@ -84,6 +90,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     visible,
     visibleCount,
     atVisibleCap,
+    wxStreamUrl,
     loaded,
     hasProperty,
     refresh,

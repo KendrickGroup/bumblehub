@@ -6,12 +6,13 @@ import {
   normalizeRadioStation,
   type RadioStation,
 } from "@/lib/radio/types";
+import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 
 export async function GET() {
   try {
     const propertyId = await getPublicRadioPropertyId();
     if (!propertyId) {
-      return NextResponse.json({ stations: [] });
+      return NextResponse.json({ stations: [], wx_stream_url: "" });
     }
     const service = createServiceClient();
     const { data } = await service
@@ -42,8 +43,9 @@ export async function GET() {
         created_at: "",
       }));
 
-    return NextResponse.json({ stations });
+    const wx_stream_url = await ensureWxStreamUrl(service, propertyId);
+    return NextResponse.json({ stations, wx_stream_url });
   } catch {
-    return NextResponse.json({ stations: [] });
+    return NextResponse.json({ stations: [], wx_stream_url: "" });
   }
 }

@@ -13,32 +13,18 @@ export const PUBLIC_ROUNDUP_PLAYLIST_URL =
   "https://open.spotify.com/search/The%20Latigo%20Roundup";
 export const LATIGO_COWBOY_URL = "https://latigocowboy.com";
 
-export type RadioBand = "fm" | "am" | "sports";
+export type RadioBand = "fm" | "am";
 export type RadioStationType = "stream" | "feed";
 export type RadioFaceBand = RadioBand | "wx";
 
-export const RADIO_BANDS: RadioFaceBand[] = ["fm", "am", "sports", "wx"];
+export const RADIO_BANDS: RadioFaceBand[] = ["fm", "am", "wx"];
 
-export function isPinnedSportsFeed(station: {
-  band: RadioBand;
-  station_type: RadioStationType;
-}): boolean {
-  return station.band === "sports" && station.station_type === "feed";
-}
-
-/** Band keys, with sports-feed archives pinned at the end of every non-sports row. */
-export function presetsWithPinnedFeeds<
-  T extends { band: RadioBand; station_type: RadioStationType },
->(stations: T[], band: RadioBand, cap: number): T[] {
-  const pinned = stations.filter(isPinnedSportsFeed);
-  if (band === "sports") {
-    return stations.filter((s) => s.band === "sports").slice(0, cap);
-  }
-  const rest = stations.filter(
-    (s) => s.band === band && !isPinnedSportsFeed(s),
-  );
-  const room = Math.max(0, cap - pinned.length);
-  return [...rest.slice(0, room), ...pinned];
+export function presetsForBand<T extends { band: RadioBand }>(
+  stations: T[],
+  band: RadioBand,
+  cap: number,
+): T[] {
+  return stations.filter((s) => s.band === band).slice(0, cap);
 }
 
 export function milesFromRanch(lat: number, lon: number): number {
@@ -222,7 +208,6 @@ export function needlePercent(
   frequency: string | null | undefined,
 ): number {
   if (band === "wx") return 20;
-  if (band === "sports") return 50;
   const raw = (frequency ?? "").replace(/[^\d.]/g, "");
   const n = Number(raw);
   if (!Number.isFinite(n)) return 50;
