@@ -14,6 +14,7 @@ export type Scene = {
   accent_color: string | null;
   display_order: number;
   is_favorite: boolean;
+  is_enabled: boolean;
 };
 
 export type Room = {

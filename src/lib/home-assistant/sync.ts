@@ -1,6 +1,7 @@
 import type { DeviceType } from "@/lib/types";
 import {
   entityDomain,
+  isSensorEntity,
   isSwitchOrLightEntity,
   macFromConnections,
   type HaDeviceRegistryInfo,
@@ -24,6 +25,7 @@ function friendlyName(state: HaState): string {
 
 function deviceTypeFor(state: HaState): DeviceType {
   const domain = entityDomain(state.entity_id);
+  if (domain === "sensor") return "sensor";
   if (domain === "light") return "light";
   const deviceClass = String(state.attributes.device_class ?? "").toLowerCase();
   if (deviceClass === "outlet" || deviceClass === "plug") return "plug";
@@ -58,16 +60,27 @@ export function statesToSyncItems(
   const items: HaDeviceSyncItem[] = [];
 
   for (const state of states) {
-    if (!isSwitchOrLightEntity(state.entity_id)) continue;
+    const sensor = isSensorEntity(state.entity_id);
+    if (!sensor && !isSwitchOrLightEntity(state.entity_id)) continue;
     const info = registry.get(state.entity_id);
     const mac = macFromConnections(info?.connections);
+    const unit =
+      typeof state.attributes.unit_of_measurement === "string"
+        ? state.attributes.unit_of_measurement
+        : null;
+    const deviceClass =
+      typeof state.attributes.device_class === "string"
+        ? state.attributes.device_class
+        : null;
     items.push({
       external_id: state.entity_id,
       name: friendlyName(state),
       device_type: deviceTypeFor(state),
       capabilities: {
         domain: entityDomain(state.entity_id),
-        supports_brightness: supportsBrightness(state),
+        supports_brightness: sensor ? false : supportsBrightness(state),
+        unit_of_measurement: unit,
+        device_class: deviceClass,
       },
       metadata: {
         ha_entity_id: state.entity_id,
@@ -77,6 +90,8 @@ export function statesToSyncItems(
         manufacturer: info?.manufacturer ?? null,
         model: info?.model ?? null,
         ha_state: state.state,
+        unit_of_measurement: unit,
+        device_class: deviceClass,
       },
     });
   }

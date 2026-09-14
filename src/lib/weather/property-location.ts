@@ -7,6 +7,7 @@ export type PropertyWeatherContext = {
   longitude: number | null;
   temperatureUnit: TemperatureUnit;
   locationLabel: string | null;
+  timezone: string;
 };
 
 function parseTemperatureUnit(value: string | null | undefined): TemperatureUnit {
@@ -26,7 +27,7 @@ export async function getPropertyWeatherContext(
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, location_lat, location_lng")
+    .select("id, location_lat, location_lng, timezone")
     .eq("id", propertyId)
     .maybeSingle();
 
@@ -51,6 +52,7 @@ export async function getPropertyWeatherContext(
     longitude: Number.isFinite(lng) ? lng : null,
     temperatureUnit: parseTemperatureUnit(settings?.temperature_unit),
     locationLabel: readLocationLabel(settings?.dashboard_layout),
+    timezone: property.timezone || "America/Los_Angeles",
   };
 }
 

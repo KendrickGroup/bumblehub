@@ -33,7 +33,7 @@ export async function listScenes(propertyId: string): Promise<Scene[]> {
   const { data, error } = await service
     .from("scenes")
     .select(
-      "id, property_id, name, description, icon, accent_color, display_order, is_favorite",
+      "id, property_id, name, description, icon, accent_color, display_order, is_favorite, is_enabled",
     )
     .eq("property_id", propertyId)
     .order("display_order", { ascending: true });

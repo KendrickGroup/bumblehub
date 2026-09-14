@@ -309,7 +309,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       : "";
 
   return (
-    <section className="radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0">
+    <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "" : "app-radio"}`}>
       <div
         className={`radio-case ${parked ? "pointer-events-none opacity-40" : ""}`}
       >

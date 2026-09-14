@@ -92,6 +92,25 @@ function InfoBody({ body }: { body: string }) {
   );
 }
 
+function parseWifiCreds(body: string): { network: string; password: string } {
+  const network =
+    body.match(/Network:\s*(.*)/i)?.[1]?.trim() ??
+    body.match(/SSID:\s*(.*)/i)?.[1]?.trim() ??
+    "";
+  const password = body.match(/Password:\s*(.*)/i)?.[1]?.trim() ?? "";
+  return { network, password };
+}
+
+function isWifiSection(section: InfoSection): boolean {
+  const title = section.title.trim().toLowerCase();
+  return (
+    section.icon === "wifi" ||
+    title === "wifi" ||
+    title === "wi-fi" ||
+    title === "wi fi"
+  );
+}
+
 function SectionIcon({ name }: { name: string | null }) {
   if (!name || !(name in INFO_ICON_MAP)) return null;
   const Icon = INFO_ICON_MAP[name as InfoIconName];
@@ -299,6 +318,9 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
     [flashSaved],
   );
 
+  const wifiSection = sections.find(isWifiSection);
+  const wifiCreds = wifiSection ? parseWifiCreds(wifiSection.body) : null;
+
   if (needsPin) {
     return (
       <div className="px-2 py-10 sm:px-0">
@@ -370,6 +392,25 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
         </div>
       </header>
 
+      {wifiSection && wifiCreds ? (
+        <div
+          id={sectionAnchorId(wifiSection.id)}
+          className="mb-5 rounded-[20px] bg-[#FFF9E8] p-5 shadow-[inset_0_0_0_1.5px_#F0D98A,0_3px_10px_rgba(60,50,35,.08)]"
+        >
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#A08A5F]">
+            Wi-Fi
+          </p>
+          <p className="mt-3 text-sm font-medium text-[#8A7F6E]">Network</p>
+          <p className="text-xl font-extrabold text-[#241A12]">
+            {wifiCreds.network || "—"}
+          </p>
+          <p className="mt-3 text-sm font-medium text-[#8A7F6E]">Password</p>
+          <p className="font-mono text-xl font-extrabold tracking-wide text-[#241A12]">
+            {wifiCreds.password || "—"}
+          </p>
+        </div>
+      ) : null}
+
       {sections.length > 0 && (
         <div
           ref={stickyRef}
@@ -426,10 +467,18 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
         </div>
       ) : (
         <div className="space-y-5">
-          {sections.map((section, index) => (
+          {sections.map((section, index) => {
+            if (!editing && wifiSection && section.id === wifiSection.id) {
+              return null;
+            }
+            return (
             <section
               key={section.id}
-              id={sectionAnchorId(section.id)}
+              id={
+                wifiSection && section.id === wifiSection.id
+                  ? undefined
+                  : sectionAnchorId(section.id)
+              }
               className="scroll-mt-24 rounded-[20px] bg-white p-5 shadow-sm sm:p-6"
             >
               {editing ? (
@@ -462,7 +511,8 @@ export function HomeInfoView({ propertyName, initialSections }: Props) {
                 </>
               )}
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
 

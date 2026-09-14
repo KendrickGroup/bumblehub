@@ -19,6 +19,66 @@ body {
   font-family: var(--font-sans);
 }
 
+.secl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a08a5f;
+}
+.tile-card {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 16px;
+  text-align: left;
+  box-shadow: 0 3px 10px rgba(60, 50, 35, 0.08);
+  transition: transform 0.12s ease;
+}
+.tile-card:active {
+  transform: scale(0.98);
+}
+.tile-ic {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff3cf;
+  font-size: 22px;
+}
+.tile-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: #241a12;
+}
+.tile-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8a7f6e;
+}
+.tile-info {
+  min-height: 86px;
+  background: #fff9e8;
+  box-shadow: inset 0 0 0 1.5px #f0d98a, 0 3px 10px rgba(60, 50, 35, 0.08);
+}
+.tile-vitals {
+  background: #f3f6ef;
+  box-shadow: inset 0 0 0 1.5px #d4dec6, 0 3px 10px rgba(60, 50, 35, 0.08);
+}
+
 @keyframes guestbookKenBurns {
   from {
     transform: var(--kb-from);
@@ -1161,6 +1221,12 @@ body {
   }
   .radio-public-foot {
     display: none;
+  }
+  .radio-world.app-radio .radio-carry {
+    display: none;
+  }
+  .radio-world.app-radio .radio-case {
+    padding-top: 10px;
   }
 }
 

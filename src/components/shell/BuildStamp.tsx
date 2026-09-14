@@ -42,7 +42,7 @@ export function BuildStamp() {
       className="pointer-events-none fixed right-3 z-30 max-w-[calc(100vw-1.5rem)] truncate whitespace-nowrap font-[family-name:var(--font-bricolage)] text-[11px] leading-none tabular-nums select-none"
       style={{
         color: "rgba(122,112,102,.35)",
-        bottom: "calc(60px + env(safe-area-inset-bottom, 0px) + 8px)",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
       }}
     >
       {time}

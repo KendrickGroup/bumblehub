@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { fetchOpenMeteoWeather } from "@/lib/weather/open-meteo";
+import { fetchOpenMeteoDaily } from "@/lib/weather/forecast";
 import { getPropertyWeatherContext } from "@/lib/weather/property-location";
 
 export async function GET() {
@@ -37,12 +38,19 @@ export async function GET() {
       context.longitude,
       context.temperatureUnit,
     );
+    const daily = await fetchOpenMeteoDaily(
+      context.latitude,
+      context.longitude,
+      context.temperatureUnit,
+      context.timezone,
+    );
 
     const unitSymbol = context.temperatureUnit === "celsius" ? "C" : "F";
 
     return NextResponse.json({
       status: "ok",
       ...weather,
+      daily,
       unitSymbol,
       locationLabel: context.locationLabel,
     });

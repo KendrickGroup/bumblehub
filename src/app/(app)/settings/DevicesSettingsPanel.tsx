@@ -77,7 +77,7 @@ export function DevicesSettingsPanel({
       const active = (body.devices ?? []).filter((d) => d.is_active).length;
       setStatus(
         active === 0
-          ? "No switch.* or light.* entities found."
+          ? "No switch.*, light.*, or sensor.* entities found."
           : `Synced ${active} device${active === 1 ? "" : "s"} from Home Assistant.`,
       );
     } catch (err) {
@@ -131,8 +131,8 @@ export function DevicesSettingsPanel({
         Devices
       </h2>
       <p className="mt-2 text-sm text-stone-600">
-        Pull switch and light entities from Home Assistant. Names and rooms
-        stay as you set them on re-sync.
+        Pull switch, light, and sensor entities from Home Assistant. Names
+        and rooms stay as you set them on re-sync.
       </p>
 
       <button

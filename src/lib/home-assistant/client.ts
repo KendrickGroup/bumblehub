@@ -30,6 +30,8 @@ export type HaState = {
   entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
+  last_changed?: string;
+  last_updated?: string;
 };
 
 export type HaDeviceRegistryInfo = {
@@ -200,8 +202,9 @@ export async function haStates(
 
 /**
  * Device registry is a WebSocket API. REST template can still pull
- * MAC / identifiers for switch.* and light.* when the template engine
- * exposes device_attr. Failures are swallowed — sync still works.
+ * MAC / identifiers for switch.*, light.*, and sensor.* when the
+ * template engine exposes device_attr. Failures are swallowed — sync
+ * still works.
  */
 export async function haDeviceRegistryForEntities(
   baseUrl: string,
@@ -213,6 +216,9 @@ export async function haDeviceRegistryForEntities(
 {{ comma() }}{"entity_id":{{ s.entity_id | tojson }},"device_id":{{ device_id(s.entity_id) | tojson }},"connections":{{ device_attr(s.entity_id, "connections") | tojson }},"identifiers":{{ device_attr(s.entity_id, "identifiers") | tojson }},"manufacturer":{{ device_attr(s.entity_id, "manufacturer") | tojson }},"model":{{ device_attr(s.entity_id, "model") | tojson }}}
 {%- endfor %}
 {%- for s in states.light %}
+{{ comma() }}{"entity_id":{{ s.entity_id | tojson }},"device_id":{{ device_id(s.entity_id) | tojson }},"connections":{{ device_attr(s.entity_id, "connections") | tojson }},"identifiers":{{ device_attr(s.entity_id, "identifiers") | tojson }},"manufacturer":{{ device_attr(s.entity_id, "manufacturer") | tojson }},"model":{{ device_attr(s.entity_id, "model") | tojson }}}
+{%- endfor %}
+{%- for s in states.sensor %}
 {{ comma() }}{"entity_id":{{ s.entity_id | tojson }},"device_id":{{ device_id(s.entity_id) | tojson }},"connections":{{ device_attr(s.entity_id, "connections") | tojson }},"identifiers":{{ device_attr(s.entity_id, "identifiers") | tojson }},"manufacturer":{{ device_attr(s.entity_id, "manufacturer") | tojson }},"model":{{ device_attr(s.entity_id, "model") | tojson }}}
 {%- endfor %}
 ]`;
@@ -275,4 +281,8 @@ export function macFromConnections(connections: unknown): string | null {
 
 export function isSwitchOrLightEntity(entityId: string): boolean {
   return entityId.startsWith("switch.") || entityId.startsWith("light.");
+}
+
+export function isSensorEntity(entityId: string): boolean {
+  return entityId.startsWith("sensor.");
 }

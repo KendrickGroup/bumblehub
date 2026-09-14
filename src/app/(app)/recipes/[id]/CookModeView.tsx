@@ -3,14 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  MessageCircle,
-  Minus,
-  Pencil,
-  Plus,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Minus, Pencil, Plus } from "lucide-react";
+import { HomeButton } from "@/components/shell/HomeButton";
 import {
   formatIngredientAmount,
   scaleAmount,
@@ -107,13 +101,16 @@ export function CookModeView({
           <aside className="min-[900px]:sticky min-[900px]:top-6 min-[900px]:max-h-[calc(100dvh-12rem)] min-[900px]:overflow-y-auto">
             <div className="rounded-[20px] border border-stone-200/80 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-2">
-                <Link
-                  href="/recipes"
-                  className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-800"
-                >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                  Back to recipes
-                </Link>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <HomeButton />
+                  <Link
+                    href="/recipes"
+                    className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-800"
+                  >
+                    <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                    Recipes
+                  </Link>
+                </div>
                 <Link
                   href={`/recipes/${recipe.id}/edit`}
                   className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-[14px] px-3 text-sm font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-800"

@@ -19,6 +19,7 @@ import {
 } from "@/lib/house-mode/settings";
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
+import { parseVitalsConfig } from "@/lib/home/vitals";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
 import {
@@ -33,6 +34,8 @@ import { AppBrandLockup } from "@/components/brand/AppBrandLockup";
 import { IdleDriftSettingsPanel } from "./IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "./IntegrationsSettingsPanel";
 import { DevicesSettingsPanel } from "./DevicesSettingsPanel";
+import { HomeScenesPanel } from "./HomeScenesPanel";
+import { VitalsSettingsPanel } from "./VitalsSettingsPanel";
 import { ScenesSettingsPanel } from "./ScenesSettingsPanel";
 import { PhotoBoothSettingsSection } from "./PhotoBoothSettingsSection";
 import { RadioSettingsPanel } from "./RadioSettingsPanel";
@@ -66,6 +69,7 @@ export default async function SettingsPage() {
   let idleSettings = DEFAULT_IDLE_DRIFT_SETTINGS;
   let slideshowStyle = DEFAULT_SLIDESHOW_STYLE;
   let houseGreeting = DEFAULT_HOUSE_GREETING;
+  let vitalsConfig = parseVitalsConfig(null);
   let hasPin = false;
   let propertyName: string | null = null;
   let isOwner = false;
@@ -92,6 +96,7 @@ export default async function SettingsPage() {
       .maybeSingle();
     idleSettings = parseIdleDriftSettings(data?.dashboard_layout);
     slideshowStyle = parseSlideshowStyle(data?.dashboard_layout);
+    vitalsConfig = parseVitalsConfig(data?.dashboard_layout);
     const house = parseHouseModeSettings(data?.dashboard_layout);
     houseGreeting = house.greeting;
     hasPin = Boolean(house.pinHash);
@@ -188,6 +193,21 @@ export default async function SettingsPage() {
             initialHomeAssistantUrl={homeAssistantUrl}
             initialHasToken={homeAssistantHasToken}
             initialSpotify={spotify}
+          />
+        </div>
+
+        <div className="mt-6">
+          <HomeScenesPanel
+            hasProperty={!!propertyId}
+            initialScenes={scenes}
+          />
+        </div>
+
+        <div className="mt-6">
+          <VitalsSettingsPanel
+            hasProperty={!!propertyId}
+            initialConfig={vitalsConfig}
+            devices={devices}
           />
         </div>
 

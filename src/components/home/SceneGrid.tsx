@@ -1,31 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  Coffee,
-  Film,
-  Home,
-  Moon,
-  Sparkles,
-  Sun,
-  type LucideIcon,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { Scene, SceneAction } from "@/lib/types";
 import { runSceneActions } from "@/lib/home-assistant/run-scene";
 
-const ICONS: Record<string, LucideIcon> = {
-  home: Home,
-  sun: Sun,
-  moon: Moon,
-  coffee: Coffee,
-  film: Film,
-  sparkles: Sparkles,
-};
-
-function sceneIcon(name: string | null): LucideIcon {
-  if (!name) return Sparkles;
-  return ICONS[name.toLowerCase()] ?? Sparkles;
-}
+const LAST_SCENE_KEY = "bumblehub:last-scene";
 
 type TileStatus =
   | { kind: "idle" }
@@ -35,6 +14,15 @@ type TileStatus =
   | { kind: "offline"; message: string };
 
 const IDLE: TileStatus = { kind: "idle" };
+
+function readLastScene(fallback: string | null): string | null {
+  if (typeof window === "undefined") return fallback;
+  try {
+    return sessionStorage.getItem(LAST_SCENE_KEY) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function SceneGrid({
   scenes,
@@ -46,6 +34,13 @@ export function SceneGrid({
   const initial =
     scenes.find((s) => s.is_favorite)?.id ?? scenes[0]?.id ?? null;
   const [activeId, setActiveId] = useState<string | null>(initial);
+
+  useEffect(() => {
+    const stored = readLastScene(null);
+    if (stored && scenes.some((s) => s.id === stored)) {
+      setActiveId(stored);
+    }
+  }, [scenes]);
   const [statusById, setStatusById] = useState<Record<string, TileStatus>>({});
   const [runningId, setRunningId] = useState<string | null>(null);
 
@@ -62,6 +57,11 @@ export function SceneGrid({
   const activate = async (scene: Scene) => {
     if (runningId) return;
     setActiveId(scene.id);
+    try {
+      sessionStorage.setItem(LAST_SCENE_KEY, scene.id);
+    } catch {
+      /* ignore */
+    }
     const sceneActions = actionsByScene.get(scene.id) ?? [];
     if (sceneActions.length === 0) return;
 
@@ -116,16 +116,15 @@ export function SceneGrid({
 
   if (scenes.length === 0) {
     return (
-      <p className="rounded-[20px] border border-dashed border-stone-200 bg-white/60 px-6 py-10 text-center text-stone-500">
-        No scenes yet for this hive.
+      <p className="rounded-[16px] border border-dashed border-stone-200 bg-white/60 px-5 py-6 text-center text-sm text-stone-500">
+        No scenes on the home screen yet. Enable them in Settings.
       </p>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 max-[479px]:grid-cols-1">
       {scenes.map((scene) => {
-        const Icon = sceneIcon(scene.icon);
         const active = scene.id === activeId;
         const status = statusById[scene.id] ?? IDLE;
         const running = status.kind === "running";
@@ -135,42 +134,41 @@ export function SceneGrid({
             type="button"
             disabled={Boolean(runningId)}
             onClick={() => void activate(scene)}
-            className={`relative flex min-h-[88px] flex-col items-start justify-between overflow-hidden rounded-[20px] border-2 p-5 text-left transition ${
+            className={`rounded-2xl p-[13px_16px] text-left shadow-[0_3px_10px_rgba(60,50,35,.08)] transition active:scale-[0.98] disabled:cursor-wait ${
               running ? "scene-shimmer" : ""
             } ${
               active
-                ? "border-[#F4B400] bg-[#F4B400]/10 shadow-sm"
-                : "border-transparent bg-white shadow-sm hover:border-stone-200"
-            } disabled:cursor-wait`}
+                ? "bg-[#FFF7E0] shadow-[inset_0_0_0_1.5px_#F0D98A,0_3px_10px_rgba(60,50,35,.08)]"
+                : "bg-white"
+            }`}
           >
-            <Icon
-              className={`h-7 w-7 ${active ? "text-[#F4B400]" : "text-stone-500"}`}
-              strokeWidth={1.75}
-            />
-            <div className="mt-4">
-              <span className="block text-lg font-medium text-stone-900">
-                {scene.name}
+            {active ? (
+              <span className="float-right text-[9px] font-extrabold tracking-widest text-[#B8912E]">
+                ACTIVE
               </span>
-              {status.kind === "done" ||
-              status.kind === "partial" ||
-              status.kind === "offline" ? (
-                <span
-                  className={`mt-1 block text-sm leading-snug ${
-                    status.kind === "offline"
-                      ? "text-stone-500"
-                      : status.kind === "partial"
-                        ? "text-amber-800"
-                        : "text-stone-600"
-                  }`}
-                >
-                  {status.message}
-                </span>
-              ) : scene.description ? (
-                <span className="mt-1 block text-sm leading-snug text-stone-500">
-                  {scene.description}
-                </span>
-              ) : null}
+            ) : null}
+            <div className="text-[14px] font-extrabold text-[#241A12]">
+              {scene.name}
             </div>
+            {status.kind === "done" ||
+            status.kind === "partial" ||
+            status.kind === "offline" ? (
+              <div
+                className={`mt-[3px] text-[10.5px] leading-snug ${
+                  status.kind === "offline"
+                    ? "text-stone-500"
+                    : status.kind === "partial"
+                      ? "text-amber-800"
+                      : "text-stone-600"
+                }`}
+              >
+                {status.message}
+              </div>
+            ) : scene.description ? (
+              <div className="mt-[3px] text-[10.5px] leading-snug text-[#8A7F6E]">
+                {scene.description}
+              </div>
+            ) : null}
           </button>
         );
       })}
