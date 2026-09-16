@@ -404,6 +404,18 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         </button>
 
         <div className="radio-face">
+          <svg
+            aria-hidden
+            focusable="false"
+            className="pointer-events-none absolute h-0 w-0 overflow-hidden"
+          >
+            <filter id="radio-chart-knockout" colorInterpolationFilters="sRGB">
+              <feColorMatrix
+                type="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  6 6 6 0 -0.05"
+              />
+            </filter>
+          </svg>
           <div className="radio-maplid">
             <span className="radio-maplid-label">
               <StateFlagIcon code={flagCode} />
