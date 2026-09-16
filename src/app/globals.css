@@ -373,20 +373,20 @@ body {
   flex-direction: column;
   margin-bottom: 10px;
   border-radius: 6px;
-  padding: 26px 14px 10px;
+  padding: 54px 14px 10px;
   background-color: #EDE2C6;
   background-image: linear-gradient(165deg, #F6EFDC, #EDE2C6 60%, #E4D6B4);
   box-shadow: inset 0 0 0 1px #C9B98F, inset 0 2px 8px rgba(62,42,30,.28);
 }
 .radio-maplid-label {
   position: absolute;
-  top: 7px;
+  top: 8px;
   left: 12px;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 8.5px;
+  gap: 8px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 2.5px;
   text-transform: uppercase;
@@ -395,6 +395,18 @@ body {
 .radio-stateflag {
   flex-shrink: 0;
   display: block;
+  height: 24px;
+  width: auto;
+  border-radius: 3px;
+  border: 1px solid rgba(90, 70, 50, 0.4);
+  box-shadow: 0 1px 2px rgba(62, 42, 30, 0.22);
+  object-fit: contain;
+  background: transparent;
+}
+@media (min-width: 640px) {
+  .radio-stateflag {
+    height: 40px;
+  }
 }
 .radio-wxcorner {
   position: absolute;
@@ -1350,14 +1362,14 @@ body {
     justify-content: flex-start;
     margin-bottom: 6px;
     overflow: hidden;
-    padding: 22px 8px 8px;
+    padding: 34px 8px 8px;
   }
   .radio-maplid-label {
-    top: 4px;
+    top: 5px;
     left: 8px;
-    font-size: 7px;
+    font-size: 8px;
     letter-spacing: 1.5px;
-    gap: 5px;
+    gap: 6px;
   }
   .radio-wxcorner {
     top: 4px;
@@ -1570,7 +1582,7 @@ body {
     max-height: none;
     min-height: 0;
     flex-basis: auto;
-    padding: 20px 6px 6px;
+    padding: 32px 6px 6px;
   }
   .radio-chartwrap {
     min-height: 56px;
@@ -1624,14 +1636,14 @@ body {
   }
   .radio-maplid {
     margin-bottom: 12px;
-    min-height: 236px;
-    padding: 26px 14px 10px;
+    min-height: 264px;
+    padding: 54px 14px 10px;
     box-shadow: inset 0 0 0 1px #C9B98F, inset 0 2px 8px rgba(62,42,30,.28), 0 2px 6px rgba(0,0,0,.4);
   }
   .radio-maplid-label {
-    top: 7px;
+    top: 8px;
     left: 12px;
-    font-size: 8.5px;
+    font-size: 10px;
     letter-spacing: 2.5px;
   }
   .radio-split {

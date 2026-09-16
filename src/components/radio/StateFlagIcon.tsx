@@ -1,145 +1,70 @@
-import type { JSX, ReactNode } from "react";
+"use client";
 
-const UMBER = "#5A4632";
-const NEEDLE = "#D64530";
+import { useEffect, useState } from "react";
 
-function FlagFrame({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 40 26"
-      width="22"
-      height="14"
-      aria-hidden
-      className="radio-stateflag"
-    >
-      <rect
-        x="1"
-        y="1"
-        width="38"
-        height="24"
-        rx="2"
-        fill="none"
-        stroke={UMBER}
-        strokeWidth="1.6"
-      />
-      {children}
-    </svg>
-  );
-}
-
-function TnFlag() {
-  return (
-    <FlagFrame>
-      <rect x="33" y="1" width="6" height="24" fill={UMBER} opacity=".3" />
-      <circle cx="17" cy="13" r="8.5" fill="none" stroke={NEEDLE} strokeWidth="1.6" />
-      <g fill={UMBER}>
-        <path d="M17 7.4 l1.1 2.3 2.5.3 -1.9 1.7 .6 2.5 -2.3-1.3 -2.3 1.3 .6-2.5 -1.9-1.7 2.5-.3z" />
-        <circle cx="13.4" cy="15.6" r="1.5" />
-        <circle cx="20.6" cy="15.6" r="1.5" />
-      </g>
-    </FlagFrame>
-  );
-}
-
-function TxFlag() {
-  return (
-    <FlagFrame>
-      <rect x="1" y="1" width="12" height="24" fill={UMBER} opacity=".28" />
-      <path
-        d="M7 8.2 l1.05 2.15 2.35.28 -1.8 1.6 .55 2.3 -2.15-1.2 -2.15 1.2 .55-2.3 -1.8-1.6 2.35-.28z"
-        fill={NEEDLE}
-      />
-      <line x1="13" y1="13" x2="39" y2="13" stroke={NEEDLE} strokeWidth="1.4" />
-    </FlagFrame>
-  );
-}
-
-function FlFlag() {
-  return (
-    <FlagFrame>
-      <path
-        d="M3 3 L37 23 M37 3 L3 23"
-        fill="none"
-        stroke={NEEDLE}
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <circle cx="20" cy="13" r="5.2" fill="none" stroke={UMBER} strokeWidth="1.5" />
-    </FlagFrame>
-  );
-}
-
-function PaFlag() {
-  return (
-    <FlagFrame>
-      <path
-        d="M14 5.5 H26 V14.5 L20 21.5 L14 14.5 Z"
-        fill="none"
-        stroke={UMBER}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 8.2 l.85 1.7 1.85.22 -1.4 1.25 .42 1.8 -1.72-.95 -1.72.95 .42-1.8 -1.4-1.25 1.85-.22z"
-        fill={NEEDLE}
-      />
-    </FlagFrame>
-  );
-}
-
-function ArFlag() {
-  return (
-    <FlagFrame>
-      <path
-        d="M20 4.5 L33 13 L20 21.5 L7 13 Z"
-        fill="none"
-        stroke={UMBER}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 8.6 l.9 1.8 2 .24 -1.5 1.35 .45 1.9 -1.85-1.05 -1.85 1.05 .45-1.9 -1.5-1.35 2-.24z"
-        fill={NEEDLE}
-      />
-    </FlagFrame>
-  );
-}
-
-function CaFlag() {
-  return (
-    <FlagFrame>
-      <path
-        d="M7 7.2 l.8 1.6 1.75.2 -1.35 1.2 .4 1.7 -1.6-.9 -1.6.9 .4-1.7 -1.35-1.2 1.75-.2z"
-        fill={NEEDLE}
-      />
-      <path
-        d="M11 17.5 c2.2-3.4 5.4-4.6 9.2-4.2 c2.2.2 3.6-.6 4.6-1.8 c.2 1.6-.2 2.8-1.1 3.6 c1.6.2 2.6.9 3 1.8 H13.2 Z"
-        fill="none"
-        stroke={UMBER}
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-      <line
-        x1="4"
-        y1="21"
-        x2="36"
-        y2="21"
-        stroke={NEEDLE}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </FlagFrame>
-  );
-}
-
-const FLAGS: Record<string, () => JSX.Element> = {
-  TN: TnFlag,
-  TX: TxFlag,
-  FL: FlFlag,
-  PA: PaFlag,
-  AR: ArFlag,
-  CA: CaFlag,
-};
+/**
+ * Official US state flag SVGs in /public/flags/{CODE}.svg.
+ * Downloaded 2026-09-16 from Wikimedia Commons and stripped with SVGO.
+ *
+ * Sources (File: pages; Special:FilePath served the SVG):
+ * AL https://commons.wikimedia.org/wiki/File:Flag_of_Alabama.svg
+ * AK https://commons.wikimedia.org/wiki/File:Flag_of_Alaska.svg
+ * AZ https://commons.wikimedia.org/wiki/File:Flag_of_Arizona.svg
+ * AR https://commons.wikimedia.org/wiki/File:Flag_of_Arkansas.svg
+ * CA https://commons.wikimedia.org/wiki/File:Flag_of_California.svg
+ * CO https://commons.wikimedia.org/wiki/File:Flag_of_Colorado.svg
+ * CT https://commons.wikimedia.org/wiki/File:Flag_of_Connecticut.svg
+ * DE https://commons.wikimedia.org/wiki/File:Flag_of_Delaware.svg
+ * FL https://commons.wikimedia.org/wiki/File:Flag_of_Florida.svg
+ * GA https://commons.wikimedia.org/wiki/File:Flag_of_the_State_of_Georgia.svg
+ * HI https://commons.wikimedia.org/wiki/File:Flag_of_Hawaii.svg
+ * ID https://commons.wikimedia.org/wiki/File:Flag_of_Idaho.svg
+ * IL https://commons.wikimedia.org/wiki/File:Flag_of_Illinois.svg
+ * IN https://commons.wikimedia.org/wiki/File:Flag_of_Indiana.svg
+ * IA https://commons.wikimedia.org/wiki/File:Flag_of_Iowa.svg
+ * KS https://commons.wikimedia.org/wiki/File:Flag_of_Kansas.svg
+ * KY https://commons.wikimedia.org/wiki/File:Flag_of_Kentucky.svg
+ * LA https://commons.wikimedia.org/wiki/File:Flag_of_Louisiana.svg
+ * ME https://commons.wikimedia.org/wiki/File:Flag_of_Maine.svg
+ * MD https://commons.wikimedia.org/wiki/File:Flag_of_Maryland.svg
+ * MA https://commons.wikimedia.org/wiki/File:Flag_of_Massachusetts.svg
+ * MI https://commons.wikimedia.org/wiki/File:Flag_of_Michigan.svg
+ * MN https://commons.wikimedia.org/wiki/File:Flag_of_Minnesota.svg
+ * MS https://commons.wikimedia.org/wiki/File:Flag_of_Mississippi.svg
+ * MO https://commons.wikimedia.org/wiki/File:Flag_of_Missouri.svg
+ * MT https://commons.wikimedia.org/wiki/File:Flag_of_Montana.svg
+ * NE https://commons.wikimedia.org/wiki/File:Flag_of_Nebraska.svg
+ * NV https://commons.wikimedia.org/wiki/File:Flag_of_Nevada.svg
+ * NH https://commons.wikimedia.org/wiki/File:Flag_of_New_Hampshire.svg
+ * NJ https://commons.wikimedia.org/wiki/File:Flag_of_New_Jersey.svg
+ * NM https://commons.wikimedia.org/wiki/File:Flag_of_New_Mexico.svg
+ * NY https://commons.wikimedia.org/wiki/File:Flag_of_New_York.svg
+ * NC https://commons.wikimedia.org/wiki/File:Flag_of_North_Carolina.svg
+ * ND https://commons.wikimedia.org/wiki/File:Flag_of_North_Dakota.svg
+ * OH https://commons.wikimedia.org/wiki/File:Flag_of_Ohio.svg
+ * OK https://commons.wikimedia.org/wiki/File:Flag_of_Oklahoma.svg
+ * OR https://commons.wikimedia.org/wiki/File:Flag_of_Oregon.svg
+ * PA https://commons.wikimedia.org/wiki/File:Flag_of_Pennsylvania.svg
+ * RI https://commons.wikimedia.org/wiki/File:Flag_of_Rhode_Island.svg
+ * SC https://commons.wikimedia.org/wiki/File:Flag_of_South_Carolina.svg
+ * SD https://commons.wikimedia.org/wiki/File:Flag_of_South_Dakota.svg
+ * TN https://commons.wikimedia.org/wiki/File:Flag_of_Tennessee.svg
+ * TX https://commons.wikimedia.org/wiki/File:Flag_of_Texas.svg
+ * UT https://commons.wikimedia.org/wiki/File:Flag_of_Utah.svg
+ * VT https://commons.wikimedia.org/wiki/File:Flag_of_Vermont.svg
+ * VA https://commons.wikimedia.org/wiki/File:Flag_of_Virginia.svg
+ * WA https://commons.wikimedia.org/wiki/File:Flag_of_Washington.svg
+ * WV https://commons.wikimedia.org/wiki/File:Flag_of_West_Virginia.svg
+ * WI https://commons.wikimedia.org/wiki/File:Flag_of_Wisconsin.svg
+ * WY https://commons.wikimedia.org/wiki/File:Flag_of_Wyoming.svg
+ */
+const FLAG_FILES = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+]);
 
 export function StateFlagIcon({
   code,
@@ -147,7 +72,22 @@ export function StateFlagIcon({
   code: string | null | undefined;
 }) {
   const key = code?.trim().toUpperCase() ?? "";
-  const Flag = FLAGS[key];
-  if (!Flag) return null;
-  return <Flag />;
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [key]);
+
+  if (!key || failed || !FLAG_FILES.has(key)) return null;
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/flags/${key}.svg`}
+      alt=""
+      aria-hidden
+      className="radio-stateflag"
+      onError={() => setFailed(true)}
+    />
+  );
 }
