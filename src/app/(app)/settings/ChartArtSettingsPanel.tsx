@@ -1,32 +1,58 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Trash2, Upload } from "lucide-react";
 import {
+  CHART_ART_SPORTS,
   chartArtSlots,
   type ChartArtMap,
 } from "@/lib/radio/chart-art";
 import { notifyRadioStationsChanged, type RadioStation } from "@/lib/radio/types";
 import { prepareChartArtUpload } from "@/lib/images/prepare-chart-art";
+import { buildChartArtPrompt } from "@/lib/statePrompts";
 
 type Props = {
   stations: RadioStation[];
   initialChartArt: ChartArtMap;
 };
 
+const COPY_TOAST = "Prompt copied — paste into your image generator";
+
 export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
   const [art, setArt] = useState<ChartArtMap>(initialChartArt);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const slots = chartArtSlots(stations);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const onUploaded = (next: ChartArtMap) => {
     setArt(next);
     notifyRadioStationsChanged();
   };
 
+  const onCopied = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(COPY_TOAST);
+    toastTimer.current = setTimeout(() => setToast(null), 2800);
+  };
+
   return (
     <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
+      {toast ? (
+        <div
+          className="fixed left-1/2 top-6 z-[60] -translate-x-1/2 rounded-[18px] border border-[#F4B400]/40 bg-[#FBF0D0] px-5 py-3 text-sm font-medium text-stone-900 shadow-md"
+          role="status"
+        >
+          {toast}
+        </div>
+      ) : null}
       <h3 className="text-xs font-medium uppercase tracking-wide text-stone-500">
         Chart Art
       </h3>
@@ -46,10 +72,12 @@ export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
             slotKey={slot.key}
             label={slot.label}
             url={art[slot.key] ?? null}
+            stations={stations}
             busy={busyKey === slot.key}
             onBusy={setBusyKey}
             onError={setError}
             onUploaded={onUploaded}
+            onCopied={onCopied}
           />
         ))}
       </ul>
@@ -61,20 +89,39 @@ function ChartArtSlotRow({
   slotKey,
   label,
   url,
+  stations,
   busy,
   onBusy,
   onError,
   onUploaded,
+  onCopied,
 }: {
   slotKey: string;
   label: string;
   url: string | null;
+  stations: RadioStation[];
   busy: boolean;
   onBusy: (key: string | null) => void;
   onError: (message: string | null) => void;
   onUploaded: (art: ChartArtMap) => void;
+  onCopied: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const prompt =
+    !url && slotKey !== CHART_ART_SPORTS
+      ? buildChartArtPrompt(slotKey, stations)
+      : null;
+
+  const copyPrompt = async () => {
+    if (!prompt) return;
+    onError(null);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      onCopied();
+    } catch {
+      onError("Could not copy the art prompt.");
+    }
+  };
 
   const upload = async (file: File) => {
     onError(null);
@@ -158,26 +205,39 @@ function ChartArtSlotRow({
           if (file) void upload(file);
         }}
       />
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-stone-200 hover:bg-stone-50 disabled:opacity-50"
-      >
-        <Upload className="h-4 w-4" strokeWidth={2.25} />
-        {url ? "Replace" : "Upload"}
-      </button>
-      {url ? (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        {prompt ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void copyPrompt()}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-stone-200 hover:bg-stone-50 disabled:opacity-50"
+          >
+            <Copy className="h-4 w-4" strokeWidth={2.25} />
+            Copy art prompt
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={busy}
-          aria-label={`Remove ${label} chart art`}
-          onClick={() => void remove()}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+          onClick={() => inputRef.current?.click()}
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-stone-200 hover:bg-stone-50 disabled:opacity-50"
         >
-          <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+          <Upload className="h-4 w-4" strokeWidth={2.25} />
+          {url ? "Replace" : "Upload"}
         </button>
-      ) : null}
+        {url ? (
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={`Remove ${label} chart art`}
+            onClick={() => void remove()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+          </button>
+        ) : null}
+      </div>
     </li>
   );
 }
