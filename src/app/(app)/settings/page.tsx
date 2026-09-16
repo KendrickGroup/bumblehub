@@ -19,6 +19,7 @@ import {
 } from "@/lib/house-mode/settings";
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
+import { parseChartArt } from "@/lib/radio/chart-art";
 import { parseVitalsConfig } from "@/lib/home/vitals";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
@@ -80,6 +81,7 @@ export default async function SettingsPage() {
   let photos: Awaited<ReturnType<typeof fetchGuestbookPhotos>> = [];
   let radioStations: RadioStation[] = [];
   let wxStreamUrl = "";
+  let chartArt = parseChartArt(null);
   let devices: Device[] = [];
   let rooms: Room[] = [];
   let scenes: Scene[] = [];
@@ -104,6 +106,7 @@ export default async function SettingsPage() {
     hasPin = Boolean(house.pinHash);
     homeAssistantUrl = parseHomeAssistantUrl(data?.dashboard_layout);
     customBackdrops = parseCustomBackdrops(data?.dashboard_layout);
+    chartArt = parseChartArt(data?.dashboard_layout);
     isOwner = user ? await isPropertyOwner(propertyId, user.id) : false;
     photos = await fetchGuestbookPhotos(propertyId);
     radioStations = await ensureLaunchStations(propertyId);
@@ -236,6 +239,7 @@ export default async function SettingsPage() {
             hasProperty={!!propertyId}
             initialStations={radioStations}
             initialWxStreamUrl={wxStreamUrl}
+            initialChartArt={chartArt}
           />
         </div>
 

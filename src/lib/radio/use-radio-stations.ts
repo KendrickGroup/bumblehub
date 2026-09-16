@@ -7,11 +7,13 @@ import {
   RADIO_TUNED_ID_KEY,
   type RadioStation,
 } from "@/lib/radio/types";
+import type { ChartArtMap } from "@/lib/radio/chart-art";
 
 type Payload = {
   stations: RadioStation[];
   hasProperty: boolean;
   wx_stream_url?: string;
+  chart_art?: ChartArtMap;
 };
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
@@ -19,6 +21,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const publicMode = opts?.publicMode === true;
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [wxStreamUrl, setWxStreamUrl] = useState("");
+  const [chartArt, setChartArt] = useState<ChartArtMap>({});
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
@@ -35,6 +38,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       const body = (await response.json()) as Payload;
       setStations(body.stations ?? []);
       setWxStreamUrl(typeof body.wx_stream_url === "string" ? body.wx_stream_url : "");
+      setChartArt(body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {});
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -54,6 +58,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
         setStations(body.stations ?? []);
         setWxStreamUrl(
           typeof body.wx_stream_url === "string" ? body.wx_stream_url : "",
+        );
+        setChartArt(
+          body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {},
         );
         setHasProperty(body.hasProperty !== false);
       } catch {
@@ -91,6 +98,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     visibleCount,
     atVisibleCap,
     wxStreamUrl,
+    chartArt,
     loaded,
     hasProperty,
     refresh,

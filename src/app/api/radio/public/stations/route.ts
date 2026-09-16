@@ -7,12 +7,13 @@ import {
   type RadioStation,
 } from "@/lib/radio/types";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
+import { fetchChartArt } from "@/lib/radio/chart-art";
 
 export async function GET() {
   try {
     const propertyId = await getPublicRadioPropertyId();
     if (!propertyId) {
-      return NextResponse.json({ stations: [], wx_stream_url: "" });
+      return NextResponse.json({ stations: [], wx_stream_url: "", chart_art: {} });
     }
     const service = createServiceClient();
     const { data } = await service
@@ -44,8 +45,9 @@ export async function GET() {
       }));
 
     const wx_stream_url = await ensureWxStreamUrl(service, propertyId);
-    return NextResponse.json({ stations, wx_stream_url });
+    const chart_art = await fetchChartArt(service, propertyId);
+    return NextResponse.json({ stations, wx_stream_url, chart_art });
   } catch {
-    return NextResponse.json({ stations: [], wx_stream_url: "" });
+    return NextResponse.json({ stations: [], wx_stream_url: "", chart_art: {} });
   }
 }

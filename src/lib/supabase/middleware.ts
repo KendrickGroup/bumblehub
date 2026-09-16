@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/api/radio/feed",
   "/api/radio/now-playing",
   "/api/radio/public",
+  "/api/radio/stationwx",
 ];
 
 function isPublicPath(pathname: string): boolean {

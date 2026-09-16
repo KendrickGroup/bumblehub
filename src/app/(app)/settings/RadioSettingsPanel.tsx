@@ -28,17 +28,20 @@ import {
 } from "@/lib/radio/types";
 import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
 import { FindStationsPanel } from "./FindStationsPanel";
+import { ChartArtSettingsPanel } from "./ChartArtSettingsPanel";
 import {
   createRadioStation,
   deleteRadioStation,
   reorderRadioStations,
   updateRadioStation,
 } from "./radio-actions";
+import type { ChartArtMap } from "@/lib/radio/chart-art";
 
 type Props = {
   hasProperty: boolean;
   initialStations: RadioStation[];
   initialWxStreamUrl: string;
+  initialChartArt: ChartArtMap;
 };
 
 const TEXT_DEBOUNCE_MS = 600;
@@ -75,6 +78,7 @@ export function RadioSettingsPanel({
   hasProperty,
   initialStations,
   initialWxStreamUrl,
+  initialChartArt,
 }: Props) {
   const [stations, setStations] = useState(initialStations);
   const [error, setError] = useState<string | null>(null);
@@ -241,6 +245,11 @@ export function RadioSettingsPanel({
       <FindStationsPanel stations={stations} onAdd={addStation} />
 
       <WxStreamField initialUrl={initialWxStreamUrl} />
+
+      <ChartArtSettingsPanel
+        stations={stations}
+        initialChartArt={initialChartArt}
+      />
 
       <div className="mt-5 space-y-3">
         {stations.map((station, index) => (

@@ -9,10 +9,12 @@ import {
   loadFeedEpisodes,
 } from "@/lib/radio/feed-cache";
 import type { RanchWeather } from "@/lib/radio/ranch-weather";
+import type { StationWx } from "@/lib/radio/station-wx";
 import {
-  formatEpisodeDate,
+  chartArtUrlFor,
+} from "@/lib/radio/chart-art";
+import {
   formatMiles,
-  formatStationTime,
   milesFromRanch,
   needlePercent,
   presetsForBand,
@@ -47,8 +49,11 @@ import {
 } from "@/lib/radio/use-radio-stations";
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
+import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
 import { useRadioMediaSession } from "@/components/radio/use-radio-media-session";
 import {
+  WX_NOW_PLAYING_CONTEXT,
+  WX_NOW_PLAYING_TITLE,
   WX_STATION_ID,
   makeWxStation,
 } from "@/lib/radio/wx-stream";
@@ -67,16 +72,21 @@ function bandLabel(band: RadioFaceBand): string {
   return band.toUpperCase();
 }
 
+function stationTown(cityLabel: string | null | undefined): string {
+  if (!cityLabel) return "";
+  return cityLabel.split(",")[0]?.trim() || cityLabel.trim();
+}
+
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
-  const { visible, loaded, wxStreamUrl } = useRadioStations({ publicMode });
+  const { visible, loaded, wxStreamUrl, chartArt } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
   const [crackle, setCrackle] = useState(false);
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>("fm");
   const [presetBand, setPresetBand] = useState<RadioBand>("fm");
   const [handleOpen, setHandleOpen] = useState(false);
-  const [clock, setClock] = useState("");
   const [weather, setWeather] = useState<RanchWeather | null>(null);
+  const [stationWx, setStationWx] = useState<StationWx | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
   const [lassoNote, setLassoNote] = useState<string | null>(null);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
@@ -147,15 +157,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   }, [selected?.id, selected?.band]);
 
   useEffect(() => {
-    const tick = () => {
-      setClock(formatStationTime(displayStation?.timezone));
-    };
-    tick();
-    const id = window.setInterval(tick, 15000);
-    return () => window.clearInterval(id);
-  }, [displayStation?.timezone]);
-
-  useEffect(() => {
     if (!wxFace) return;
     let cancelled = false;
     void (async () => {
@@ -176,6 +177,35 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     };
   }, [wxFace]);
 
+  useEffect(() => {
+    if (wxFace || archiveFace) {
+      setStationWx(null);
+      return;
+    }
+    const lat = displayStation?.latitude;
+    const lon = displayStation?.longitude;
+    if (lat == null || lon == null) {
+      setStationWx(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/radio/stationwx?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}`,
+          { cache: "no-store" },
+        );
+        const body = (await response.json()) as { weather?: StationWx | null };
+        if (!cancelled) setStationWx(body.weather ?? null);
+      } catch {
+        if (!cancelled) setStationWx(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wxFace, archiveFace, displayStation?.latitude, displayStation?.longitude]);
+
   const presets = useMemo(() => {
     const band: RadioBand =
       browseBand === "wx" ? presetBand : browseBand;
@@ -190,9 +220,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     stateCodeFromLabel(displayStation?.city_label ?? null);
 
   const spinTitle = wxFace
-    ? weather
-      ? `${weather.temperature}° ${weather.label}`
-      : "Ranch House Weather"
+    ? WX_NOW_PLAYING_TITLE
     : isFeed
       ? feedNow?.title || "Classic Baseball on the Radio"
       : song?.title ||
@@ -200,7 +228,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""}`
           : "Ranch House Radio");
   const spinArtist = wxFace
-    ? "Latigo Ranch House — Sutter Creek, California"
+    ? WX_NOW_PLAYING_CONTEXT
     : isFeed
       ? displayStation?.station_name || "From the Archive"
       : song?.artist ||
@@ -347,6 +375,17 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         : "";
 
   const readoutClass = wxFace ? "is-wx" : archiveFace ? "is-sports" : "";
+  const flagCode = chartMode === "sports" ? null : chartMode === "wx" ? "CA" : stateCode;
+  const mapArtUrl = chartArtUrlFor(chartArt, chartMode, stateCode);
+  const wordsCall = `${glassCall}${glassFreq ? ` ${glassFreq}` : ""}`;
+  const wordsCity = glassPlace;
+  const wxTown = stationTown(displayStation?.city_label);
+  const signal = archiveFace
+    ? { text: "● ARCHIVE", className: "radio-sig-archive" }
+    : failed
+      ? { text: "○ OFF AIR", className: "radio-sig-off" }
+      : { text: "● LIVE", className: "radio-sig-live" };
+  const plaqueArt = !wxFace && !isFeed ? song?.artworkUrl ?? null : null;
 
   return (
     <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "h-full" : "app-radio"}`}>
@@ -367,54 +406,50 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         <div className="radio-face">
           <div className="radio-maplid">
             <span className="radio-maplid-label">
+              <StateFlagIcon code={flagCode} />
               {chartTitle(chartMode, stateCode)}
             </span>
+            {!wxFace && !archiveFace && stationWx ? (
+              <span className="radio-wxcorner">
+                <span className="t">{stationWx.temperature}°</span>
+                <span className="c">
+                  {stationWx.condition}
+                  {wxTown ? (
+                    <span className="radio-wxcorner-town">{` in ${wxTown}`}</span>
+                  ) : null}
+                </span>
+              </span>
+            ) : null}
             <div className="radio-split">
               <div className="radio-chartwrap">
-                <StationChart
-                  mode={chartMode}
-                  stateCode={stateCode}
-                  lon={displayStation?.longitude ?? null}
-                  lat={displayStation?.latitude ?? null}
-                  cityLabel={wxFace ? "The Ranch" : displayStation?.city_label.split(",")[0] ?? ""}
-                  citySub={wxFace ? "Sutter Creek" : null}
-                />
+                {mapArtUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={mapArtUrl}
+                    alt=""
+                    className="radio-chart-art"
+                  />
+                ) : (
+                  <StationChart
+                    mode={chartMode}
+                    stateCode={stateCode}
+                    lon={displayStation?.longitude ?? null}
+                    lat={displayStation?.latitude ?? null}
+                    cityLabel={wxFace ? "The Ranch" : displayStation?.city_label.split(",")[0] ?? ""}
+                    citySub={wxFace ? "Sutter Creek" : null}
+                  />
+                )}
               </div>
-              <div className="radio-instruments">
-                <p className="radio-spin-k">
-                  {wxFace ? "Ranch Weather" : isFeed ? "Now Playing" : "Now Spinning"}
-                </p>
-                <div className="radio-spin-row">
-                  {!wxFace && song?.artworkUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={song.artworkUrl}
-                      alt=""
-                      className="radio-spin-art"
-                    />
-                  ) : null}
-                  <div className="min-w-0 flex-1">
-                    <p className={wxFace ? "radio-wx-temp" : "radio-spin-title"}>
-                      {spinTitle}
+              <div className="radio-words">
+                {wxFace ? (
+                  <>
+                    <p className="radio-wx-temp">
+                      {weather ? `${weather.temperature}° ${weather.label}` : "Ranch House Weather"}
                     </p>
-                    <p className="radio-spin-artist">{spinArtist}</p>
-                  </div>
-                  {showLasso ? (
-                    <button
-                      type="button"
-                      className="radio-lasso-key"
-                      disabled={lassoBusy}
-                      onClick={() => void onLasso()}
-                      aria-label="Lasso"
-                    >
-                      <RoundupRopeMark size={18} />
-                      LASSO
-                    </button>
-                  ) : null}
-                </div>
-                <div className="radio-readings">
-                  {wxFace ? (
-                    <>
+                    <p className="radio-words-city">
+                      Latigo Ranch House — Sutter Creek, California
+                    </p>
+                    <div className="radio-readings">
                       <div>
                         <p className="k">Wind</p>
                         <p className="v">
@@ -441,76 +476,42 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                             : "—"}
                         </p>
                       </div>
-                    </>
-                  ) : isFeed ? (
-                    <>
-                      <div>
-                        <p className="k">From the Archive</p>
-                        <p className="v">1934–1974</p>
-                      </div>
-                      <div>
-                        <p className="k">Episode date</p>
-                        <p className="v">{formatEpisodeDate(feedNow?.pubDate)}</p>
-                      </div>
-                      <div>
-                        <p className="k">Signal</p>
-                        <p className="v radio-sig-archive">● ARCHIVE</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
+                    </div>
+                    <p className="radio-foot">
+                      {wxBroadcastFailed
+                        ? "Broadcast off the air."
+                        : (weather?.tomorrowLine ?? "At the ranch.")}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="radio-words-call">{wordsCall}</p>
+                      <p className="radio-words-city">{wordsCity}</p>
+                    </div>
+                    <div className="radio-readings">
                       <div>
                         <p className="k">Miles from ranch</p>
                         <p className="v">{miles}</p>
                       </div>
                       <div>
-                        <p className="k">Local time</p>
-                        <p className="v">{clock || "—"}</p>
-                      </div>
-                      <div>
                         <p className="k">Signal</p>
-                        <p
-                          className={`v ${
-                            failed ? "radio-sig-off" : "radio-sig-live"
-                          }`}
-                        >
-                          {failed ? "○ OFF AIR" : "● LIVE"}
-                        </p>
+                        <p className={`v ${signal.className}`}>{signal.text}</p>
                       </div>
-                    </>
-                  )}
-                </div>
-                <p className="radio-foot">
-                  {wxFace
-                    ? wxBroadcastFailed
-                      ? "Broadcast off the air."
-                      : (weather?.tomorrowLine ?? "At the ranch.")
-                    : isFeed
-                      ? "Rebroadcast from the golden age of radio, 1934-1974."
-                      : displayStation
-                        ? `Pulling ${face?.readoutPrimary ?? displayStation.station_name}${
-                            face?.readoutFreq ? ` ${face.readoutFreq}` : ""
-                          } clear across the country from ${formatTunedPlace(
-                            displayStation.city_label,
-                          )}.`
-                        : "The dial is quiet."}
-                </p>
-                {lassoNote ? (
-                  <p className="radio-lasso-line" role="status">
-                    {publicMode ? (
-                      <a href={PUBLIC_ROUNDUP_PLAYLIST_URL} target="_blank" rel="noreferrer">
-                        {lassoNote}
-                      </a>
-                    ) : (
-                      <>
-                        {lassoNote.includes("Roped") ? (
-                          <span className="radio-lasso-check">✓ </span>
-                        ) : null}
-                        {lassoNote}
-                      </>
-                    )}
-                  </p>
-                ) : null}
+                    </div>
+                    <p className="radio-foot">
+                      {isFeed
+                        ? "Rebroadcast from the golden age of radio, 1934-1974."
+                        : displayStation
+                          ? `Pulling ${face?.readoutPrimary ?? displayStation.station_name}${
+                              face?.readoutFreq ? ` ${face.readoutFreq}` : ""
+                            } clear across the country from ${formatTunedPlace(
+                              displayStation.city_label,
+                            )}.`
+                          : "The dial is quiet."}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -633,7 +634,53 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </div>
             <div className="radio-grillepad" aria-hidden />
           </div>
-          <div className="radio-grilleband" aria-hidden />
+          <div className="radio-grilleband">
+            <div className="radio-plaque">
+              <span className="radio-screwdot tl" aria-hidden />
+              <span className="radio-screwdot tr" aria-hidden />
+              <span className="radio-screwdot bl" aria-hidden />
+              <span className="radio-screwdot br" aria-hidden />
+              <p className="radio-plaque-k">Now Spinning</p>
+              <div className="radio-plaque-row">
+                {plaqueArt ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={plaqueArt} alt="" className="radio-plaque-art" />
+                ) : null}
+                <div className="radio-plaque-song">
+                  <p className="t">{spinTitle}</p>
+                  <p className="a">{spinArtist}</p>
+                </div>
+                {showLasso ? (
+                  <button
+                    type="button"
+                    className="radio-lasso-key"
+                    disabled={lassoBusy}
+                    onClick={() => void onLasso()}
+                    aria-label="Lasso"
+                  >
+                    <RoundupRopeMark size={18} />
+                    LASSO
+                  </button>
+                ) : null}
+              </div>
+              {lassoNote ? (
+                <p className="radio-lasso-line" role="status">
+                  {publicMode ? (
+                    <a href={PUBLIC_ROUNDUP_PLAYLIST_URL} target="_blank" rel="noreferrer">
+                      {lassoNote}
+                    </a>
+                  ) : (
+                    <>
+                      {lassoNote.includes("Roped") ? (
+                        <span className="radio-lasso-check">✓ </span>
+                      ) : null}
+                      {lassoNote}
+                    </>
+                  )}
+                </p>
+              ) : null}
+            </div>
+          </div>
 
           {presets.length === 0 && loaded ? (
             <p className="mt-3 text-center font-[family-name:var(--font-elite)] text-sm text-[#D9C9A8]">
