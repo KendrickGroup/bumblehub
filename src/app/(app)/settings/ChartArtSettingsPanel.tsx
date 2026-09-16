@@ -7,7 +7,7 @@ import {
   type ChartArtMap,
 } from "@/lib/radio/chart-art";
 import { notifyRadioStationsChanged, type RadioStation } from "@/lib/radio/types";
-import { downscaleImageFileToWidth } from "@/lib/images/downscale";
+import { prepareChartArtUpload } from "@/lib/images/prepare-chart-art";
 
 type Props = {
   stations: RadioStation[];
@@ -32,8 +32,9 @@ export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
       </h3>
       <p className="mt-1 text-sm text-stone-600">
         Pictorial maps for the chart panel. One image per state on the dial,
-        plus California weather and the baseball diamond. Leave a slot empty to
-        keep the drawn outline.
+        plus California weather and the baseball diamond. PNG uploads keep
+        transparency and are stored as PNG. Leave a slot empty to keep the
+        drawn outline.
       </p>
       {error ? (
         <p className="mt-2 text-sm font-medium text-red-700">{error}</p>
@@ -79,10 +80,10 @@ function ChartArtSlotRow({
     onError(null);
     onBusy(slotKey);
     try {
-      const blob = await downscaleImageFileToWidth(file, 1600);
+      const prepared = await prepareChartArtUpload(file);
       const form = new FormData();
       form.append("key", slotKey);
-      form.append("photo", blob, `${slotKey}.jpg`);
+      form.append("photo", prepared.blob, `${slotKey}.${prepared.ext}`);
       const response = await fetch("/api/settings/radio-chart-art", {
         method: "POST",
         body: form,

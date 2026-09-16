@@ -1,12 +1,16 @@
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import {
   CHART_ART_BUCKET,
+  chartArtPublicUrl,
   chartArtStoragePath,
+  chartArtStoragePaths,
   fetchChartArt,
   normalizeChartArtKey,
   saveChartArt,
+  sniffChartArtType,
 } from "@/lib/radio/chart-art";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -57,18 +61,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image provided." }, { status: 400 });
     }
 
-    const path = chartArtStoragePath(propertyId, key);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const kind = sniffChartArtType(bytes, file.type);
+    if (!kind) {
+      return NextResponse.json(
+        { error: "Use a PNG, JPEG, or WebP image." },
+        { status: 400 },
+      );
+    }
+    const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
+    const path = chartArtStoragePath(propertyId, key, kind.ext);
+    await supabase.storage.from(CHART_ART_BUCKET).remove(chartArtStoragePaths(propertyId, key));
     const { error: uploadError } = await supabase.storage
       .from(CHART_ART_BUCKET)
-      .upload(path, file, { contentType: "image/jpeg", upsert: true });
+      .upload(path, bytes, {
+        contentType: kind.contentType,
+        upsert: true,
+        cacheControl: "31536000",
+      });
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
     const {
       data: { publicUrl },
     } = supabase.storage.from(CHART_ART_BUCKET).getPublicUrl(path);
-    const bust = `${publicUrl}${publicUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
-    art[key] = bust;
+    art[key] = chartArtPublicUrl(publicUrl, hash);
   } else {
     let body: unknown;
     try {
@@ -87,7 +104,7 @@ export async function POST(request: Request) {
     delete art[key];
     await supabase.storage
       .from(CHART_ART_BUCKET)
-      .remove([chartArtStoragePath(propertyId, key)]);
+      .remove(chartArtStoragePaths(propertyId, key));
   }
 
   try {

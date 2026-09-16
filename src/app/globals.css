@@ -456,7 +456,6 @@ body {
   background-color: transparent;
   background-image: none;
   mix-blend-mode: multiply;
-  filter: url(#radio-chart-knockout);
   --chart-feather: 12px;
   -webkit-mask-image:
     linear-gradient(to right, transparent, #000 var(--chart-feather), #000 calc(100% - var(--chart-feather)), transparent),

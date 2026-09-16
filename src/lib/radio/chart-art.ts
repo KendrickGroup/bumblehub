@@ -5,6 +5,10 @@ import type { RadioStation } from "./types";
 export const CHART_ART_BUCKET = "chart-art";
 export const CHART_ART_WX = "WX";
 export const CHART_ART_SPORTS = "SPORTS";
+export const CHART_ART_MAX_WIDTH = 2400;
+
+export type ChartArtContentType = "image/png" | "image/jpeg" | "image/webp";
+export type ChartArtExt = "png" | "jpg" | "webp";
 
 export type ChartArtMap = Record<string, string>;
 
@@ -70,8 +74,59 @@ export function chartArtUrlFor(
   return key ? (art[key] ?? null) : null;
 }
 
-export function chartArtStoragePath(propertyId: string, key: string): string {
-  return `${propertyId}/${key}.jpg`;
+export function sniffChartArtType(
+  bytes: Uint8Array,
+  declaredType = "",
+): { contentType: ChartArtContentType; ext: ChartArtExt } | null {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return { contentType: "image/png", ext: "png" };
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { contentType: "image/jpeg", ext: "jpg" };
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return { contentType: "image/webp", ext: "webp" };
+  }
+  const declared = declaredType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (declared === "image/png") return { contentType: "image/png", ext: "png" };
+  if (declared === "image/jpeg" || declared === "image/jpg") {
+    return { contentType: "image/jpeg", ext: "jpg" };
+  }
+  if (declared === "image/webp") return { contentType: "image/webp", ext: "webp" };
+  return null;
+}
+
+export function chartArtStoragePath(
+  propertyId: string,
+  key: string,
+  ext: string = "jpg",
+): string {
+  const safe = ext === "jpeg" ? "jpg" : ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+  return `${propertyId}/${key}.${safe}`;
+}
+
+export function chartArtStoragePaths(propertyId: string, key: string): string[] {
+  return ["png", "jpg", "jpeg", "webp"].map((ext) => `${propertyId}/${key}.${ext}`);
+}
+
+export function chartArtPublicUrl(publicUrl: string, contentHash: string): string {
+  return `${publicUrl.split("?")[0]}?v=${contentHash}`;
 }
 
 export async function fetchChartArt(
