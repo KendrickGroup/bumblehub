@@ -47,6 +47,7 @@ import {
   useRadioStations,
   useTunedStationId,
 } from "@/lib/radio/use-radio-stations";
+import { ChartArtLightbox } from "@/components/radio/ChartArtLightbox";
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
@@ -85,6 +86,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>("fm");
   const [presetBand, setPresetBand] = useState<RadioBand>("fm");
   const [handleOpen, setHandleOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const [weather, setWeather] = useState<RanchWeather | null>(null);
   const [stationWx, setStationWx] = useState<StationWx | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
@@ -241,6 +243,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     window.requestAnimationFrame(() => setCrackle(true));
   }, []);
 
+  const closeChart = useCallback(() => setChartOpen(false), []);
+
   const onPreset = (station: RadioStation) => {
     setBrowseBand(station.band);
     setPresetBand(station.band);
@@ -379,6 +383,13 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const mapArtUrl = chartArtUrlFor(chartArt, chartMode, stateCode);
   const wordsCall = `${glassCall}${glassFreq ? ` ${glassFreq}` : ""}`;
   const wordsCity = glassPlace;
+  const stationFootline = displayStation
+    ? `Pulling ${face?.readoutPrimary ?? displayStation.station_name}${
+        face?.readoutFreq ? ` ${face.readoutFreq}` : ""
+      } clear across the country from ${formatTunedPlace(displayStation.city_label)}.`
+    : null;
+  const lightboxTitle = chartTitle(chartMode, stateCode);
+  const lightboxFoot = chartMode === "station" ? stationFootline : null;
   const wxTown = stationTown(displayStation?.city_label);
   const signal = archiveFace
     ? { text: "● ARCHIVE", className: "radio-sig-archive" }
@@ -386,6 +397,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       ? { text: "○ OFF AIR", className: "radio-sig-off" }
       : { text: "● LIVE", className: "radio-sig-live" };
   const plaqueArt = !wxFace && !isFeed ? song?.artworkUrl ?? null : null;
+
+  if (!mapArtUrl && chartOpen) {
+    setChartOpen(false);
+  }
 
   return (
     <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "h-full" : "app-radio"}`}>
@@ -423,12 +438,24 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             <div className="radio-split">
               <div className="radio-chartwrap">
                 {mapArtUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={mapArtUrl}
-                    alt=""
-                    className="radio-chart-art"
-                  />
+                  <button
+                    type="button"
+                    className="radio-chart-open"
+                    aria-haspopup="dialog"
+                    aria-expanded={chartOpen}
+                    aria-label={`Open ${lightboxTitle}`}
+                    onClick={() => setChartOpen(true)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={mapArtUrl}
+                      alt=""
+                      className="radio-chart-art"
+                    />
+                    <span className="radio-chart-expand" aria-hidden>
+                      ⤢
+                    </span>
+                  </button>
                 ) : (
                   <StationChart
                     mode={chartMode}
@@ -502,13 +529,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     <p className="radio-foot">
                       {isFeed
                         ? "Rebroadcast from the golden age of radio, 1934-1974."
-                        : displayStation
-                          ? `Pulling ${face?.readoutPrimary ?? displayStation.station_name}${
-                              face?.readoutFreq ? ` ${face.readoutFreq}` : ""
-                            } clear across the country from ${formatTunedPlace(
-                              displayStation.city_label,
-                            )}.`
-                          : "The dial is quiet."}
+                        : (stationFootline ?? "The dial is quiet.")}
                     </p>
                   </>
                 )}
@@ -758,6 +779,14 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         onClose={() => setHandleOpen(false)}
         variant={publicMode ? "public" : "app"}
       />
+      {mapArtUrl && chartOpen ? (
+        <ChartArtLightbox
+          src={mapArtUrl}
+          title={lightboxTitle}
+          footline={lightboxFoot}
+          onClose={closeChart}
+        />
+      ) : null}
     </section>
   );
 }

@@ -456,6 +456,7 @@ body {
   background-color: transparent;
   background-image: none;
   mix-blend-mode: multiply;
+  transition: transform 180ms ease;
   --chart-feather: 12px;
   -webkit-mask-image:
     linear-gradient(to right, transparent, #000 var(--chart-feather), #000 calc(100% - var(--chart-feather)), transparent),
@@ -469,6 +470,140 @@ body {
   mask-composite: intersect;
   mask-size: 100% 100%;
   mask-repeat: no-repeat;
+}
+.radio-chart-open {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  appearance: none;
+  background: transparent;
+  cursor: zoom-in;
+  isolation: auto;
+}
+.radio-chart-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  background: transparent;
+  transition: background 180ms ease;
+}
+.radio-chart-open:focus-visible {
+  box-shadow: 0 0 0 2px #c9b98f;
+  border-radius: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .radio-chart-open:hover .radio-chart-art {
+    transform: scale(1.035);
+  }
+  .radio-chart-open:hover::after {
+    background: rgba(246, 239, 220, 0.16);
+  }
+  .radio-chart-open:hover .radio-chart-expand {
+    opacity: 0.72;
+  }
+}
+.radio-chart-expand {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 1;
+  font-size: 13px;
+  line-height: 1;
+  color: #5a4632;
+  opacity: 0.42;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(246, 239, 220, 0.8);
+}
+.radio-chart-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 56px 12px 20px;
+}
+.radio-chart-lb-scrim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(62, 47, 32, 0.8);
+  cursor: pointer;
+}
+.radio-chart-lb-close {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: max(8px, env(safe-area-inset-right, 0px));
+  z-index: 2;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(30, 20, 12, 0.82);
+  color: #f6efdc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.radio-chart-lb-close:focus-visible {
+  box-shadow: 0 0 0 2px #d9c9a8;
+}
+.radio-chart-lb-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  max-width: 92vw;
+  flex-direction: column;
+  border-radius: 10px;
+  padding: 12px 12px 10px;
+  background-color: #ede2c6;
+  background-image: linear-gradient(165deg, #f6efdc, #ede2c6 60%, #e4d6b4);
+  box-shadow: 0 18px 44px rgba(44, 29, 20, 0.55);
+}
+.radio-chart-lb-stage {
+  overflow: hidden;
+  touch-action: none;
+  border-radius: 6px;
+  cursor: grab;
+}
+.radio-chart-lb-art {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 92vw;
+  max-height: calc(88vh - 88px);
+  object-fit: contain;
+  border-radius: 6px;
+  mix-blend-mode: normal;
+  background: transparent;
+  transform-origin: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.radio-chart-lb-caption {
+  padding: 10px 4px 2px;
+}
+.radio-chart-lb-kicker {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #5a4632;
+}
+.radio-chart-lb-foot {
+  margin-top: 6px;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5a4632;
 }
 .radio-stateshape {
   fill: #efe7d2;
