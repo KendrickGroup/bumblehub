@@ -14,6 +14,8 @@ type Payload = {
   hasProperty: boolean;
   wx_stream_url?: string;
   chart_art?: ChartArtMap;
+  banner_images?: string[];
+  banner_lines?: string[];
 };
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
@@ -22,6 +24,8 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [wxStreamUrl, setWxStreamUrl] = useState("");
   const [chartArt, setChartArt] = useState<ChartArtMap>({});
+  const [bannerImages, setBannerImages] = useState<string[]>([]);
+  const [bannerLines, setBannerLines] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
@@ -39,6 +43,8 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setStations(body.stations ?? []);
       setWxStreamUrl(typeof body.wx_stream_url === "string" ? body.wx_stream_url : "");
       setChartArt(body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {});
+      setBannerImages(Array.isArray(body.banner_images) ? body.banner_images.filter((u): u is string => typeof u === "string") : []);
+      setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -61,6 +67,16 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
         );
         setChartArt(
           body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {},
+        );
+        setBannerImages(
+          Array.isArray(body.banner_images)
+            ? body.banner_images.filter((u): u is string => typeof u === "string")
+            : [],
+        );
+        setBannerLines(
+          Array.isArray(body.banner_lines)
+            ? body.banner_lines.filter((u): u is string => typeof u === "string")
+            : [],
         );
         setHasProperty(body.hasProperty !== false);
       } catch {
@@ -99,6 +115,8 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     atVisibleCap,
     wxStreamUrl,
     chartArt,
+    bannerImages,
+    bannerLines,
     loaded,
     hasProperty,
     refresh,

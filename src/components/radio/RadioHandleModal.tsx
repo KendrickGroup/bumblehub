@@ -139,11 +139,17 @@ export function RadioHandleModal({
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [framed, setFramed] = useState(false);
   const promptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
     setInstalled(isStandalone());
+    try {
+      setFramed(window.self !== window.top);
+    } catch {
+      setFramed(true);
+    }
     const onPrompt = (event: Event) => {
       event.preventDefault();
       promptRef.current = event as BeforeInstallPromptEvent;
@@ -251,6 +257,18 @@ export function RadioHandleModal({
             <p className="radio-handle-note">
               Latigo Radio is on this Home Screen.
             </p>
+          </>
+        ) : framed ? (
+          <>
+            <h2 id={titleId}>Latigo Radio</h2>
+            <a
+              className="radio-handle-install"
+              href={PUBLIC_RADIO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open the full Latigo Radio
+            </a>
           </>
         ) : (
           <>

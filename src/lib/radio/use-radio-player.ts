@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   claimMusicExclusive,
   pauseSpotifyForRadio,
@@ -20,7 +20,6 @@ export type RadioPlayerState = {
   stationName: string | null;
   cityLabel: string | null;
   streamUrl: string | null;
-  volume: number;
   reconnectAttempt: number;
 };
 
@@ -38,7 +37,6 @@ const FAIL_MS = 12000;
 const STALL_MS = 8000;
 const RECONNECT_GAP_MS = 5000;
 const RECONNECT_MAX = 3;
-const VOLUME_DEFAULT = 0.8;
 
 const listeners = new Set<() => void>();
 
@@ -66,7 +64,6 @@ let snapshot: RadioPlayerState = {
   stationName: null,
   cityLabel: null,
   streamUrl: null,
-  volume: VOLUME_DEFAULT,
   reconnectAttempt: 0,
 };
 
@@ -77,7 +74,6 @@ function emit(next: RadioPlayerState) {
     snapshot.stationName === next.stationName &&
     snapshot.cityLabel === next.cityLabel &&
     snapshot.streamUrl === next.streamUrl &&
-    snapshot.volume === next.volume &&
     snapshot.reconnectAttempt === next.reconnectAttempt
   ) {
     return;
@@ -163,7 +159,7 @@ function getAudio(): HTMLAudioElement {
     audio.preload = "auto";
     audio.setAttribute("playsinline", "true");
     audio.setAttribute("webkit-playsinline", "true");
-    audio.volume = snapshot.volume;
+    audio.volume = 1;
   }
   if (!bound) {
     bound = true;
@@ -311,7 +307,7 @@ function reattach(station: PlayableStation) {
     streamUrl: raw,
   });
   el.src = feedRss ? raw : `${raw}${raw.includes("?") ? "&" : "?"}_bh=${Date.now()}`;
-  el.volume = snapshot.volume;
+  el.volume = 1;
   const started = el.play();
   if (started !== undefined) {
     void started.catch(() => {
@@ -434,7 +430,7 @@ export function playRadio(station: PlayableStation) {
 
   if (isFeed && !url) {
     el.src = SILENT_WAV;
-    el.volume = snapshot.volume;
+    el.volume = 1;
     void el.play()?.catch(() => {});
     const rss = feedRss;
     void loadFeedEpisodes(station.stream_url).then((episodes) => {
@@ -463,7 +459,7 @@ export function playRadio(station: PlayableStation) {
   if (!audioHasUrl(el, url)) {
     el.src = url;
   }
-  el.volume = snapshot.volume;
+  el.volume = 1;
   const started = el.play();
   if (started !== undefined) {
     void started.catch(() => {
@@ -485,12 +481,6 @@ export function stopRadioPlayback() {
 export function stopRadioForSpotifyPlayback() {
   claimMusicExclusive("spotify");
   stopInternal();
-}
-
-export function setRadioVolume(volume: number) {
-  const next = Math.min(1, Math.max(0, volume));
-  if (audio) audio.volume = next;
-  patch({ volume: next });
 }
 
 export function rememberTunedStation(
@@ -516,12 +506,4 @@ export function useRadioPlayer(): RadioPlayerState {
     getRadioPlayerState,
     getRadioPlayerState,
   );
-}
-
-export function useRadioVolume() {
-  const state = useRadioPlayer();
-  const setVolume = useCallback((volume: number) => {
-    setRadioVolume(volume);
-  }, []);
-  return { volume: state.volume, setVolume };
 }

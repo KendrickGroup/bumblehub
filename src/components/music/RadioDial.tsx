@@ -20,7 +20,6 @@ import {
   needlePercent,
   presetsForBand,
   PUBLIC_ROUNDUP_PLAYLIST_URL,
-  spotifySearchUrl,
   stateCodeFromLabel,
   type RadioBand,
   type RadioFaceBand,
@@ -40,7 +39,6 @@ import {
   playRadio,
   radioIsLive,
   rememberTunedStation,
-  setRadioVolume,
   stopRadioPlayback,
   useRadioPlayer,
 } from "@/lib/radio/use-radio-player";
@@ -49,6 +47,7 @@ import {
   useTunedStationId,
 } from "@/lib/radio/use-radio-stations";
 import { ChartArtLightbox } from "@/components/radio/ChartArtLightbox";
+import { LatigoBanner } from "@/components/radio/LatigoBanner";
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
@@ -61,13 +60,9 @@ import {
 } from "@/lib/radio/wx-stream";
 
 const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
-const VOLUME_STEPS = [0.2, 0.4, 0.6, 0.8, 1] as const;
 const FM_NUMS = ["88", "92", "96", "100", "104", "108"];
 const AM_NUMS = ["540", "700", "900", "1100", "1400", "1700"];
-
-function volumeRotation(volume: number): number {
-  return -135 + Math.min(1, Math.max(0, volume)) * 270;
-}
+const ROUNDUP_HINT_KEY = "latigo-roundup-hint";
 
 function bandLabel(band: RadioFaceBand): string {
   if (band === "wx") return "WX";
@@ -80,7 +75,8 @@ function stationTown(cityLabel: string | null | undefined): string {
 }
 
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
-  const { visible, loaded, wxStreamUrl, chartArt } = useRadioStations({ publicMode });
+  const { visible, loaded, wxStreamUrl, chartArt, bannerImages, bannerLines } =
+    useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
   const [crackle, setCrackle] = useState(false);
@@ -92,6 +88,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [stationWx, setStationWx] = useState<StationWx | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
   const [lassoNote, setLassoNote] = useState<string | null>(null);
+  const [roundupHint, setRoundupHint] = useState(false);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
 
   const wxStation = useMemo(
@@ -243,7 +240,22 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           .join(" · ")
       : song?.artist || tagline || cityLine;
 
-  const showLasso = Boolean(!wxFace && !isFeed && song?.title);
+  const showPrivateLasso = Boolean(
+    !publicMode && !wxFace && !isFeed && song?.title,
+  );
+  const showPublicRoundup = Boolean(
+    publicMode && PUBLIC_ROUNDUP_PLAYLIST_URL && !wxFace,
+  );
+
+  useEffect(() => {
+    if (!showPublicRoundup) return;
+    try {
+      if (window.sessionStorage.getItem(ROUNDUP_HINT_KEY)) return;
+    } catch {
+      // private mode / blocked storage still shows the first-paint hint
+    }
+    setRoundupHint(true);
+  }, [showPublicRoundup]);
 
   const retuneFx = useCallback(() => {
     setCrackle(false);
@@ -287,13 +299,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     playStaticCrackle();
   };
 
-  const cycleVolume = () => {
-    const prev = getRadioPlayerState().volume;
-    const i = VOLUME_STEPS.findIndex((step) => Math.abs(step - prev) < 0.05);
-    const next = VOLUME_STEPS[(i + 1) % VOLUME_STEPS.length]!;
-    setRadioVolume(next);
-  };
-
   const onBand = (band: RadioFaceBand) => {
     setBrowseBand(band);
     if (band !== "wx") {
@@ -312,12 +317,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
   const onLasso = async () => {
     if (!song || lassoBusy) return;
-    if (publicMode) {
-      window.open(spotifySearchUrl(song.title, song.artist), "_blank", "noopener");
-      setLassoNote("Find more ropes on The Latigo Roundup");
-      window.setTimeout(() => setLassoNote(null), 2800);
-      return;
-    }
     setLassoBusy(true);
     try {
       const response = await fetch("/api/radio/lasso", {
@@ -345,6 +344,17 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       window.setTimeout(() => setLassoNote(null), 2800);
     } finally {
       setLassoBusy(false);
+    }
+  };
+
+  const onRoundup = () => {
+    if (!PUBLIC_ROUNDUP_PLAYLIST_URL) return;
+    window.open(PUBLIC_ROUNDUP_PLAYLIST_URL, "_blank", "noopener,noreferrer");
+    setRoundupHint(false);
+    try {
+      window.sessionStorage.setItem(ROUNDUP_HINT_KEY, "1");
+    } catch {
+      // ignore
     }
   };
 
@@ -719,7 +729,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   <p className="t">{spinTitle}</p>
                   <p className="a">{spinArtist}</p>
                 </div>
-                {showLasso ? (
+                {showPrivateLasso ? (
                   <button
                     type="button"
                     className="radio-lasso-key"
@@ -730,22 +740,28 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     <RoundupRopeMark size={18} />
                     LASSO
                   </button>
+                ) : showPublicRoundup ? (
+                  <button
+                    type="button"
+                    className="radio-lasso-key"
+                    onClick={onRoundup}
+                    aria-label="Roundup"
+                  >
+                    <RoundupRopeMark size={18} />
+                    ROUNDUP
+                  </button>
                 ) : null}
               </div>
               {lassoNote ? (
                 <p className="radio-lasso-line" role="status">
-                  {publicMode ? (
-                    <a href={PUBLIC_ROUNDUP_PLAYLIST_URL} target="_blank" rel="noreferrer">
-                      {lassoNote}
-                    </a>
-                  ) : (
-                    <>
-                      {lassoNote.includes("Roped") ? (
-                        <span className="radio-lasso-check">✓ </span>
-                      ) : null}
-                      {lassoNote}
-                    </>
-                  )}
+                  {lassoNote.includes("Roped") ? (
+                    <span className="radio-lasso-check">✓ </span>
+                  ) : null}
+                  {lassoNote}
+                </p>
+              ) : roundupHint ? (
+                <p className="radio-lasso-line" role="status">
+                  Follow The Latigo Roundup — the ranch keeps it fresh.
                 </p>
               ) : null}
             </div>
@@ -757,19 +773,11 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </p>
           ) : null}
 
-          <div className="radio-controls">
-            <div className="radio-knob-col">
-              <button
-                type="button"
-                disabled={parked}
-                onClick={stopRadioPlayback}
-                aria-label="Power, stop playback"
-                className="radio-knob radio-knob-power"
-              />
-              <span className="mt-1.5 text-[9px] font-bold tracking-[0.2em] text-[#D9C9A8]">
-                POWER
-              </span>
-            </div>
+          <LatigoBanner
+            images={bannerImages}
+            lines={bannerLines}
+            link={publicMode}
+          >
             <button
               type="button"
               disabled={parked || !selected}
@@ -797,20 +805,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 />
               )}
             </button>
-            <div className="radio-knob-col">
-              <button
-                type="button"
-                disabled={parked}
-                onClick={cycleVolume}
-                aria-label={`Volume ${Math.round(player.volume * 100)} percent`}
-                className="radio-knob radio-knob-volume"
-                style={{ transform: `rotate(${volumeRotation(player.volume)}deg)` }}
-              />
-              <span className="mt-1.5 text-[9px] font-bold tracking-[0.2em] text-[#D9C9A8]">
-                VOLUME
-              </span>
-            </div>
-          </div>
+          </LatigoBanner>
         </div>
       </div>
 

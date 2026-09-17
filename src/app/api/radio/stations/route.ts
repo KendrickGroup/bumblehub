@@ -4,6 +4,7 @@ import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { ensureLaunchStations } from "@/lib/radio/queries";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { fetchChartArt } from "@/lib/radio/chart-art";
+import { ensureBannerLines } from "@/lib/radio/banner";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
       stations: [],
       wx_stream_url: "",
       chart_art: {},
+      banner_images: [],
+      banner_lines: [],
       hasProperty: false,
     });
   }
@@ -30,11 +33,14 @@ export async function GET(request: Request) {
   const stations = await ensureLaunchStations(propertyId);
   const wx_stream_url = await ensureWxStreamUrl(supabase, propertyId);
   const chart_art = await fetchChartArt(supabase, propertyId);
+  const banner = await ensureBannerLines(supabase, propertyId);
 
   return NextResponse.json({
     stations: all ? stations : stations.filter((s) => s.is_visible),
     wx_stream_url,
     chart_art,
+    banner_images: banner.images,
+    banner_lines: banner.lines,
     hasProperty: true,
   });
 }

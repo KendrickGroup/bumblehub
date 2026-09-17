@@ -20,6 +20,7 @@ import {
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { parseChartArt } from "@/lib/radio/chart-art";
+import { ensureBannerLines } from "@/lib/radio/banner";
 import { parseVitalsConfig } from "@/lib/home/vitals";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
@@ -82,6 +83,8 @@ export default async function SettingsPage() {
   let radioStations: RadioStation[] = [];
   let wxStreamUrl = "";
   let chartArt = parseChartArt(null);
+  let bannerImages: string[] = [];
+  let bannerLines: string[] = [];
   let devices: Device[] = [];
   let rooms: Room[] = [];
   let scenes: Scene[] = [];
@@ -111,6 +114,9 @@ export default async function SettingsPage() {
     photos = await fetchGuestbookPhotos(propertyId);
     radioStations = await ensureLaunchStations(propertyId);
     wxStreamUrl = await ensureWxStreamUrl(supabase, propertyId);
+    const banner = await ensureBannerLines(supabase, propertyId);
+    bannerImages = banner.images;
+    bannerLines = banner.lines;
 
     const { data: property } = await supabase
       .from("properties")
@@ -240,6 +246,8 @@ export default async function SettingsPage() {
             initialStations={radioStations}
             initialWxStreamUrl={wxStreamUrl}
             initialChartArt={chartArt}
+            initialBannerImages={bannerImages}
+            initialBannerLines={bannerLines}
           />
         </div>
 

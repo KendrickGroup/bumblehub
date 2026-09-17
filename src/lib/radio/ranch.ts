@@ -9,8 +9,9 @@ export const FOURBLE_BASEBALL_RSS =
   "https://fourble.co.uk/cbotrarchive-240101-1.rss";
 
 export const PUBLIC_RADIO_URL = "https://bumblehub.dev/radio";
-export const PUBLIC_ROUNDUP_PLAYLIST_URL =
-  "https://open.spotify.com/search/The%20Latigo%20Roundup";
+export const PUBLIC_ROUNDUP_PLAYLIST_URL = (
+  process.env.NEXT_PUBLIC_ROUNDUP_PLAYLIST_URL ?? ""
+).trim();
 export const LATIGO_COWBOY_URL = "https://latigocowboy.com";
 
 export type RadioBand = "fm" | "am";

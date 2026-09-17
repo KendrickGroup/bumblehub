@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const RADIO_FRAME_ANCESTORS =
+  "frame-ancestors 'self' https://latigocowboy.com https://www.latigocowboy.com https://*.myshopify.com";
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "dev",
@@ -23,6 +26,22 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/**",
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/radio",
+        headers: [
+          { key: "Content-Security-Policy", value: RADIO_FRAME_ANCESTORS },
+        ],
+      },
+      {
+        source: "/radio/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: RADIO_FRAME_ANCESTORS },
+        ],
+      },
+    ];
   },
 };
 
