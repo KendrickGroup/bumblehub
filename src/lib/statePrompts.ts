@@ -585,22 +585,26 @@ function samePlace(a: string, b: string): boolean {
 function towerTownsForState(
   stateCode: string,
   stations: RadioStation[],
+  pendingTown?: string | null,
 ): TowerTown[] {
   const seen = new Set<string>();
   const towns: TowerTown[] = [];
+  const addTown = (city: string) => {
+    if (!city) return;
+    const key = city.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    towns.push({ city, label: city.toUpperCase() });
+  };
   for (const station of stations) {
     if (!station.is_visible) continue;
     if (station.station_type !== "stream") continue;
     if (station.band !== "fm" && station.band !== "am") continue;
     const code = station.state_code?.trim().toUpperCase() ?? "";
     if (code !== stateCode) continue;
-    const city = townFromLabel(station.city_label);
-    if (!city) continue;
-    const key = city.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    towns.push({ city, label: city.toUpperCase() });
+    addTown(townFromLabel(station.city_label));
   }
+  if (pendingTown) addTown(townFromLabel(pendingTown));
   return towns;
 }
 
@@ -647,6 +651,7 @@ function alsoOnTheMap(
 export function buildChartArtPrompt(
   stateCode: string,
   stations: RadioStation[] = [],
+  pendingTown?: string | null,
 ): string | null {
   const key = stateCode.trim().toUpperCase();
   if (!key || key === CHART_ART_SPORTS) return null;
@@ -659,7 +664,7 @@ export function buildChartArtPrompt(
   const towns: TowerTown[] =
     key === CHART_ART_WX
       ? [{ city: RANCH_CITY, label: "THE RANCH" }]
-      : towerTownsForState(loreKey, stations);
+      : towerTownsForState(loreKey, stations, pendingTown);
   const capitalOnTower = towns.some((town) => samePlace(town.city, lore.capital));
   const tower = towerParagraph(towns, lore.capital);
 

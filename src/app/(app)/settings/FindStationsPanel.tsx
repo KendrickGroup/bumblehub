@@ -17,10 +17,17 @@ import {
 } from "@/lib/radio/browser";
 import type { RadioSearchResult, RadioStation } from "@/lib/radio/types";
 import { MAX_VISIBLE_STATIONS } from "@/lib/radio/types";
-import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
+import {
+  timezoneFromStateCode,
+  type RadioBand,
+  type RadioStationType,
+} from "@/lib/radio/ranch";
+import type { ChartArtMap } from "@/lib/radio/chart-art";
+import { StationStateField } from "./StationStateField";
 
 type Props = {
   stations: RadioStation[];
+  chartArt: ChartArtMap;
   onAdd: (input: {
     city_label: string;
     station_name: string;
@@ -43,7 +50,14 @@ type SuggestionState = {
   result: RadioSearchResult | null;
 };
 
-export function FindStationsPanel({ stations, onAdd }: Props) {
+type PendingAdd = {
+  key: string;
+  result: RadioSearchResult;
+  city: string;
+  state: string;
+};
+
+export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState<RadioGenreId | null>(null);
@@ -51,6 +65,7 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingAdd | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>(
     {},
   );
@@ -152,21 +167,40 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
     }
   };
 
-  const addResult = async (
+  const beginAdd = (
     key: string,
     result: RadioSearchResult,
     cityFallback?: string,
   ) => {
     if (resultAlreadyOnDial(result, stations)) return;
-    setAddingKey(key);
     const extras = extrasFromSearchResult(result);
+    setPending({
+      key,
+      result,
+      city: cityFallback || cityLabelFromResult(result),
+      state: extras.state_code ?? "",
+    });
+  };
+
+  const confirmAdd = async () => {
+    if (!pending) return;
+    if (resultAlreadyOnDial(pending.result, stations)) {
+      setPending(null);
+      return;
+    }
+    setAddingKey(pending.key);
+    const extras = extrasFromSearchResult(pending.result);
+    const state_code = pending.state || extras.state_code;
     await onAdd({
-      city_label: cityFallback || cityLabelFromResult(result),
-      station_name: result.name.slice(0, 80),
-      stream_url: result.streamUrl,
+      city_label: pending.city,
+      station_name: pending.result.name.slice(0, 80),
+      stream_url: pending.result.streamUrl,
       ...extras,
+      state_code,
+      timezone: timezoneFromStateCode(state_code) ?? extras.timezone,
     });
     setAddingKey(null);
+    setPending(null);
   };
 
   const showingResults =
@@ -228,6 +262,26 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
                         Off the air — try search
                       </p>
                     ) : state?.status === "ready" && state.result ? (
+                      pending?.key === suggestion.id ? (
+                        <AddIdentityDraft
+                          pending={pending}
+                          stations={stations}
+                          chartArt={chartArt}
+                          busy={addingKey === suggestion.id}
+                          onCity={(city) =>
+                            setPending((prev) =>
+                              prev ? { ...prev, city } : prev,
+                            )
+                          }
+                          onState={(next) =>
+                            setPending((prev) =>
+                              prev ? { ...prev, state: next } : prev,
+                            )
+                          }
+                          onCancel={() => setPending(null)}
+                          onConfirm={() => void confirmAdd()}
+                        />
+                      ) : (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StationTestButton
                           testKey={`suggest:${suggestion.id}`}
@@ -244,7 +298,7 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
                             ).length >= MAX_VISIBLE_STATIONS
                           }
                           onClick={() =>
-                            void addResult(
+                            beginAdd(
                               suggestion.id,
                               state.result!,
                               suggestion.city,
@@ -252,6 +306,7 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
                           }
                         />
                       </div>
+                      )
                     ) : (
                       <p className="mt-1 text-[11px] text-stone-400">
                         Tap to find a live stream
@@ -350,6 +405,25 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
                       <span className="text-xs font-medium text-stone-500">
                         Already on your dial
                       </span>
+                    ) : pending?.key === result.stationuuid ? (
+                      <AddIdentityDraft
+                        pending={pending}
+                        stations={stations}
+                        chartArt={chartArt}
+                        busy={addingKey === result.stationuuid}
+                        onCity={(city) =>
+                          setPending((prev) =>
+                            prev ? { ...prev, city } : prev,
+                          )
+                        }
+                        onState={(next) =>
+                          setPending((prev) =>
+                            prev ? { ...prev, state: next } : prev,
+                          )
+                        }
+                        onCancel={() => setPending(null)}
+                        onConfirm={() => void confirmAdd()}
+                      />
                     ) : (
                       <>
                         <StationTestButton
@@ -366,7 +440,7 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
                             ).length >= MAX_VISIBLE_STATIONS
                           }
                           onClick={() =>
-                            void addResult(result.stationuuid, result)
+                            beginAdd(result.stationuuid, result)
                           }
                         />
                       </>
@@ -382,6 +456,64 @@ export function FindStationsPanel({ stations, onAdd }: Props) {
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AddIdentityDraft({
+  pending,
+  stations,
+  chartArt,
+  busy,
+  onCity,
+  onState,
+  onCancel,
+  onConfirm,
+}: {
+  pending: PendingAdd;
+  stations: RadioStation[];
+  chartArt: ChartArtMap;
+  busy: boolean;
+  onCity: (city: string) => void;
+  onState: (code: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="mt-2 w-full space-y-2">
+      <input
+        type="text"
+        value={pending.city}
+        maxLength={40}
+        onChange={(e) => onCity(e.target.value)}
+        className="min-h-[44px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+      />
+      <StationStateField
+        value={pending.state}
+        city={pending.city}
+        stations={stations}
+        chartArt={chartArt}
+        className="min-h-[44px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        onChange={onState}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onConfirm}
+          className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4B400] px-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
+        >
+          {busy ? "Adding…" : "Add to dial"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onCancel}
+          className="inline-flex min-h-[44px] items-center rounded-full bg-white px-3 text-sm font-semibold text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

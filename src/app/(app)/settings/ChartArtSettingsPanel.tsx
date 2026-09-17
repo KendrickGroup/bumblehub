@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Copy, Trash2, Upload } from "lucide-react";
 import {
   CHART_ART_SPORTS,
@@ -14,11 +14,51 @@ import { buildChartArtPrompt } from "@/lib/statePrompts";
 type Props = {
   stations: RadioStation[];
   initialChartArt: ChartArtMap;
+  onArtChange?: (art: ChartArtMap) => void;
 };
 
 const COPY_TOAST = "Prompt copied — paste into your image generator";
 
-export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
+function useFinePointerDrag() {
+  const [fine, setFine] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setFine(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return fine;
+}
+
+function isChartArtFile(file: File): boolean {
+  if (/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) return true;
+  return /\.(jpe?g|png|webp)$/i.test(file.name);
+}
+
+function takeDroppedImage(files: FileList | null): {
+  file?: File;
+  toast?: string;
+} {
+  if (!files || files.length === 0) return {};
+  const first = files[0]!;
+  const extra = files.length > 1;
+  if (!isChartArtFile(first)) {
+    return { toast: extra ? "Drop one image file." : "That isn’t an image." };
+  }
+  if (extra) {
+    return { file: first, toast: "Only the first image is used." };
+  }
+  return { file: first };
+}
+
+export function ChartArtSettingsPanel({
+  stations,
+  initialChartArt,
+  onArtChange,
+}: Props) {
   const [art, setArt] = useState<ChartArtMap>(initialChartArt);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,16 +72,19 @@ export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
     };
   }, []);
 
+  const showToast = (message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(null), 2800);
+  };
+
   const onUploaded = (next: ChartArtMap) => {
     setArt(next);
+    onArtChange?.(next);
     notifyRadioStationsChanged();
   };
 
-  const onCopied = () => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(COPY_TOAST);
-    toastTimer.current = setTimeout(() => setToast(null), 2800);
-  };
+  const onCopied = () => showToast(COPY_TOAST);
 
   return (
     <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
@@ -60,7 +103,7 @@ export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
         Pictorial maps for the chart panel. One image per state on the dial,
         plus California weather and the baseball diamond. PNG uploads keep
         transparency and are stored as PNG. Leave a slot empty to keep the
-        drawn outline.
+        drawn outline. Drag an image onto a tile to set it.
       </p>
       {error ? (
         <p className="mt-2 text-sm font-medium text-red-700">{error}</p>
@@ -76,6 +119,7 @@ export function ChartArtSettingsPanel({ stations, initialChartArt }: Props) {
             busy={busyKey === slot.key}
             onBusy={setBusyKey}
             onError={setError}
+            onToast={showToast}
             onUploaded={onUploaded}
             onCopied={onCopied}
           />
@@ -93,6 +137,7 @@ function ChartArtSlotRow({
   busy,
   onBusy,
   onError,
+  onToast,
   onUploaded,
   onCopied,
 }: {
@@ -103,10 +148,13 @@ function ChartArtSlotRow({
   busy: boolean;
   onBusy: (key: string | null) => void;
   onError: (message: string | null) => void;
+  onToast: (message: string) => void;
   onUploaded: (art: ChartArtMap) => void;
   onCopied: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const canDragDrop = useFinePointerDrag();
   const prompt =
     !url && slotKey !== CHART_ART_SPORTS
       ? buildChartArtPrompt(slotKey, stations)
@@ -177,8 +225,55 @@ function ChartArtSlotRow({
     }
   };
 
+  const clearDrag = () => {
+    setDragOver(false);
+  };
+
+  const onDragEnter = (e: DragEvent<HTMLLIElement>) => {
+    if (!canDragDrop || busy) return;
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const onDragOver = (e: DragEvent<HTMLLIElement>) => {
+    if (!canDragDrop || busy) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDragLeave = (e: DragEvent<HTMLLIElement>) => {
+    const next = e.relatedTarget;
+    if (next instanceof Node && e.currentTarget.contains(next)) return;
+    clearDrag();
+  };
+
+  const onDrop = (e: DragEvent<HTMLLIElement>) => {
+    if (!canDragDrop) return;
+    e.preventDefault();
+    clearDrag();
+    if (busy) return;
+    const taken = takeDroppedImage(e.dataTransfer.files);
+    if (taken.toast) onToast(taken.toast);
+    if (taken.file) void upload(taken.file);
+  };
+
   return (
-    <li className="flex items-center gap-3 rounded-[12px] bg-white px-3 py-2.5">
+    <li
+      className={`relative flex items-center gap-3 rounded-[12px] bg-white px-3 py-2.5 ${
+        dragOver ? "shadow-[inset_0_0_0_2px_#F4B400] ring-0" : ""
+      }`}
+      onDragEnter={canDragDrop ? onDragEnter : undefined}
+      onDragOver={canDragDrop ? onDragOver : undefined}
+      onDragLeave={canDragDrop ? onDragLeave : undefined}
+      onDrop={canDragDrop ? onDrop : undefined}
+    >
+      {dragOver ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[12px] bg-[#FBF0D0]/85">
+          <p className="px-3 text-center text-sm font-semibold text-stone-900">
+            Drop to set {label}
+          </p>
+        </div>
+      ) : null}
       <div className="h-14 w-20 shrink-0 overflow-hidden rounded-[8px] bg-stone-100">
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element

@@ -29,6 +29,7 @@ import {
 import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
 import { FindStationsPanel } from "./FindStationsPanel";
 import { ChartArtSettingsPanel } from "./ChartArtSettingsPanel";
+import { StationStateField } from "./StationStateField";
 import {
   createRadioStation,
   deleteRadioStation,
@@ -81,6 +82,7 @@ export function RadioSettingsPanel({
   initialChartArt,
 }: Props) {
   const [stations, setStations] = useState(initialStations);
+  const [chartArt, setChartArt] = useState(initialChartArt);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -201,6 +203,7 @@ export function RadioSettingsPanel({
       });
       if (result.ok && "station" in result && result.station) {
         setStations((prev) => [...prev, result.station]);
+        setEditingId(result.station.id);
         notifyRadioStationsChanged();
         return { ok: true as const };
       }
@@ -242,13 +245,18 @@ export function RadioSettingsPanel({
         <p className="mt-3 text-sm font-medium text-red-700">{error}</p>
       ) : null}
 
-      <FindStationsPanel stations={stations} onAdd={addStation} />
+      <FindStationsPanel
+        stations={stations}
+        chartArt={chartArt}
+        onAdd={addStation}
+      />
 
       <WxStreamField initialUrl={initialWxStreamUrl} />
 
       <ChartArtSettingsPanel
         stations={stations}
-        initialChartArt={initialChartArt}
+        initialChartArt={chartArt}
+        onArtChange={setChartArt}
       />
 
       <div className="mt-5 space-y-3">
@@ -269,6 +277,8 @@ export function RadioSettingsPanel({
             onToggleVisible={toggleVisible}
             onCommitFields={commitFields}
             onDelete={removeStation}
+            stations={stations}
+            chartArt={chartArt}
           />
         ))}
         {stations.length === 0 ? (
@@ -278,7 +288,11 @@ export function RadioSettingsPanel({
         ) : null}
       </div>
 
-      <AddStationPanel onAdd={addStation} />
+      <AddStationPanel
+        onAdd={addStation}
+        stations={stations}
+        chartArt={chartArt}
+      />
     </section>
   );
 }
@@ -294,6 +308,8 @@ type StationRowProps = {
   onToggleVisible: (station: RadioStation) => void;
   onCommitFields: (id: string, fields: StationTextFields) => void;
   onDelete: (id: string) => void;
+  stations: RadioStation[];
+  chartArt: ChartArtMap;
 };
 
 const StationRow = memo(function StationRow({
@@ -307,6 +323,8 @@ const StationRow = memo(function StationRow({
   onToggleVisible,
   onCommitFields,
   onDelete,
+  stations,
+  chartArt,
 }: StationRowProps) {
   return (
     <div
@@ -406,6 +424,8 @@ const StationRow = memo(function StationRow({
           initialLon={station.longitude != null ? String(station.longitude) : ""}
           initialState={station.state_code ?? ""}
           initialTz={station.timezone ?? ""}
+          stations={stations}
+          chartArt={chartArt}
           onCommit={onCommitFields}
         />
       ) : null}
@@ -506,6 +526,8 @@ const StationEditFields = memo(function StationEditFields({
   initialLon,
   initialState,
   initialTz,
+  stations,
+  chartArt,
   onCommit,
 }: {
   stationId: string;
@@ -520,6 +542,8 @@ const StationEditFields = memo(function StationEditFields({
   initialLon: string;
   initialState: string;
   initialTz: string;
+  stations: RadioStation[];
+  chartArt: ChartArtMap;
   onCommit: (id: string, fields: StationTextFields) => void;
 }) {
   const [city, setCity] = useState(initialCity);
@@ -724,14 +748,17 @@ const StationEditFields = memo(function StationEditFields({
         <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
           State
         </span>
-        <input
-          type="text"
+        <StationStateField
           value={state}
-          maxLength={2}
-          placeholder="CA"
-          onChange={onField(setState)}
-          onBlur={flush}
+          city={city}
+          stations={stations}
+          chartArt={chartArt}
           className={fieldClass}
+          onChange={(code) => {
+            setState(code);
+            schedule();
+          }}
+          onBlur={flush}
         />
       </label>
       <label className="block sm:col-span-1">
@@ -767,10 +794,14 @@ const StationEditFields = memo(function StationEditFields({
 
 function AddStationPanel({
   onAdd,
+  stations,
+  chartArt,
 }: {
   onAdd: (
     input: StationCreateInput,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  stations: RadioStation[];
+  chartArt: ChartArtMap;
 }) {
   const [city, setCity] = useState("");
   const [name, setName] = useState("");
@@ -779,6 +810,7 @@ function AddStationPanel({
   const [freq, setFreq] = useState("");
   const [band, setBand] = useState<RadioBand>("fm");
   const [type, setType] = useState<RadioStationType>("stream");
+  const [state, setState] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -791,6 +823,7 @@ function AddStationPanel({
       frequency: freq,
       band,
       station_type: type,
+      state_code: state || null,
     });
     setSaving(false);
     if (result.ok) {
@@ -801,6 +834,7 @@ function AddStationPanel({
       setFreq("");
       setBand("fm");
       setType("stream");
+      setState("");
     }
   };
 
@@ -828,6 +862,16 @@ function AddStationPanel({
           onChange={(e) => setName(e.target.value)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
         />
+        <div className="sm:col-span-2">
+          <StationStateField
+            value={state}
+            city={city}
+            stations={stations}
+            chartArt={chartArt}
+            className="min-h-[52px] w-full rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+            onChange={setState}
+          />
+        </div>
         <input
           type="text"
           value={call}
