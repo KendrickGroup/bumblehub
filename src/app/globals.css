@@ -306,7 +306,7 @@ body {
   left: 50%;
   z-index: 3;
   display: flex;
-  width: min(220px, 70%);
+  width: min(560px, 88%);
   transform: translateX(-50%);
   align-items: center;
   justify-content: center;
@@ -325,12 +325,15 @@ body {
 }
 .radio-handle-bar {
   flex: 1;
+  overflow: hidden;
   border-radius: 999px;
-  padding: 4px 0;
+  padding: 5px 10px;
   font-size: 8px;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
   color: #efe7d2;
   background:
     repeating-radial-gradient(circle at 30% 40%, #6b4f36 0 2px, #7e5f42 2px 3px),
@@ -1259,47 +1262,91 @@ body {
 }
 .radio-handle-card {
   position: relative;
-  width: min(360px, 100%);
+  width: min(400px, 100%);
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
   border-radius: 16px;
   padding: 22px 20px 16px;
   background: #faf8f3;
   box-shadow: 0 18px 40px rgba(30, 20, 12, 0.35);
   text-align: center;
 }
-.radio-handle-kicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #8a6f45;
-}
 .radio-handle-card h2 {
-  margin: 8px 0 14px;
+  margin: 0 0 14px;
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 20px;
   color: #3e2f20;
 }
 .radio-handle-qr {
   display: block;
-  width: 220px;
-  height: 220px;
-  margin: 0 auto 10px;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 8px;
   border-radius: 8px;
 }
 .radio-handle-qr-wait {
   background: #efe7d2;
 }
 .radio-handle-note,
-.radio-handle-steps {
+.radio-handle-caption,
+.radio-handle-steps,
+.radio-handle-footnote {
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 13px;
   color: #5a4632;
   line-height: 1.5;
   text-align: left;
 }
+.radio-handle-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  text-align: center;
+}
 .radio-handle-steps {
-  margin: 0 12px 12px;
-  padding-left: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.radio-handle-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.radio-handle-num {
+  flex-shrink: 0;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-weight: 700;
+  color: var(--needle);
+}
+.radio-handle-step-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.radio-handle-glyph {
+  flex-shrink: 0;
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: #3e2f20;
+}
+.radio-handle-appicon {
+  flex-shrink: 0;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(62, 42, 30, 0.28);
+}
+.radio-handle-footnote {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #8a6f45;
 }
 .radio-handle-install,
 .radio-handle-copy,
@@ -1343,6 +1390,15 @@ body {
     flex-direction: column;
     overflow: hidden;
     padding: 20px 8px 8px;
+  }
+  .radio-carry {
+    width: min(360px, 94%);
+    gap: 6px;
+  }
+  .radio-handle-bar {
+    padding: 4px 6px;
+    font-size: 6.5px;
+    letter-spacing: 0.05em;
   }
   .radio-face {
     display: flex;
@@ -1567,7 +1623,7 @@ body {
   .radio-public-foot {
     display: none;
   }
-  /* In-app TO-GO handle stays off phones; public /radio keeps it. */
+  /* In-app handle stays off phones; public /radio keeps it. */
   .radio-world.app-radio .radio-carry {
     display: none;
   }
@@ -1618,6 +1674,14 @@ body {
   .radio-case {
     padding: 32px 16px 16px;
     box-shadow: 0 18px 44px rgba(44,29,20,.5), inset 0 2px 0 rgba(255,255,255,.12), inset 0 -5px 12px rgba(0,0,0,.4);
+  }
+  .radio-carry {
+    width: min(640px, 84%);
+  }
+  .radio-handle-bar {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    padding: 5px 12px;
   }
   .radio-case::before {
     inset: 7px;

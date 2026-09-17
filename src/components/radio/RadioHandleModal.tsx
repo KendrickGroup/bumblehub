@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import QRCode from "qrcode";
 import { PUBLIC_RADIO_URL } from "@/lib/radio/ranch";
 
@@ -12,13 +12,119 @@ type BeforeInstallPromptEvent = Event & {
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   const mq = window.matchMedia("(display-mode: standalone)").matches;
-  const ios = "standalone" in navigator && Boolean((navigator as { standalone?: boolean }).standalone);
+  const ios =
+    "standalone" in navigator &&
+    Boolean((navigator as { standalone?: boolean }).standalone);
   return mq || ios;
 }
 
 function isIos(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) return true;
+  return /macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+function IosShareGlyph() {
+  return (
+    <svg
+      className="radio-handle-glyph"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+    >
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.4 8.6H6.7A2.2 2.2 0 0 0 4.5 10.8v8.5A2.2 2.2 0 0 0 6.7 21.5h10.6a2.2 2.2 0 0 0 2.2-2.2v-8.5a2.2 2.2 0 0 0-2.2-2.2h-1.7"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 15.8V3.6M8.4 7.1 12 3.6l3.6 3.5"
+      />
+    </svg>
+  );
+}
+
+function IosAddGlyph() {
+  return (
+    <svg
+      className="radio-handle-glyph"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+    >
+      <rect
+        x="4.2"
+        y="4.2"
+        width="15.6"
+        height="15.6"
+        rx="3.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 8.2v7.6M8.2 12h7.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function LatigoAppIcon() {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/radio/icon-192.png"
+      alt=""
+      aria-hidden
+      className="radio-handle-appicon"
+    />
+  );
+}
+
+function Step({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <li className="radio-handle-step">
+      <span className="radio-handle-num">{n}.</span>
+      <span className="radio-handle-step-body">{children}</span>
+    </li>
+  );
+}
+
+function IosHomeSteps({ from }: { from: 3 | 2 }) {
+  const share = from;
+  const add = from + 1;
+  const done = from + 2;
+  return (
+    <ol className="radio-handle-steps" start={from}>
+      <Step n={share}>
+        Tap the Share button
+        <IosShareGlyph />
+      </Step>
+      <Step n={add}>
+        Scroll down and tap Add to Home Screen
+        <IosAddGlyph />
+      </Step>
+      <Step n={done}>
+        Tap Add — Latigo Radio gets its own app icon
+        <LatigoAppIcon />
+      </Step>
+    </ol>
+  );
 }
 
 export function RadioHandleModal({
@@ -43,10 +149,12 @@ export function RadioHandleModal({
       promptRef.current = event as BeforeInstallPromptEvent;
       setCanInstall(true);
     };
+    const onInstalled = () => setInstalled(true);
     window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", () => setInstalled(true));
+    window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
@@ -85,8 +193,15 @@ export function RadioHandleModal({
     setCanInstall(false);
   };
 
+  const titleId = "radio-handle-title";
+
   return (
-    <div className="radio-handle-modal" role="dialog" aria-modal="true">
+    <div
+      className="radio-handle-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
       <button
         type="button"
         className="radio-handle-scrim"
@@ -96,52 +211,73 @@ export function RadioHandleModal({
       <div className="radio-handle-card">
         {variant === "app" ? (
           <>
-            <p className="radio-handle-kicker">To-Go Radio</p>
-            <h2>Take the Ranch House Radio to go</h2>
+            <h2 id={titleId}>Get Latigo Radio on your phone</h2>
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={qr} alt="QR code for Ranch House Radio" className="radio-handle-qr" />
+              <img
+                src={qr}
+                alt="QR code for Latigo Radio"
+                className="radio-handle-qr"
+              />
             ) : (
               <div className="radio-handle-qr radio-handle-qr-wait" />
             )}
-            <p className="radio-handle-note">Scan it — the radio rides along.</p>
+            <p className="radio-handle-caption">
+              <span className="radio-handle-num">1.</span>
+              Point your phone&apos;s camera here
+            </p>
+            <ol className="radio-handle-steps" start={2}>
+              <Step n={2}>Tap Open in Safari when it appears</Step>
+              <Step n={3}>
+                Tap the Share button
+                <IosShareGlyph />
+              </Step>
+              <Step n={4}>
+                Scroll down and tap Add to Home Screen
+                <IosAddGlyph />
+              </Step>
+              <Step n={5}>
+                Tap Add — Latigo Radio gets its own app icon
+                <LatigoAppIcon />
+              </Step>
+            </ol>
+            <p className="radio-handle-footnote">
+              On Android, tap Install when your browser offers it.
+            </p>
           </>
         ) : installed ? (
           <>
-            <p className="radio-handle-kicker">To-Go Radio</p>
-            <h2>You&apos;re carrying it.</h2>
+            <h2 id={titleId}>You&apos;re carrying it.</h2>
             <p className="radio-handle-note">
-              Ranch House Radio is on this Home Screen.
+              Latigo Radio is on this Home Screen.
             </p>
           </>
         ) : (
           <>
-            <p className="radio-handle-kicker">To-Go Radio</p>
-            <h2>Carry the radio home</h2>
+            <h2 id={titleId}>Get Latigo Radio on your phone</h2>
             {isIos() ? (
-              <ol className="radio-handle-steps">
-                <li>
-                  <strong>1.</strong> Tap Share
-                </li>
-                <li>
-                  <strong>2.</strong> Add to Home Screen — the radio gets its
-                  own app icon
-                </li>
-              </ol>
-            ) : canInstall ? (
-              <button
-                type="button"
-                className="radio-handle-install"
-                onClick={() => void install()}
-              >
-                Install
-              </button>
+              <IosHomeSteps from={3} />
             ) : (
-              <p className="radio-handle-note">
-                Open the browser menu and tap Install app / Add to Home Screen.
-              </p>
+              <>
+                <p className="radio-handle-note">
+                  Tap Install when your browser offers it.
+                </p>
+                {canInstall ? (
+                  <button
+                    type="button"
+                    className="radio-handle-install"
+                    onClick={() => void install()}
+                  >
+                    Install
+                  </button>
+                ) : null}
+              </>
             )}
-            <button type="button" className="radio-handle-copy" onClick={() => void copyLink()}>
+            <button
+              type="button"
+              className="radio-handle-copy"
+              onClick={() => void copyLink()}
+            >
               {copied ? "Copied" : "Copy link"}
             </button>
           </>

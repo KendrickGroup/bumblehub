@@ -411,10 +411,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           type="button"
           className={`radio-carry ${publicMode ? "" : "max-sm:hidden"}`}
           onClick={() => setHandleOpen(true)}
-          aria-label="Take the Ranch House Radio to go"
+          aria-label="Get Latigo Radio on your phone"
         >
           <span className="radio-ring" aria-hidden />
-          <span className="radio-handle-bar">To-Go</span>
+          <span className="radio-handle-bar">Get Latigo Radio on your phone</span>
           <span className="radio-ring" aria-hidden />
         </button>
 
