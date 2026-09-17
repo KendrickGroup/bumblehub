@@ -668,6 +668,16 @@ body {
   font-size: 13px;
   color: #5a4632;
 }
+.radio-words-tag {
+  margin-top: 3px;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 14px;
+  color: #5a4632;
+}
+.radio-words-phone-line,
+.radio-words-phone-meta {
+  display: none;
+}
 .radio-spin-k {
   font-size: 8px;
   font-weight: 800;
@@ -916,9 +926,15 @@ body {
 }
 .radio-place {
   margin-top: 4px;
+  overflow: hidden;
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 12px;
   color: #B0A691;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.radio-place-city {
+  opacity: 0.55;
 }
 .radio-fail {
   padding-top: 18px;
@@ -991,16 +1007,16 @@ body {
   align-self: stretch;
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
-  min-height: 88px;
+  flex: 0 0 auto;
+  min-height: 0;
   height: auto;
   margin-top: 15px;
-  padding: 16px 14px;
+  padding: 16px 18px;
 }
 .radio-plaque {
   position: relative;
-  width: 100%;
-  max-width: 520px;
+  width: min(640px, 85%);
+  max-height: 85%;
   border-radius: 6px;
   padding: 12px 16px;
   background: linear-gradient(165deg, #F6EFDC, #EDE2C6);
@@ -1022,38 +1038,55 @@ body {
   font-weight: 800;
   letter-spacing: 2.5px;
   text-transform: uppercase;
-  text-align: center;
+  text-align: left;
   color: #8a2a1c;
 }
 .radio-plaque-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 7px;
 }
 .radio-plaque-art {
-  width: 46px;
-  height: 46px;
+  width: 110px;
+  height: 110px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   object-fit: cover;
-  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  box-shadow: 0 3px 10px rgba(30, 18, 10, 0.38), 0 1px 2px rgba(30, 18, 10, 0.22);
+}
+.radio-plaque-wx {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #B4B45E;
+  color: #241A12;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 .radio-plaque-song {
   min-width: 0;
   flex: 1;
 }
 .radio-plaque-song .t {
-  font-size: 15px;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1.15;
   color: #3e2f20;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .radio-plaque-song .a {
   margin-top: 2px;
+  overflow: hidden;
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 11px;
   color: #5a4632;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .radio-wx-temp {
   font-size: 28px;
@@ -1413,7 +1446,7 @@ body {
     height: auto;
     max-height: none;
     min-height: 0;
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     flex-direction: column;
     justify-content: flex-start;
     margin-bottom: 6px;
@@ -1445,20 +1478,35 @@ body {
     min-height: 0;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 4px;
   }
   .radio-chartwrap {
-    flex: 0 1 auto;
-    min-height: 72px;
-    max-height: 110px;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .radio-chart-open {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
   }
   .radio-chart-svg {
     width: 100%;
-    max-height: 110px;
+    height: auto;
+    max-height: 100%;
   }
   .radio-chart-art {
+    width: 100%;
+    height: auto;
     max-width: 100%;
-    max-height: 110px;
+    max-height: 100%;
+    object-fit: contain;
   }
   .radio-citylabel {
     font-size: 8px;
@@ -1467,8 +1515,42 @@ body {
     min-width: 0;
     flex: 0 0 auto;
     justify-content: flex-start;
-    gap: 3px;
+    gap: 2px;
     overflow: hidden;
+  }
+  .radio-words-wide {
+    display: none;
+  }
+  .radio-words-phone-line {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .radio-words-phone-line .radio-words-call {
+    flex-shrink: 0;
+    font-size: 15px;
+  }
+  .radio-words-aside {
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--font-elite), "Special Elite", cursive;
+    font-size: 11px;
+    color: #5a4632;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .radio-words-phone-meta {
+    display: block;
+    overflow: hidden;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #8a6f45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .radio-words-call {
     font-size: 16px;
@@ -1481,8 +1563,11 @@ body {
     letter-spacing: 1.5px;
   }
   .radio-plaque-art {
-    width: 40px;
-    height: 40px;
+    width: 80px;
+    height: 80px;
+  }
+  .radio-plaque-wx {
+    font-size: 30px;
   }
   .radio-plaque-song .t,
   .radio-plaque-song .a,
@@ -1492,7 +1577,7 @@ body {
     white-space: nowrap;
   }
   .radio-plaque-song .t {
-    font-size: 13px;
+    font-size: 16px;
   }
   .radio-plaque-song .a {
     font-size: 10px;
@@ -1587,13 +1672,14 @@ body {
     padding: 6px 3px;
   }
   .radio-grilleband {
-    flex: 1 1 auto;
-    min-height: 88px;
+    flex: 0 0 auto;
+    min-height: 0;
     height: auto;
     margin-top: 15px;
-    padding: 12px 10px;
+    padding: 10px 10px;
   }
   .radio-plaque {
+    width: min(640px, 85%);
     padding: 10px 12px;
   }
   .radio-controls {
@@ -1641,18 +1727,30 @@ body {
     padding: 32px 6px 6px;
   }
   .radio-chartwrap {
-    min-height: 56px;
-    max-height: 78px;
+    min-height: 0;
+    max-height: 46vh;
   }
   .radio-chart-svg {
-    max-height: 78px;
+    max-height: 46vh;
   }
   .radio-chart-art {
-    max-height: 78px;
+    max-height: 46vh;
+  }
+  .radio-plaque-art {
+    width: 64px;
+    height: 64px;
+  }
+  .radio-plaque-wx {
+    font-size: 24px;
+  }
+  .radio-plaque-song .t {
+    font-size: 15px;
   }
   .radio-foot,
   .radio-lasso-line {
-    display: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .radio-callsign {
     font-size: 24px;
@@ -1662,8 +1760,8 @@ body {
     padding: 4px 2px;
   }
   .radio-grilleband {
-    min-height: 72px;
-    padding: 10px 8px;
+    min-height: 0;
+    padding: 8px 8px;
   }
   .radio-plaque {
     padding: 8px 12px;

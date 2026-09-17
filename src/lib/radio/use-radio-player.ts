@@ -9,6 +9,8 @@ import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
 import { loadFeedEpisodes, peekFeedEpisodes } from "./feed-cache";
+import type { RadioFeedEpisode } from "./feed";
+import { pickFeedEpisodeIndex } from "./feed-shuffle";
 
 export type RadioPlayerStatus = "stopped" | "buffering" | "playing" | "failed";
 
@@ -52,6 +54,7 @@ let ignoreErrorUntil = 0;
 let lastTimeUpdate = 0;
 let attachInFlight = false;
 let feedRss: string | null = null;
+let feedEpisodes: RadioFeedEpisode[] = [];
 let feedUrls: string[] = [];
 let feedTitles: string[] = [];
 let feedDates: string[] = [];
@@ -146,7 +149,7 @@ export function getRadioFeedNow(): {
   if (!feedRss || feedUrls.length === 0) return null;
   return {
     title: feedTitles[feedIndex] ?? "From the Archive",
-    pubDate: feedDates[feedIndex] ?? null,
+    pubDate: feedDates[feedIndex] || null,
     index: feedIndex,
     total: feedUrls.length,
   };
@@ -197,8 +200,8 @@ function getAudio(): HTMLAudioElement {
       }
     });
     audio.addEventListener("ended", () => {
-      if (feedRss && feedIndex + 1 < feedUrls.length && tuned) {
-        feedIndex += 1;
+      if (feedRss && feedEpisodes.length > 0 && tuned) {
+        loadFeed(tuned.id, feedEpisodes, currentPlayUrl());
         reattach(tuned);
         return;
       }
@@ -333,6 +336,7 @@ function stopInternal() {
     detachSource(audio);
   }
   feedRss = null;
+  feedEpisodes = [];
   feedUrls = [];
   feedTitles = [];
   feedDates = [];
@@ -354,6 +358,18 @@ export function radioIsLive(): boolean {
   return isLive();
 }
 
+function loadFeed(
+  stationId: string,
+  episodes: RadioFeedEpisode[],
+  currentUrl?: string | null,
+) {
+  feedEpisodes = episodes;
+  feedUrls = episodes.map((episode) => episode.audioUrl);
+  feedTitles = episodes.map((episode) => episode.title);
+  feedDates = episodes.map((episode) => episode.pubDate ?? "");
+  feedIndex = pickFeedEpisodeIndex(stationId, episodes, currentUrl);
+}
+
 /**
  * Start (or retune) the house stream. Must be called from a tap handler with
  * no awaits before this function — iOS Safari requires play() in the gesture.
@@ -368,19 +384,25 @@ export function playRadio(station: PlayableStation) {
   if (isFeed) {
     feedRss = station.stream_url.trim();
     const cached = peekFeedEpisodes(feedRss) ?? [];
-    feedUrls = cached.map((e) => e.audioUrl);
-    feedTitles = cached.map((e) => e.title);
-    feedDates = cached.map((e) => e.pubDate ?? "");
-    feedIndex = 0;
+    if (cached.length > 0) {
+      loadFeed(station.id, cached);
+    } else {
+      feedEpisodes = [];
+      feedUrls = [];
+      feedTitles = [];
+      feedDates = [];
+      feedIndex = 0;
+    }
   } else {
     feedRss = null;
+    feedEpisodes = [];
     feedUrls = [];
     feedTitles = [];
     feedDates = [];
     feedIndex = 0;
   }
 
-  const url = isFeed ? feedUrls[0] ?? "" : station.stream_url.trim();
+  const url = isFeed ? feedUrls[feedIndex] ?? "" : station.stream_url.trim();
   tuned = station;
   writeTunedStationId(station.id);
 
@@ -418,11 +440,8 @@ export function playRadio(station: PlayableStation) {
     void loadFeedEpisodes(station.stream_url).then((episodes) => {
       if (generation !== gen) return;
       if (!rss || feedRss !== rss) return;
-      feedUrls = episodes.map((e) => e.audioUrl);
-      feedTitles = episodes.map((e) => e.title);
-      feedDates = episodes.map((e) => e.pubDate ?? "");
-      feedIndex = 0;
-      const next = feedUrls[0];
+      loadFeed(station.id, episodes);
+      const next = feedUrls[feedIndex];
       if (!next) {
         attachInFlight = false;
         patch({ status: "failed" });

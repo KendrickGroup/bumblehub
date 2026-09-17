@@ -45,9 +45,14 @@ export function formatMiles(n: number): string {
 }
 
 export function formatEpisodeDate(raw: string | null | undefined): string {
-  if (!raw) return "Classic";
+  return formatFeedAirDate(raw) ?? "Classic";
+}
+
+/** Original air date for archive episodes, or null when it wouldn't add info. */
+export function formatFeedAirDate(raw: string | null | undefined): string | null {
+  if (!raw) return null;
   const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return "Classic";
+  if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",

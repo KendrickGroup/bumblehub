@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Play, Square } from "lucide-react";
 import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
 import { formatTunedPlace } from "@/lib/radio/format-place";
-import { stationFace } from "@/lib/radio/parse-identity";
+import { stationFace, stationTagline } from "@/lib/radio/parse-identity";
 import {
   loadFeedEpisodes,
 } from "@/lib/radio/feed-cache";
@@ -14,6 +14,7 @@ import {
   chartArtUrlFor,
 } from "@/lib/radio/chart-art";
 import {
+  formatFeedAirDate,
   formatMiles,
   milesFromRanch,
   needlePercent,
@@ -221,6 +222,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     displayStation?.state_code ??
     stateCodeFromLabel(displayStation?.city_label ?? null);
 
+  const tagline = !wxFace && !archiveFace ? stationTagline(displayStation) : null;
+  const cityLine = displayStation
+    ? formatTunedPlace(displayStation.city_label)
+    : "";
   const spinTitle = wxFace
     ? WX_NOW_PLAYING_TITLE
     : isFeed
@@ -229,12 +234,14 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         (face
           ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""}`
           : "Ranch House Radio");
+  const feedAir = isFeed ? formatFeedAirDate(feedNow?.pubDate ?? null) : null;
   const spinArtist = wxFace
     ? WX_NOW_PLAYING_CONTEXT
     : isFeed
-      ? displayStation?.station_name || "From the Archive"
-      : song?.artist ||
-        (displayStation ? formatTunedPlace(displayStation.city_label) : "");
+      ? [displayStation?.station_name || "From the Archive", feedAir]
+          .filter(Boolean)
+          .join(" · ")
+      : song?.artist || tagline || cityLine;
 
   const showLasso = Boolean(!wxFace && !isFeed && song?.title);
 
@@ -374,15 +381,22 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     ? "Ranch House Weather Bureau — Sutter Creek, Calif."
     : archiveFace
       ? "From the Archive"
-      : displayStation
-        ? formatTunedPlace(displayStation.city_label)
-        : "";
+      : null;
+  const glassTagline = wxFace || archiveFace ? null : tagline;
+  const glassCity = wxFace || archiveFace ? null : cityLine;
+  const phoneAside = archiveFace
+    ? [feedAir, glassPlace].filter(Boolean).join(" · ")
+    : glassPlace ||
+      (glassTagline && glassCity
+        ? `${glassTagline} · ${glassCity}`
+        : glassTagline || glassCity || "");
 
   const readoutClass = wxFace ? "is-wx" : archiveFace ? "is-sports" : "";
   const flagCode = chartMode === "sports" ? null : chartMode === "wx" ? "CA" : stateCode;
   const mapArtUrl = chartArtUrlFor(chartArt, chartMode, stateCode);
   const wordsCall = `${glassCall}${glassFreq ? ` ${glassFreq}` : ""}`;
-  const wordsCity = glassPlace;
+  const wordsCity = glassPlace || glassCity || "";
+  const wordsTagline = archiveFace ? feedAir : glassTagline;
   const stationFootline = displayStation
     ? `Pulling ${face?.readoutPrimary ?? displayStation.station_name}${
         face?.readoutFreq ? ` ${face.readoutFreq}` : ""
@@ -397,6 +411,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       ? { text: "○ OFF AIR", className: "radio-sig-off" }
       : { text: "● LIVE", className: "radio-sig-live" };
   const plaqueArt = !wxFace && !isFeed ? song?.artworkUrl ?? null : null;
+  const showPlaqueHero = Boolean(wxFace || plaqueArt);
 
   if (!mapArtUrl && chartOpen) {
     setChartOpen(false);
@@ -512,20 +527,36 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   </>
                 ) : (
                   <>
-                    <div>
+                    <div className="radio-words-wide">
                       <p className="radio-words-call">{wordsCall}</p>
-                      <p className="radio-words-city">{wordsCity}</p>
-                    </div>
-                    <div className="radio-readings">
-                      <div>
-                        <p className="k">Miles from ranch</p>
-                        <p className="v">{miles}</p>
+                      {wordsTagline ? (
+                        <p className="radio-words-tag">{wordsTagline}</p>
+                      ) : null}
+                      {wordsCity ? (
+                        <p className="radio-words-city">{wordsCity}</p>
+                      ) : null}
+                      <div className="radio-readings">
+                        <div>
+                          <p className="k">Miles from ranch</p>
+                          <p className="v">{miles}</p>
+                        </div>
+                        <div>
+                          <p className="k">Signal</p>
+                          <p className={`v ${signal.className}`}>{signal.text}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="k">Signal</p>
-                        <p className={`v ${signal.className}`}>{signal.text}</p>
-                      </div>
                     </div>
+                    <p className="radio-words-phone-line">
+                      <span className="radio-words-call">{wordsCall}</span>
+                      {phoneAside ? (
+                        <span className="radio-words-aside">{phoneAside}</span>
+                      ) : null}
+                    </p>
+                    <p className="radio-words-phone-meta">
+                      <span>{miles} MILES FROM RANCH</span>
+                      <span> · </span>
+                      <span className={signal.className}>{signal.text}</span>
+                    </p>
                     <p className="radio-foot">
                       {isFeed
                         ? "Rebroadcast from the golden age of radio, 1934-1974."
@@ -584,7 +615,20 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     {glassCall}{" "}
                     {glassFreq ? <span className="freq">{glassFreq}</span> : null}
                   </p>
-                  <p className="radio-place">{glassPlace}</p>
+                  <p className="radio-place">
+                    {glassPlace ? (
+                      glassPlace
+                    ) : glassTagline ? (
+                      <>
+                        {glassTagline}
+                        {glassCity ? (
+                          <span className="radio-place-city">{` · ${glassCity}`}</span>
+                        ) : null}
+                      </>
+                    ) : (
+                      glassCity
+                    )}
+                  </p>
                   {reconnecting ? (
                     <p className="radio-reconnect">reconnecting…</p>
                   ) : null}
@@ -656,18 +700,22 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             <div className="radio-grillepad" aria-hidden />
           </div>
           <div className="radio-grilleband">
-            <div className="radio-plaque">
+            <div className={`radio-plaque ${showPlaqueHero ? "has-hero" : "is-compact"}`}>
               <span className="radio-screwdot tl" aria-hidden />
               <span className="radio-screwdot tr" aria-hidden />
               <span className="radio-screwdot bl" aria-hidden />
               <span className="radio-screwdot br" aria-hidden />
-              <p className="radio-plaque-k">Now Spinning</p>
               <div className="radio-plaque-row">
-                {plaqueArt ? (
+                {wxFace ? (
+                  <span className="radio-plaque-art radio-plaque-wx" aria-hidden>
+                    WX
+                  </span>
+                ) : plaqueArt ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={plaqueArt} alt="" className="radio-plaque-art" />
                 ) : null}
                 <div className="radio-plaque-song">
+                  <p className="radio-plaque-k">Now Spinning</p>
                   <p className="t">{spinTitle}</p>
                   <p className="a">{spinArtist}</p>
                 </div>

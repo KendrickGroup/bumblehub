@@ -42,6 +42,33 @@ export function bandFromFrequency(frequency: string | null): "AM" | "FM" | null 
   return null;
 }
 
+/** Slogan from the NAME field, or null when it's empty / just the call sign. */
+export function stationTagline(
+  station:
+    | Pick<RadioStation, "station_name" | "call_sign" | "frequency">
+    | null
+    | undefined,
+): string | null {
+  if (!station) return null;
+  const name = station.station_name.trim();
+  if (!name) return null;
+  const parsed = parseCallAndFreq(name);
+  const call = (station.call_sign ?? "").trim() || parsed.callSign || "";
+  const freq = (station.frequency ?? "").trim() || parsed.frequency || "";
+  const fold = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const folded = fold(name);
+  if (call && folded === fold(call)) return null;
+  if (call && freq && folded === fold(`${call}${freq}`)) return null;
+  let rest = name;
+  if (parsed.callSign) {
+    rest = rest.replace(new RegExp(parsed.callSign, "i"), " ");
+  }
+  if (parsed.frequency) rest = rest.replace(parsed.frequency, " ");
+  rest = rest.replace(/[-–—|/]/g, " ").replace(/\s+/g, " ").trim();
+  if (!rest || /^(am|fm)$/i.test(rest)) return null;
+  return name;
+}
+
 export function stationFace(
   station: Pick<
     RadioStation,

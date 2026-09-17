@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isHttpsStreamUrl } from "@/lib/radio/types";
 import { parseRssFeed } from "@/lib/radio/feed";
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 25000;
 const CACHE_MS = 60 * 60 * 1000;
 
 type CacheEntry = {
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ episodes: [] });
     }
     const xml = await response.text();
+    // Full feed — no episode cap. Shuffle happens on the client.
     const episodes = parseRssFeed(xml);
     cache.set(feedUrl, { at: Date.now(), episodes });
     return NextResponse.json({ episodes });
