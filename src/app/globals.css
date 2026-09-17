@@ -1955,7 +1955,7 @@ body {
   }
   .radio-callsign {
     font-size: 44px;
-    letter-spacing: 3px;
+    letter-spacing: 4px;
     text-shadow: 0 0 14px rgba(240,235,220,.3);
   }
   .radio-callsign .freq {

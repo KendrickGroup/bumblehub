@@ -52,12 +52,12 @@ export function HomeMusicPill() {
             <span className="block truncate text-[12px] font-extrabold text-[#241A12]">
               {wxLive
                 ? WX_NOW_PLAYING_TITLE
-                : (song?.title ?? (radio.stationName || "Ranch House Radio"))}
+                : (song?.title ?? (radio.stationName || "Latigo Radio"))}
             </span>
             <span className="block truncate text-[10px] text-[#8A7F6E]">
               {wxLive
                 ? WX_NOW_PLAYING_CONTEXT
-                : `${radio.stationName || "Ranch House Radio"}${
+                : `${radio.stationName || "Latigo Radio"}${
                     radio.cityLabel ? ` · ${radio.cityLabel}` : ""
                   }`}
             </span>
@@ -101,7 +101,7 @@ export function HomeMusicPill() {
             Music
           </span>
           <span className="block truncate text-[10px] text-[#8A7F6E]">
-            Ranch House Radio & Spotify
+            Latigo Radio & Spotify
           </span>
         </span>
       </button>
@@ -131,7 +131,7 @@ export function HomeMusicPill() {
           </span>
           <span className="block truncate text-[10px] text-[#8A7F6E]">
             {state?.status === "not_connected"
-              ? "Ranch House Radio & Spotify"
+              ? "Latigo Radio & Spotify"
               : context}
           </span>
         </span>

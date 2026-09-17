@@ -30,7 +30,7 @@ export default async function RoundupPage() {
         href="/music"
         className="inline-flex min-h-[44px] items-center font-[family-name:var(--font-elite)] text-sm text-[#8A6F45] transition hover:text-[#3E2A1E]"
       >
-        ← Ranch House Radio
+        ← Latigo Radio
       </Link>
 
       <header className="mt-4 text-center">
@@ -41,7 +41,7 @@ export default async function RoundupPage() {
           The Roundup
         </h1>
         <p className="mt-2 font-[family-name:var(--font-elite)] text-[14px] text-[#6B5636]">
-          Songs roped off the Ranch House Radio
+          Songs roped off Latigo Radio
         </p>
       </header>
 

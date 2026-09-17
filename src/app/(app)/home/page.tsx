@@ -136,7 +136,7 @@ export default async function HomePage() {
             <span>
               <span className="tile-title">Music</span>
               <span className="tile-desc">
-                Ranch House Radio &amp; Spotify playlists
+                Latigo Radio &amp; Spotify playlists
               </span>
             </span>
           </Link>

@@ -66,7 +66,7 @@ export function NowPlayingStrip({
     return (
       <ShellChrome>
         <RadioNowPlaying
-          stationName={radio.stationName || "Ranch House Radio"}
+          stationName={radio.stationName || "Latigo Radio"}
           cityLabel={radio.cityLabel || "the dial"}
           buffering={radio.status === "buffering"}
           reconnecting={radio.reconnectAttempt > 0}
@@ -251,7 +251,7 @@ function RadioNowPlaying({
               <p className="truncate text-sm text-stone-500">{song.artist}</p>
             ) : null}
             <p className="truncate text-sm text-stone-500">
-              Ranch House Radio · {stationName} — {cityLabel}
+              Latigo Radio · {stationName} — {cityLabel}
             </p>
           </>
         )}

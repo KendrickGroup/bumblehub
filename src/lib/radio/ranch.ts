@@ -13,6 +13,8 @@ export const PUBLIC_ROUNDUP_PLAYLIST_URL = (
   process.env.NEXT_PUBLIC_ROUNDUP_PLAYLIST_URL ?? ""
 ).trim();
 export const LATIGO_COWBOY_URL = "https://latigocowboy.com";
+export const RADIO_APP_NAME = "Latigo Radio";
+export const RADIO_APP_STRIP = "LATIGO RADIO";
 
 export type RadioBand = "fm" | "am";
 export type RadioStationType = "stream" | "feed";

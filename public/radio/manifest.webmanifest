@@ -1,7 +1,7 @@
 {
-  "name": "Ranch House Radio",
-  "short_name": "Ranch Radio",
-  "description": "The ranch radio, to go.",
+  "name": "Latigo Radio",
+  "short_name": "Latigo Radio",
+  "description": "Latigo Radio, to go. Live country from Latigo Ranch House in Sutter Creek.",
   "start_url": "/radio",
   "scope": "/radio",
   "display": "standalone",

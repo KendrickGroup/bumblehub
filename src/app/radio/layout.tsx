@@ -27,14 +27,16 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Ranch House Radio",
+  title: {
+    absolute: "Latigo Radio",
+  },
   description:
-    "The ranch radio, to go. Live country from Latigo Ranch House in Sutter Creek.",
-  applicationName: "Ranch House Radio",
+    "Latigo Radio, to go. Live country from Latigo Ranch House in Sutter Creek.",
+  applicationName: "Latigo Radio",
   manifest: "/radio/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Ranch House Radio",
+    title: "Latigo Radio",
     statusBarStyle: "black-translucent",
     startupImage: [
       {

@@ -48,7 +48,7 @@ export function MusicNowPlayingView() {
   if ((!state || state.status === "not_connected") && radioLive) {
     return (
       <RadioSourcePanel
-        stationName={radio.stationName || "Ranch House Radio"}
+        stationName={radio.stationName || "Latigo Radio"}
         cityLabel={radio.cityLabel || "the dial"}
         buffering={radio.status === "buffering"}
       />
@@ -90,7 +90,7 @@ export function MusicNowPlayingView() {
         {toast && <Toast message={toast} />}
         {radioLive ? (
           <RadioSourcePanel
-            stationName={radio.stationName || "Ranch House Radio"}
+            stationName={radio.stationName || "Latigo Radio"}
             cityLabel={radio.cityLabel || "the dial"}
             buffering={radio.status === "buffering"}
           />
@@ -117,7 +117,7 @@ export function MusicNowPlayingView() {
       <>
         {toast && <Toast message={toast} />}
         <RadioSourcePanel
-          stationName={radio.stationName || "Ranch House Radio"}
+          stationName={radio.stationName || "Latigo Radio"}
           cityLabel={radio.cityLabel || "the dial"}
           buffering={radio.status === "buffering"}
         />
@@ -473,7 +473,7 @@ function RadioSourcePanel({
         {stationName}
       </h2>
       <p className="mt-1 font-[family-name:var(--font-bricolage)] text-sm text-stone-500">
-        Ranch House Radio · {stationName} — {cityLabel}
+        Latigo Radio · {stationName} — {cityLabel}
       </p>
       {buffering ? (
         <p className="mt-2 text-xs font-medium text-stone-400">Connecting…</p>

@@ -10,6 +10,7 @@ import {
   WX_NOW_PLAYING_TITLE,
   isWxBroadcast,
 } from "@/lib/radio/wx-stream";
+import { RADIO_APP_NAME } from "@/lib/radio/ranch";
 import {
   playRadio,
   stopRadioPlayback,
@@ -35,10 +36,10 @@ export function useRadioMediaSession(
         feedTitle ||
         (face
           ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""}`
-          : "Ranch House Radio");
+          : RADIO_APP_NAME);
     const artist = wx
       ? WX_NOW_PLAYING_CONTEXT
-      : track?.artist || station?.city_label || "Ranch House Radio";
+      : track?.artist || RADIO_APP_NAME;
     const wxArt = wx ? wxBadgeArtworkDataUrl() : "";
     const artwork = wx
       ? wxArt
@@ -53,8 +54,10 @@ export function useRadioMediaSession(
         title,
         artist,
         album: wx
-          ? "Ranch House Radio"
-          : station?.station_name || "Ranch House Radio",
+          ? WX_NOW_PLAYING_TITLE
+          : face
+            ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""} · ${RADIO_APP_NAME}`
+            : RADIO_APP_NAME,
         artwork,
       });
       navigator.mediaSession.playbackState =

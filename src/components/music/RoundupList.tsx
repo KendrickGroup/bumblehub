@@ -62,7 +62,7 @@ export function RoundupList({
   if (songs.length === 0) {
     return (
       <p className="mt-10 text-center font-[family-name:var(--font-elite)] text-[#6B5636]">
-        Nothing roped yet. Lasso a song from Ranch House Radio.
+        Nothing roped yet. Lasso a song from Latigo Radio.
       </p>
     );
   }

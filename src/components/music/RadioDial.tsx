@@ -20,6 +20,8 @@ import {
   needlePercent,
   presetsForBand,
   PUBLIC_ROUNDUP_PLAYLIST_URL,
+  RADIO_APP_NAME,
+  RADIO_APP_STRIP,
   stateCodeFromLabel,
   type RadioBand,
   type RadioFaceBand,
@@ -230,7 +232,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       : song?.title ||
         (face
           ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""}`
-          : "Ranch House Radio");
+          : RADIO_APP_NAME);
   const feedAir = isFeed ? formatFeedAirDate(feedNow?.pubDate ?? null) : null;
   const spinArtist = wxFace
     ? WX_NOW_PLAYING_CONTEXT
@@ -581,7 +583,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           <div className="radio-gestrip">
             <span className="rbtn" />
             <span className="rbtn round" />
-            <span className="gname">RANCH HOUSE RADIO</span>
+            <span className="gname">{RADIO_APP_STRIP}</span>
             <span className="solid">SOLID STATE</span>
           </div>
 
@@ -812,7 +814,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       {publicMode ? (
         <p className="radio-public-foot">
           <a href="https://latigocowboy.com" target="_blank" rel="noreferrer">
-            Ranch House Radio · Latigo Ranch House · Sutter Creek, California
+            Latigo Radio · Latigo Ranch House · Sutter Creek, California
           </a>
         </p>
       ) : null}
