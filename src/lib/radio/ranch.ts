@@ -1,3 +1,5 @@
+import { RADIO_ORIGIN } from "./host";
+
 export const RANCH_LAT = 38.39;
 export const RANCH_LON = -120.8;
 export const RANCH_TZ = "America/Los_Angeles";
@@ -8,7 +10,7 @@ export const RANCH_STATE = "California";
 export const FOURBLE_BASEBALL_RSS =
   "https://fourble.co.uk/cbotrarchive-240101-1.rss";
 
-export const PUBLIC_RADIO_URL = "https://bumblehub.dev/radio";
+export const PUBLIC_RADIO_URL = RADIO_ORIGIN;
 export const PUBLIC_ROUNDUP_PLAYLIST_URL = (
   process.env.NEXT_PUBLIC_ROUNDUP_PLAYLIST_URL ?? ""
 ).trim();

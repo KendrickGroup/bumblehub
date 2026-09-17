@@ -1,6 +1,17 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
+import { isRadioHostName } from "@/lib/radio/host";
+import { latigoRadioManifest } from "@/lib/radio/manifest";
 
-export default function manifest(): MetadataRoute.Manifest {
+export const dynamic = "force-dynamic";
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const headerStore = await headers();
+  const host =
+    headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "";
+  if (isRadioHostName(host)) {
+    return latigoRadioManifest(true);
+  }
   return {
     name: "BumbleHub",
     short_name: "BumbleHub",

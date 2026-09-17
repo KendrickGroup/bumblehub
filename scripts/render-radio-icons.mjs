@@ -20,10 +20,13 @@ const SPLASHES = [
   { file: "splash-750x1334.png", width: 750, height: 1334 },
 ];
 
+const ogOnly = process.argv.includes("--og");
+
 async function main() {
   const browser = await chromium.launch();
   const url = pathToFileURL(htmlPath).href;
 
+  if (!ogOnly) {
   const iconPage = await browser.newPage({
     viewport: { width: 1024, height: 1024 },
     deviceScaleFactor: 1,
@@ -83,6 +86,26 @@ async function main() {
     await page.close();
     console.log(`Wrote ${splash.file}`);
   }
+  }
+
+  const ogPage = await browser.newPage({
+    viewport: { width: 1200, height: 630 },
+    deviceScaleFactor: 1,
+  });
+  await ogPage.goto(url, { waitUntil: "networkidle" });
+  await ogPage.evaluate(async () => {
+    document.getElementById("icon")?.setAttribute("hidden", "");
+    document.getElementById("og")?.removeAttribute("hidden");
+    await document.fonts.ready;
+    await document.fonts.load('800 42px "Bricolage Grotesque"');
+  });
+  await ogPage.waitForTimeout(200);
+  await ogPage.locator("#og").screenshot({
+    path: path.join(outDir, "og.png"),
+    type: "png",
+  });
+  await ogPage.close();
+  console.log("Wrote og.png");
 
   await browser.close();
 }

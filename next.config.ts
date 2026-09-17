@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+const RADIO_HOST = (
+  process.env.NEXT_PUBLIC_RADIO_HOST ?? "radio.latigocowboy.com"
+)
+  .trim()
+  .toLowerCase();
+
 const RADIO_FRAME_ANCESTORS =
   "frame-ancestors 'self' https://latigocowboy.com https://www.latigocowboy.com https://*.myshopify.com";
 
@@ -29,6 +35,13 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/",
+        has: [{ type: "host", value: RADIO_HOST }],
+        headers: [
+          { key: "Content-Security-Policy", value: RADIO_FRAME_ANCESTORS },
+        ],
+      },
       {
         source: "/radio",
         headers: [
