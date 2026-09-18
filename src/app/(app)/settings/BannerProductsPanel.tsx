@@ -9,7 +9,6 @@ import {
   BANNER_MAX_IMAGES,
   BANNER_NAME_MAX,
   BANNER_PITCH_MAX,
-  BANNER_PRODUCT_MIN_PX,
   hasBannerEmoji,
   isBannerShopUrl,
   parseBannerProducts,
@@ -291,8 +290,7 @@ export function BannerProductsPanel({ initialProducts, initialLines }: Props) {
         Banner Products
       </h3>
       <p className="mt-1 text-sm text-stone-600">
-        Square product shots, {BANNER_PRODUCT_MIN_PX}px or larger. Each shirt
-        needs a name and a latigocowboy.com link. Pitch is optional.
+        Each shirt needs a name and a latigocowboy.com link. Pitch is optional.
       </p>
       {incomplete > 0 ? (
         <p
@@ -347,6 +345,9 @@ export function BannerProductsPanel({ initialProducts, initialLines }: Props) {
           .
         </p>
       </div>
+      <p className="mt-2 text-sm text-stone-500">
+        Square photos look best. Anything else gets cropped to square.
+      </p>
 
       {products.length > 0 ? (
         <ul className="mt-4 space-y-3">

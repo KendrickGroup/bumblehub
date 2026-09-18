@@ -9,7 +9,6 @@ export const BANNER_PITCH_MAX = 140;
 export const BANNER_ROTATE_MS = 8000;
 export const BANNER_FADE_MS = 500;
 export const BANNER_HOLD_RESUME_MS = 600;
-export const BANNER_PRODUCT_MIN_PX = 800;
 export const BANNER_PRODUCT_STORE_PX = 800;
 export const BANNER_TITLE = "LATIGO COWBOY AUTHENTICS";
 export const BANNER_CHIP = "See it in the shop";
