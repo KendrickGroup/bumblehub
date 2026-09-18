@@ -12,11 +12,7 @@ import {
   BANNER_HREF,
   BANNER_ROTATE_MS,
   BANNER_TITLE,
-  BANNER_TITLE_LEFT,
-  BANNER_TITLE_RIGHT,
 } from "@/lib/radio/banner";
-
-type Placement = "left" | "center" | "right";
 
 function shuffle<T>(items: T[]): T[] {
   const out = [...items];
@@ -29,18 +25,6 @@ function shuffle<T>(items: T[]): T[] {
   return out;
 }
 
-function pickPlacement(last: Placement | null, allowCenter: boolean): Placement {
-  const pool: Placement[] = allowCenter
-    ? ["left", "center", "right"]
-    : ["left", "right"];
-  if (pool.length === 1) return pool[0]!;
-  let next: Placement = pool[0]!;
-  do {
-    next = pool[Math.floor(Math.random() * pool.length)]!;
-  } while (next === last);
-  return next;
-}
-
 function pickLine(last: string, lines: string[]): string {
   const pool = lines.length > 0 ? lines : [BANNER_DEFAULT_LINE];
   if (pool.length === 1) return pool[0]!;
@@ -51,43 +35,37 @@ function pickLine(last: string, lines: string[]): string {
   return next;
 }
 
-function BannerThumb({ src }: { src: string | null }) {
-  if (!src) {
-    return <span className="radio-banner-concho" aria-hidden />;
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className="radio-banner-thumb" />
-  );
-}
+function BannerShot({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState(false);
 
-function BannerCopy({
-  placement,
-  line,
-  src,
-}: {
-  placement: Placement;
-  line: string;
-  src: string | null;
-}) {
-  if (placement === "center") {
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
     return (
-      <>
-        <span className="radio-banner-half l">{BANNER_TITLE_LEFT}</span>
-        <BannerThumb src={src} />
-        <span className="radio-banner-half r">{BANNER_TITLE_RIGHT}</span>
-      </>
+      <span className="radio-banner-shot" aria-hidden>
+        <span className="radio-banner-concho" />
+      </span>
     );
   }
+
   return (
-    <>
-      {placement === "left" ? <BannerThumb src={src} /> : null}
-      <div className="radio-banner-txt">
-        <div className="radio-banner-l1">{BANNER_TITLE}</div>
-        <div className="radio-banner-l2">{line}</div>
-      </div>
-      {placement === "right" ? <BannerThumb src={src} /> : null}
-    </>
+    <span className="radio-banner-shot">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        width={800}
+        height={800}
+        sizes="108px"
+        srcSet={`${src} 800w`}
+        className="radio-banner-thumb"
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    </span>
   );
 }
 
@@ -104,15 +82,12 @@ export function LatigoBanner({
 }) {
   const [order, setOrder] = useState<string[]>(images);
   const [index, setIndex] = useState(0);
-  const [placement, setPlacement] = useState<Placement>("left");
   const [line, setLine] = useState(BANNER_DEFAULT_LINE);
   const [fading, setFading] = useState(false);
-  const placementRef = useRef<Placement>("left");
   const lineRef = useRef(BANNER_DEFAULT_LINE);
   const indexRef = useRef(0);
   const orderRef = useRef(order);
   const linesRef = useRef(lines);
-  const allowCenterRef = useRef(true);
   const fadingLock = useRef(false);
   const imageKey = images.join("\n");
 
@@ -131,25 +106,9 @@ export function LatigoBanner({
   }, [order]);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 419px)");
-    const sync = () => {
-      const ok = !mq.matches;
-      allowCenterRef.current = ok;
-      if (!ok && placementRef.current === "center") {
-        const nextPlace = pickPlacement("center", false);
-        placementRef.current = nextPlace;
-        setPlacement(nextPlace);
-      }
-    };
-    sync();
-    const nextPlace = pickPlacement(null, !mq.matches);
     const nextLine = pickLine("", linesRef.current);
-    placementRef.current = nextPlace;
     lineRef.current = nextLine;
-    setPlacement(nextPlace);
     setLine(nextLine);
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
@@ -159,18 +118,12 @@ export function LatigoBanner({
       fadingLock.current = true;
       setFading(true);
       fadeTimer = window.setTimeout(() => {
-        const nextPlace = pickPlacement(
-          placementRef.current,
-          allowCenterRef.current,
-        );
         const nextLine = pickLine(lineRef.current, linesRef.current);
         const list = orderRef.current;
         const nextIndex =
           list.length > 0 ? (indexRef.current + 1) % list.length : 0;
-        placementRef.current = nextPlace;
         lineRef.current = nextLine;
         indexRef.current = nextIndex;
-        setPlacement(nextPlace);
         setLine(nextLine);
         setIndex(nextIndex);
         setFading(false);
@@ -185,25 +138,41 @@ export function LatigoBanner({
   }, []);
 
   const src = order[index] ?? null;
-  const stageClass = `radio-banner-stage is-${placement}${fading ? " is-fading" : ""}`;
-  const inner = (
-    <BannerCopy placement={placement} line={line} src={src} />
+  const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
+  const brand = <div className="radio-banner-l1">{BANNER_TITLE}</div>;
+  const stage = (
+    <>
+      <BannerShot src={src} />
+      <div className="radio-banner-txt">
+        <div className="radio-banner-l2">{line}</div>
+      </div>
+    </>
   );
+  const linkProps = {
+    href: BANNER_HREF,
+    target: "_blank" as const,
+    rel: "noopener noreferrer",
+  };
 
   return (
     <div className="radio-banner">
       {link ? (
-        <a
-          className={stageClass}
-          href={BANNER_HREF}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Latigo Cowboy Authentics"
-        >
-          {inner}
+        <a className="radio-banner-tier1" {...linkProps} tabIndex={-1} aria-hidden>
+          {brand}
         </a>
       ) : (
-        <div className={stageClass}>{inner}</div>
+        <div className="radio-banner-tier1">{brand}</div>
+      )}
+      {link ? (
+        <a
+          className={stageClass}
+          {...linkProps}
+          aria-label="Latigo Cowboy Authentics"
+        >
+          {stage}
+        </a>
+      ) : (
+        <div className={stageClass}>{stage}</div>
       )}
       {children}
     </div>

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Trash2, Upload } from "lucide-react";
-import { prepareChartArtUpload } from "@/lib/images/prepare-chart-art";
+import { prepareBannerProductUpload } from "@/lib/images/prepare-banner-product";
 import {
   BANNER_DEFAULT_LINE,
   BANNER_LINE_MAX,
   BANNER_MAX_IMAGES,
+  BANNER_PRODUCT_MIN_PX,
 } from "@/lib/radio/banner";
 import { notifyRadioStationsChanged } from "@/lib/radio/types";
 
@@ -83,8 +84,8 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
     try {
       const form = new FormData();
       for (const file of batch) {
-        const prepared = await prepareChartArtUpload(file);
-        form.append("photos", prepared.blob, `banner.${prepared.ext}`);
+        const prepared = await prepareBannerProductUpload(file);
+        form.append("photos", prepared.blob, prepared.filename);
       }
       const response = await fetch("/api/settings/radio-banner", {
         method: "POST",
@@ -103,8 +104,10 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
       if (files.length > batch.length) {
         showToast(`Added ${batch.length}. The banner holds ${BANNER_MAX_IMAGES}.`);
       }
-    } catch {
-      setError("Could not upload banner images.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not upload banner images.",
+      );
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -212,8 +215,8 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         Banner Products
       </h3>
       <p className="mt-1 text-sm text-stone-600">
-        Images rotate every few seconds and shuffle position — square shots work
-        best. Banner lines rotate with them.
+        Square product shots, {BANNER_PRODUCT_MIN_PX}px or larger. They rotate
+        with the banner lines. Smaller or skinny photos are rejected.
       </p>
       {error ? (
         <p className="mt-2 text-sm font-medium text-red-700">{error}</p>

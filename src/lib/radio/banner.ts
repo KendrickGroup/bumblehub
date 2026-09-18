@@ -6,10 +6,10 @@ export const BANNER_MAX_IMAGES = 24;
 export const BANNER_LINE_MAX = 200;
 export const BANNER_ROTATE_MS = 8000;
 export const BANNER_FADE_MS = 500;
-export const BANNER_HREF = LATIGO_COWBOY_URL;
+export const BANNER_PRODUCT_MIN_PX = 800;
+export const BANNER_PRODUCT_STORE_PX = 800;
+export const BANNER_HREF = `${LATIGO_COWBOY_URL}?utm_source=latigo_radio&utm_medium=banner`;
 export const BANNER_TITLE = "LATIGO COWBOY AUTHENTICS";
-export const BANNER_TITLE_LEFT = "LATIGO COWBOY";
-export const BANNER_TITLE_RIGHT = "AUTHENTICS";
 export const BANNER_DEFAULT_LINE =
   "Sutter Creek, California · latigocowboy.com";
 
