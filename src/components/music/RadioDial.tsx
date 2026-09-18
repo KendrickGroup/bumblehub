@@ -77,7 +77,7 @@ function stationTown(cityLabel: string | null | undefined): string {
 }
 
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
-  const { visible, loaded, wxStreamUrl, chartArt, bannerImages, bannerLines } =
+  const { visible, loaded, wxStreamUrl, chartArt, bannerProducts, bannerLines } =
     useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
@@ -776,14 +776,20 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           ) : null}
 
           <LatigoBanner
-            images={bannerImages}
+            products={bannerProducts}
             lines={bannerLines}
             link={publicMode}
           >
             <button
               type="button"
-              disabled={parked || !selected}
-              onClick={onPlayToggle}
+              aria-disabled={parked || !selected}
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (parked || !selected) return;
+                onPlayToggle();
+              }}
               aria-label={live ? "Stop radio" : "Play radio"}
               aria-pressed={live}
               className={`radio-play-honey ${live ? "is-pressed" : ""}`}

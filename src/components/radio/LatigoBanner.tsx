@@ -2,16 +2,21 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import {
+  BANNER_CHIP,
   BANNER_DEFAULT_LINE,
   BANNER_FADE_MS,
-  BANNER_HREF,
+  BANNER_HOLD_RESUME_MS,
   BANNER_ROTATE_MS,
   BANNER_TITLE,
+  bannerProductHref,
+  type BannerProduct,
 } from "@/lib/radio/banner";
 
 function shuffle<T>(items: T[]): T[] {
@@ -70,17 +75,19 @@ function BannerShot({ src }: { src: string | null }) {
 }
 
 export function LatigoBanner({
-  images,
+  products,
   lines,
   link,
   children,
 }: {
-  images: string[];
+  products: BannerProduct[];
   lines: string[];
   link: boolean;
   children: ReactNode;
 }) {
-  const [order, setOrder] = useState<string[]>(images);
+  const [order, setOrder] = useState<string[]>(() =>
+    shuffle(products.map((item) => item.image)),
+  );
   const [index, setIndex] = useState(0);
   const [line, setLine] = useState(BANNER_DEFAULT_LINE);
   const [fading, setFading] = useState(false);
@@ -89,32 +96,45 @@ export function LatigoBanner({
   const orderRef = useRef(order);
   const linesRef = useRef(lines);
   const fadingLock = useRef(false);
-  const imageKey = images.join("\n");
+  const heldRef = useRef(false);
+  const resumeTimer = useRef<number | undefined>(undefined);
+  const pressHrefRef = useRef<string | null>(null);
+  const hrefRef = useRef("");
+  const productKey = products.map((item) => item.image).join("\n");
+  const byImage = useMemo(() => {
+    const map = new Map<string, BannerProduct>();
+    for (const item of products) map.set(item.image, item);
+    return map;
+  }, [products]);
 
   linesRef.current = lines;
 
   useEffect(() => {
-    const next = shuffle(imageKey ? imageKey.split("\n") : []);
+    const next = shuffle(productKey ? productKey.split("\n") : []);
     setOrder(next);
     setIndex(0);
     orderRef.current = next;
     indexRef.current = 0;
-  }, [imageKey]);
+  }, [productKey]);
 
   useEffect(() => {
     orderRef.current = order;
   }, [order]);
 
   useEffect(() => {
-    const nextLine = pickLine("", linesRef.current);
-    lineRef.current = nextLine;
-    setLine(nextLine);
-  }, []);
+    if (lines.length === 0) return;
+    setLine((current) => {
+      if (current && current !== BANNER_DEFAULT_LINE) return current;
+      const next = pickLine(current, lines);
+      lineRef.current = next;
+      return next;
+    });
+  }, [lines]);
 
   useEffect(() => {
     let fadeTimer: number | undefined;
     const tick = () => {
-      if (fadingLock.current) return;
+      if (heldRef.current || fadingLock.current) return;
       fadingLock.current = true;
       setFading(true);
       fadeTimer = window.setTimeout(() => {
@@ -134,45 +154,98 @@ export function LatigoBanner({
     return () => {
       window.clearInterval(id);
       if (fadeTimer) window.clearTimeout(fadeTimer);
+      if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
     };
   }, []);
 
-  const src = order[index] ?? null;
+  const product = byImage.get(order[index] ?? "") ?? null;
+  const pitch = product?.pitch.trim() || line;
+  const name = product?.name.trim() ?? "";
+  const href = bannerProductHref(product?.url ?? "");
+  hrefRef.current = href;
   const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
+  const ariaLabel = name
+    ? `${name}. ${BANNER_CHIP}`
+    : `${BANNER_TITLE}. ${BANNER_CHIP}`;
+
+  const hold = () => {
+    heldRef.current = true;
+    if (resumeTimer.current) {
+      window.clearTimeout(resumeTimer.current);
+      resumeTimer.current = undefined;
+    }
+  };
+
+  const scheduleResume = () => {
+    if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
+    resumeTimer.current = window.setTimeout(() => {
+      heldRef.current = false;
+      resumeTimer.current = undefined;
+    }, BANNER_HOLD_RESUME_MS);
+  };
+
+  const onPointerDown = () => {
+    hold();
+    pressHrefRef.current = hrefRef.current;
+  };
+
+  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    const began = pressHrefRef.current;
+    pressHrefRef.current = null;
+    if (fadingLock.current) {
+      event.preventDefault();
+      if (began) window.open(began, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (began && began !== hrefRef.current) {
+      event.preventDefault();
+      window.open(began, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const brand = <div className="radio-banner-l1">{BANNER_TITLE}</div>;
   const stage = (
     <>
-      <BannerShot src={src} />
+      <BannerShot src={product?.image ?? null} />
       <div className="radio-banner-txt">
-        <div className="radio-banner-l2">{line}</div>
+        <div className="radio-banner-name">{name}</div>
+        <div className="radio-banner-pitch">{pitch}</div>
+        <span className="radio-banner-chip" aria-hidden>
+          {BANNER_CHIP}
+        </span>
       </div>
     </>
   );
-  const linkProps = {
-    href: BANNER_HREF,
-    target: "_blank" as const,
-    rel: "noopener noreferrer",
-  };
 
   return (
     <div className="radio-banner">
       {link ? (
-        <a className="radio-banner-tier1" {...linkProps} tabIndex={-1} aria-hidden>
-          {brand}
-        </a>
-      ) : (
-        <div className="radio-banner-tier1">{brand}</div>
-      )}
-      {link ? (
         <a
-          className={stageClass}
-          {...linkProps}
-          aria-label="Latigo Cowboy Authentics"
+          className="radio-banner-hit"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={ariaLabel}
+          onPointerEnter={hold}
+          onPointerLeave={scheduleResume}
+          onFocus={hold}
+          onBlur={scheduleResume}
+          onTouchStart={hold}
+          onPointerDown={onPointerDown}
+          onClick={onClick}
         >
-          {stage}
+          <div className="radio-banner-tier1" aria-hidden>
+            {brand}
+          </div>
+          <div className={stageClass} aria-hidden>
+            {stage}
+          </div>
         </a>
       ) : (
-        <div className={stageClass}>{stage}</div>
+        <>
+          <div className="radio-banner-tier1">{brand}</div>
+          <div className={stageClass}>{stage}</div>
+        </>
       )}
       {children}
     </div>

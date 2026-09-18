@@ -7,13 +7,27 @@ import {
   BANNER_DEFAULT_LINE,
   BANNER_LINE_MAX,
   BANNER_MAX_IMAGES,
+  BANNER_NAME_MAX,
+  BANNER_PITCH_MAX,
   BANNER_PRODUCT_MIN_PX,
+  hasBannerEmoji,
+  isBannerShopUrl,
+  parseBannerProducts,
+  productNeedsCopy,
+  type BannerProduct,
 } from "@/lib/radio/banner";
 import { notifyRadioStationsChanged } from "@/lib/radio/types";
 
 type Props = {
-  initialImages: string[];
+  initialProducts: BannerProduct[];
   initialLines: string[];
+};
+
+type BannerBody = {
+  banner_products?: BannerProduct[];
+  banner_images?: string[];
+  banner_lines?: string[];
+  error?: string;
 };
 
 function isBannerFile(file: File): boolean {
@@ -41,9 +55,16 @@ function takeDroppedImages(files: FileList | null): {
   };
 }
 
-export function BannerProductsPanel({ initialImages, initialLines }: Props) {
+function productsFromBody(body: BannerBody): BannerProduct[] | null {
+  const parsed = parseBannerProducts(body);
+  return parsed.length > 0 || Array.isArray(body.banner_products)
+    ? parsed
+    : null;
+}
+
+export function BannerProductsPanel({ initialProducts, initialLines }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [images, setImages] = useState(initialImages);
+  const [products, setProducts] = useState(initialProducts);
   const [lines, setLines] = useState(initialLines.join("\n"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +72,17 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const productTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
 
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
       if (lineTimer.current) clearTimeout(lineTimer.current);
+      for (const timer of Object.values(productTimers.current)) {
+        clearTimeout(timer);
+      }
     };
   }, []);
 
@@ -65,15 +92,15 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   };
 
-  const onUploaded = (nextImages: string[], nextLines?: string[]) => {
-    setImages(nextImages);
+  const onUploaded = (next: BannerProduct[], nextLines?: string[]) => {
+    setProducts(next);
     if (nextLines) setLines(nextLines.join("\n"));
     notifyRadioStationsChanged();
   };
 
   const upload = async (files: File[]) => {
     if (files.length === 0) return;
-    const room = BANNER_MAX_IMAGES - images.length;
+    const room = BANNER_MAX_IMAGES - products.length;
     if (room <= 0) {
       setError(`The banner holds ${BANNER_MAX_IMAGES} images.`);
       return;
@@ -91,16 +118,13 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         method: "POST",
         body: form,
       });
-      const body = (await response.json()) as {
-        banner_images?: string[];
-        banner_lines?: string[];
-        error?: string;
-      };
+      const body = (await response.json()) as BannerBody;
       if (!response.ok) {
         setError(body.error ?? "Could not upload banner images.");
         return;
       }
-      if (body.banner_images) onUploaded(body.banner_images, body.banner_lines);
+      const next = productsFromBody(body);
+      if (next) onUploaded(next, body.banner_lines);
       if (files.length > batch.length) {
         showToast(`Added ${batch.length}. The banner holds ${BANNER_MAX_IMAGES}.`);
       }
@@ -123,21 +147,75 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "remove", url }),
       });
-      const body = (await response.json()) as {
-        banner_images?: string[];
-        banner_lines?: string[];
-        error?: string;
-      };
+      const body = (await response.json()) as BannerBody;
       if (!response.ok) {
         setError(body.error ?? "Could not remove that image.");
         return;
       }
-      if (body.banner_images) onUploaded(body.banner_images, body.banner_lines);
+      const next = productsFromBody(body);
+      if (next) onUploaded(next, body.banner_lines);
+      else onUploaded([], body.banner_lines);
     } catch {
       setError("Could not remove that image.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const saveProduct = async (product: BannerProduct) => {
+    if (product.url.trim() && !isBannerShopUrl(product.url.trim())) {
+      setError(
+        "Shop link must be https on latigocowboy.com or your Shopify domain.",
+      );
+      return;
+    }
+    if (hasBannerEmoji(product.pitch)) {
+      setError("Pitch cannot include emoji.");
+      return;
+    }
+    setError(null);
+    try {
+      const response = await fetch("/api/settings/radio-banner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "product",
+          image: product.image,
+          name: product.name,
+          url: product.url,
+          pitch: product.pitch,
+        }),
+      });
+      const body = (await response.json()) as BannerBody;
+      if (!response.ok) {
+        setError(body.error ?? "Could not save that product.");
+        return;
+      }
+      const next = productsFromBody(body);
+      if (next) {
+        setProducts(next);
+        notifyRadioStationsChanged();
+      }
+    } catch {
+      setError("Could not save that product.");
+    }
+  };
+
+  const patchProduct = (
+    image: string,
+    field: "name" | "url" | "pitch",
+    value: string,
+  ) => {
+    const next = products.map((item) =>
+      item.image === image ? { ...item, [field]: value } : item,
+    );
+    setProducts(next);
+    const product = next.find((item) => item.image === image);
+    if (!product) return;
+    if (productTimers.current[image]) clearTimeout(productTimers.current[image]);
+    productTimers.current[image] = setTimeout(() => {
+      void saveProduct(product);
+    }, 600);
   };
 
   const saveLines = async (value: string) => {
@@ -148,11 +226,7 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "lines", lines: value }),
       });
-      const body = (await response.json()) as {
-        banner_images?: string[];
-        banner_lines?: string[];
-        error?: string;
-      };
+      const body = (await response.json()) as BannerBody;
       if (!response.ok) {
         setError(body.error ?? "Could not save banner lines.");
         return;
@@ -201,6 +275,8 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
     if (taken.files.length) void upload(taken.files);
   };
 
+  const incomplete = products.filter(productNeedsCopy).length;
+
   return (
     <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
       {toast ? (
@@ -215,9 +291,19 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         Banner Products
       </h3>
       <p className="mt-1 text-sm text-stone-600">
-        Square product shots, {BANNER_PRODUCT_MIN_PX}px or larger. They rotate
-        with the banner lines. Smaller or skinny photos are rejected.
+        Square product shots, {BANNER_PRODUCT_MIN_PX}px or larger. Each shirt
+        needs a name and a latigocowboy.com link. Pitch is optional.
       </p>
+      {incomplete > 0 ? (
+        <p
+          className="mt-3 rounded-[12px] border border-[#C9A227]/50 bg-[#FBF0D0] px-3 py-2 text-sm font-medium text-stone-900"
+          role="status"
+        >
+          {incomplete === products.length
+            ? `All ${products.length} shirts still need a name and shop link.`
+            : `${incomplete} of ${products.length} shirts still need a name and shop link.`}
+        </p>
+      ) : null}
       {error ? (
         <p className="mt-2 text-sm font-medium text-red-700">{error}</p>
       ) : null}
@@ -262,27 +348,83 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         </p>
       </div>
 
-      {images.length > 0 ? (
-        <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {images.map((url) => (
-            <li key={url} className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt=""
-                className="aspect-square w-full rounded-[8px] object-cover shadow-[0_1px_3px_rgba(0,0,0,.25)]"
-              />
-              <button
-                type="button"
-                className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-stone-700 shadow"
-                disabled={busy}
-                aria-label="Remove image"
-                onClick={() => void remove(url)}
+      {products.length > 0 ? (
+        <ul className="mt-4 space-y-3">
+          {products.map((product, index) => {
+            const needs = productNeedsCopy(product);
+            return (
+              <li
+                key={product.image}
+                className="rounded-[12px] border border-stone-200 bg-white p-3"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
+                <div className="flex gap-3">
+                  <div className="relative h-[72px] w-[72px] shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={product.image}
+                      alt=""
+                      className="h-full w-full rounded-[8px] object-cover shadow-[0_1px_3px_rgba(0,0,0,.25)]"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-stone-700 shadow"
+                      disabled={busy}
+                      aria-label={`Remove product ${index + 1}`}
+                      onClick={() => void remove(product.image)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    {needs ? (
+                      <p className="text-xs font-medium uppercase tracking-wide text-[#8A5A12]">
+                        Needs a name and shop link
+                      </p>
+                    ) : null}
+                    <label className="block text-xs font-medium uppercase tracking-wide text-stone-500">
+                      Name
+                      <input
+                        value={product.name}
+                        maxLength={BANNER_NAME_MAX}
+                        onChange={(e) =>
+                          patchProduct(product.image, "name", e.target.value)
+                        }
+                        onBlur={() => void saveProduct(product)}
+                        className="mt-1 w-full rounded-[10px] border border-stone-200 bg-[#FAF8F3] px-3 py-1.5 text-sm text-stone-800"
+                        placeholder="Nothing Like An Ice Cold Beer Tee"
+                      />
+                    </label>
+                    <label className="block text-xs font-medium uppercase tracking-wide text-stone-500">
+                      Shop link
+                      <input
+                        value={product.url}
+                        inputMode="url"
+                        onChange={(e) =>
+                          patchProduct(product.image, "url", e.target.value)
+                        }
+                        onBlur={() => void saveProduct(product)}
+                        className="mt-1 w-full rounded-[10px] border border-stone-200 bg-[#FAF8F3] px-3 py-1.5 text-sm text-stone-800"
+                        placeholder="https://latigocowboy.com/products/…"
+                      />
+                    </label>
+                    <label className="block text-xs font-medium uppercase tracking-wide text-stone-500">
+                      Pitch
+                      <input
+                        value={product.pitch}
+                        maxLength={BANNER_PITCH_MAX}
+                        onChange={(e) =>
+                          patchProduct(product.image, "pitch", e.target.value)
+                        }
+                        onBlur={() => void saveProduct(product)}
+                        className="mt-1 w-full rounded-[10px] border border-stone-200 bg-[#FAF8F3] px-3 py-1.5 text-sm text-stone-800"
+                        placeholder="Optional. One short line about this shirt."
+                      />
+                    </label>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="mt-3 text-sm text-stone-500">
@@ -303,8 +445,9 @@ export function BannerProductsPanel({ initialImages, initialLines }: Props) {
         />
       </label>
       <p className="mt-1 text-xs text-stone-500">
-        One line per row. Empty rows are dropped. Each rotation picks a random
-        line (about {BANNER_LINE_MAX} characters).
+        One line per row. Empty rows are dropped. Used when a shirt has no
+        pitch. Each rotation picks a random line (about {BANNER_LINE_MAX}{" "}
+        characters).
       </p>
     </div>
   );

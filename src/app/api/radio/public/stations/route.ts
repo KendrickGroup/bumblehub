@@ -20,6 +20,7 @@ export async function GET() {
         chart_art: {},
         banner_images: [],
         banner_lines: [],
+        banner_products: [],
       });
     }
     const service = createServiceClient();
@@ -60,6 +61,7 @@ export async function GET() {
       chart_art,
       banner_images: banner.images,
       banner_lines: banner.lines,
+      banner_products: banner.products,
     });
   } catch {
     return NextResponse.json({
@@ -68,6 +70,7 @@ export async function GET() {
       chart_art: {},
       banner_images: [],
       banner_lines: [],
+      banner_products: [],
     });
   }
 }

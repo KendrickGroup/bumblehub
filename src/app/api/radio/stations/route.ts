@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       chart_art: {},
       banner_images: [],
       banner_lines: [],
+      banner_products: [],
       hasProperty: false,
     });
   }
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
     chart_art,
     banner_images: banner.images,
     banner_lines: banner.lines,
+    banner_products: banner.products,
     hasProperty: true,
   });
 }

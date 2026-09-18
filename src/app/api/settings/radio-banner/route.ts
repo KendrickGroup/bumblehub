@@ -6,12 +6,19 @@ import { sniffChartArtType } from "@/lib/radio/chart-art";
 import {
   BANNER_ART_BUCKET,
   BANNER_MAX_IMAGES,
+  BANNER_NAME_MAX,
+  BANNER_PITCH_MAX,
   bannerPublicUrl,
   bannerStoragePath,
+  emptyBannerProduct,
   fetchBanner,
+  hasBannerEmoji,
+  isBannerShopUrl,
+  jsonBannerPayload,
   normalizeBannerLines,
   saveBannerLayout,
   storagePathFromBannerUrl,
+  stripBannerEmoji,
 } from "@/lib/radio/banner";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -27,18 +34,13 @@ export async function GET() {
   const propertyId = await getDefaultPropertyIdForUser(user.id);
   if (!propertyId) {
     return NextResponse.json({
-      banner_images: [],
-      banner_lines: [],
+      ...jsonBannerPayload({ products: [], images: [], lines: [] }),
       hasProperty: false,
     });
   }
   const banner = await fetchBanner(supabase, propertyId);
   return NextResponse.json(
-    {
-      banner_images: banner.images,
-      banner_lines: banner.lines,
-      hasProperty: true,
-    },
+    { ...jsonBannerPayload(banner), hasProperty: true },
     { headers: NO_STORE },
   );
 }
@@ -72,9 +74,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image provided." }, { status: 400 });
     }
 
-    const images = [...current.images];
+    const products = [...current.products];
     for (const file of blobs) {
-      if (images.length >= BANNER_MAX_IMAGES) break;
+      if (products.length >= BANNER_MAX_IMAGES) break;
       const bytes = Buffer.from(await file.arrayBuffer());
       const kind = sniffChartArtType(bytes, file.type);
       if (!kind) {
@@ -98,15 +100,12 @@ export async function POST(request: Request) {
       const {
         data: { publicUrl },
       } = supabase.storage.from(BANNER_ART_BUCKET).getPublicUrl(path);
-      images.push(bannerPublicUrl(publicUrl, hash));
+      products.push(emptyBannerProduct(bannerPublicUrl(publicUrl, hash)));
     }
 
     try {
-      const banner = await saveBannerLayout(supabase, propertyId, { images });
-      return NextResponse.json(
-        { banner_images: banner.images, banner_lines: banner.lines },
-        { headers: NO_STORE },
-      );
+      const banner = await saveBannerLayout(supabase, propertyId, { products });
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Could not save." },
@@ -128,17 +127,58 @@ export async function POST(request: Request) {
     if (!url) {
       return NextResponse.json({ error: "Missing image." }, { status: 400 });
     }
-    const images = current.images.filter((item) => item !== url);
+    const products = current.products.filter((item) => item.image !== url);
     const path = storagePathFromBannerUrl(url);
     if (path) {
       await supabase.storage.from(BANNER_ART_BUCKET).remove([path]);
     }
     try {
-      const banner = await saveBannerLayout(supabase, propertyId, { images });
+      const banner = await saveBannerLayout(supabase, propertyId, { products });
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
+    } catch (err) {
       return NextResponse.json(
-        { banner_images: banner.images, banner_lines: banner.lines },
-        { headers: NO_STORE },
+        { error: err instanceof Error ? err.message : "Could not save." },
+        { status: 500 },
       );
+    }
+  }
+
+  if (action === "product") {
+    const image = String((body as { image?: unknown }).image ?? "").trim();
+    const name = stripBannerEmoji(
+      String((body as { name?: unknown }).name ?? ""),
+    ).slice(0, BANNER_NAME_MAX);
+    const urlRaw = String((body as { url?: unknown }).url ?? "").trim();
+    const pitchRaw = String((body as { pitch?: unknown }).pitch ?? "");
+    if (!image) {
+      return NextResponse.json({ error: "Missing image." }, { status: 400 });
+    }
+    if (urlRaw && !isBannerShopUrl(urlRaw)) {
+      return NextResponse.json(
+        {
+          error:
+            "Shop link must be https on latigocowboy.com or your Shopify domain.",
+        },
+        { status: 400 },
+      );
+    }
+    if (hasBannerEmoji(pitchRaw)) {
+      return NextResponse.json(
+        { error: "Pitch cannot include emoji." },
+        { status: 400 },
+      );
+    }
+    const pitch = stripBannerEmoji(pitchRaw).slice(0, BANNER_PITCH_MAX);
+    const index = current.products.findIndex((item) => item.image === image);
+    if (index < 0) {
+      return NextResponse.json({ error: "Unknown product." }, { status: 404 });
+    }
+    const products = current.products.map((item, i) =>
+      i === index ? { ...item, name, url: urlRaw, pitch } : item,
+    );
+    try {
+      const banner = await saveBannerLayout(supabase, propertyId, { products });
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Could not save." },
@@ -151,10 +191,7 @@ export async function POST(request: Request) {
     const lines = normalizeBannerLines((body as { lines?: unknown }).lines);
     try {
       const banner = await saveBannerLayout(supabase, propertyId, { lines });
-      return NextResponse.json(
-        { banner_images: banner.images, banner_lines: banner.lines },
-        { headers: NO_STORE },
-      );
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Could not save." },

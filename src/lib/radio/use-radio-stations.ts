@@ -8,6 +8,10 @@ import {
   type RadioStation,
 } from "@/lib/radio/types";
 import type { ChartArtMap } from "@/lib/radio/chart-art";
+import {
+  parseBannerProducts,
+  type BannerProduct,
+} from "@/lib/radio/banner";
 
 type Payload = {
   stations: RadioStation[];
@@ -16,6 +20,7 @@ type Payload = {
   chart_art?: ChartArtMap;
   banner_images?: string[];
   banner_lines?: string[];
+  banner_products?: BannerProduct[];
 };
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
@@ -24,7 +29,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [wxStreamUrl, setWxStreamUrl] = useState("");
   const [chartArt, setChartArt] = useState<ChartArtMap>({});
-  const [bannerImages, setBannerImages] = useState<string[]>([]);
+  const [bannerProducts, setBannerProducts] = useState<BannerProduct[]>([]);
   const [bannerLines, setBannerLines] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
@@ -43,7 +48,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setStations(body.stations ?? []);
       setWxStreamUrl(typeof body.wx_stream_url === "string" ? body.wx_stream_url : "");
       setChartArt(body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {});
-      setBannerImages(Array.isArray(body.banner_images) ? body.banner_images.filter((u): u is string => typeof u === "string") : []);
+      setBannerProducts(parseBannerProducts(body));
       setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
       setHasProperty(body.hasProperty !== false);
     } catch {
@@ -68,11 +73,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
         setChartArt(
           body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {},
         );
-        setBannerImages(
-          Array.isArray(body.banner_images)
-            ? body.banner_images.filter((u): u is string => typeof u === "string")
-            : [],
-        );
+        setBannerProducts(parseBannerProducts(body));
         setBannerLines(
           Array.isArray(body.banner_lines)
             ? body.banner_lines.filter((u): u is string => typeof u === "string")
@@ -115,7 +116,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     atVisibleCap,
     wxStreamUrl,
     chartArt,
-    bannerImages,
+    bannerProducts,
     bannerLines,
     loaded,
     hasProperty,

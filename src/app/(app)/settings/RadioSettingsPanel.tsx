@@ -37,6 +37,7 @@ import {
   reorderRadioStations,
   updateRadioStation,
 } from "./radio-actions";
+import type { BannerProduct } from "@/lib/radio/banner";
 import type { ChartArtMap } from "@/lib/radio/chart-art";
 
 type Props = {
@@ -44,7 +45,7 @@ type Props = {
   initialStations: RadioStation[];
   initialWxStreamUrl: string;
   initialChartArt: ChartArtMap;
-  initialBannerImages: string[];
+  initialBannerProducts: BannerProduct[];
   initialBannerLines: string[];
 };
 
@@ -83,7 +84,7 @@ export function RadioSettingsPanel({
   initialStations,
   initialWxStreamUrl,
   initialChartArt,
-  initialBannerImages,
+  initialBannerProducts,
   initialBannerLines,
 }: Props) {
   const [stations, setStations] = useState(initialStations);
@@ -265,7 +266,7 @@ export function RadioSettingsPanel({
       />
 
       <BannerProductsPanel
-        initialImages={initialBannerImages}
+        initialProducts={initialBannerProducts}
         initialLines={initialBannerLines}
       />
 

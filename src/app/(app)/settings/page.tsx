@@ -20,7 +20,7 @@ import {
 import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { parseChartArt } from "@/lib/radio/chart-art";
-import { ensureBannerLines } from "@/lib/radio/banner";
+import { ensureBannerLines, type BannerProduct } from "@/lib/radio/banner";
 import { parseVitalsConfig } from "@/lib/home/vitals";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
@@ -83,7 +83,7 @@ export default async function SettingsPage() {
   let radioStations: RadioStation[] = [];
   let wxStreamUrl = "";
   let chartArt = parseChartArt(null);
-  let bannerImages: string[] = [];
+  let bannerProducts: BannerProduct[] = [];
   let bannerLines: string[] = [];
   let devices: Device[] = [];
   let rooms: Room[] = [];
@@ -115,7 +115,7 @@ export default async function SettingsPage() {
     radioStations = await ensureLaunchStations(propertyId);
     wxStreamUrl = await ensureWxStreamUrl(supabase, propertyId);
     const banner = await ensureBannerLines(supabase, propertyId);
-    bannerImages = banner.images;
+    bannerProducts = banner.products;
     bannerLines = banner.lines;
 
     const { data: property } = await supabase
@@ -246,7 +246,7 @@ export default async function SettingsPage() {
             initialStations={radioStations}
             initialWxStreamUrl={wxStreamUrl}
             initialChartArt={chartArt}
-            initialBannerImages={bannerImages}
+            initialBannerProducts={bannerProducts}
             initialBannerLines={bannerLines}
           />
         </div>
