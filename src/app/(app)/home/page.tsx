@@ -135,23 +135,30 @@ export default async function HomePage() {
               </span>
             </span>
           </Link>
-          <Link href="/music" className="tile-card">
-            {/* Both faces on one chip, so the tile says on its face that it
-                holds the radio AND Spotify. Same 44px chip, same cream well,
-                same size as the emoji it replaces — and both marks in the
-                tile's own icon tone, because nothing is playing from here and
-                Spotify green would read as an active source. */}
-            <span className="tile-ic tile-ic-pair">
-              <SpotifyMark size={17} tone="current" />
-              <RadioTowerMark size={17} />
+          <div className="tile-card tile-music">
+            <span className="tile-ic-btns">
+              <Link
+                href="/music"
+                className="tile-ic-btn"
+                aria-label="Open Latigo Radio"
+              >
+                <RadioTowerMark size={17} />
+              </Link>
+              <Link
+                href="/music?source=spotify"
+                className="tile-ic-btn"
+                aria-label="Open Spotify"
+              >
+                <SpotifyMark size={17} tone="current" />
+              </Link>
             </span>
-            <span>
+            <Link href="/music" className="tile-music-copy">
               <span className="tile-title">Music</span>
               <span className="tile-desc">
                 Latigo Radio &amp; Spotify playlists
               </span>
-            </span>
-          </Link>
+            </Link>
+          </div>
           <Link href="/recipes" className="tile-card">
             <span className="tile-ic">🍳</span>
             <span>

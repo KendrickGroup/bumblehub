@@ -56,9 +56,36 @@ body {
   background: #fff3cf;
   font-size: 22px;
 }
-.tile-ic-pair {
-  gap: 5px;
+.tile-ic-btns {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+.tile-ic-btn {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff3cf;
   color: #6b5b48;
+  text-decoration: none;
+}
+.tile-ic-btn:active,
+.tile-music-copy:active {
+  transform: scale(0.96);
+}
+.tile-music:active {
+  transform: none;
+}
+.tile-music-copy {
+  min-width: 0;
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
 }
 .tile-title {
   display: block;
@@ -356,6 +383,19 @@ body {
   width: 15px;
   height: 15px;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.4));
+}
+/* Same etched X on the cream Spotify face, where a cream stroke would vanish.
+   Still no fill, no shadow, 44px hit. */
+.radio-close-parchment {
+  color: rgba(90, 70, 48, 0.55);
+  top: 0;
+  right: 0;
+}
+.radio-close-parchment:hover,
+.radio-close-parchment:active,
+.radio-close-parchment:focus,
+.radio-close-parchment:focus-visible {
+  color: rgba(90, 70, 48, 0.88);
 }
 
 .radio-ring {
@@ -876,20 +916,6 @@ body {
   color: #8A8072;
   box-shadow: inset 0 0 0 1px #464036;
 }
-/* The Spotify key. Same gunmetal as an unlit band key and it never lights:
-   it is a door out of the radio, not a band, so it gets no active rule, no
-   ON AIR dot and no needle. Square-ish so the glyph is not squeezed by the
-   text padding the lettered keys need. */
-.radio-keyflag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 7px;
-  color: #8a8072;
-}
-.radio-keyflag:hover {
-  color: #b3a795;
-}
 .radio-bandflag.fm.active {
   background: var(--fm);
   color: #1A1712;
@@ -917,35 +943,6 @@ body {
 .radio-bandflag.active:focus-visible {
   outline: none;
   box-shadow: none;
-}
-.radio-bandflag.radio-keyflag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  padding: 4px 7px;
-  color: #8A8072;
-  background: #2A2620;
-  box-shadow: inset 0 0 0 1px #464036;
-}
-.radio-bandflag.radio-keyflag:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--stitch);
-}
-.radio-return-key {
-  display: inline-flex;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-  background: #2A2620;
-  box-shadow: inset 0 0 0 1px #464036;
-  color: #8A8072;
-  text-decoration: none;
-}
-.radio-return-key:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--stitch);
 }
 .radio-band-dot {
   position: absolute;

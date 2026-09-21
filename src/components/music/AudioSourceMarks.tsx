@@ -2,9 +2,8 @@
  * Official Spotify mark (simple-icons glyph), ~16px.
  *
  * tone "current" paints the glyph in currentColor instead of Spotify green,
- * for the places where nothing is playing and green would read as an active
- * state: the band-row key on the cabinet (gunmetal, like the unlit band keys)
- * and the Home tile (the tile's own icon tone).
+ * for the Home tile icons, where nothing is playing and green would read as
+ * an active source.
  */
 export function SpotifyMark({
   size = 16,

@@ -3,9 +3,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { X } from "lucide-react";
 import { MusicNowPlayingView } from "@/components/music/MusicNowPlayingView";
 import { RadioDial } from "@/components/music/RadioDial";
-import { RadioTowerMark } from "@/components/music/AudioSourceMarks";
 
 export function MusicStage() {
   return (
@@ -21,15 +21,17 @@ function MusicStageBody() {
 
   if (spotify) {
     return (
-      <div className="flex flex-col gap-4 pb-4">
+      <div className="relative flex min-h-0 flex-col">
         <Link
-          href="/music"
-          className="radio-return-key"
-          aria-label="Back to radio"
+          href="/home"
+          className="radio-close radio-close-parchment"
+          aria-label="Close Spotify and go home"
         >
-          <RadioTowerMark size={16} />
+          <X className="radio-close-x" strokeWidth={1.5} aria-hidden />
         </Link>
-        <MusicNowPlayingView />
+        <div className="pt-11">
+          <MusicNowPlayingView />
+        </div>
       </div>
     );
   }

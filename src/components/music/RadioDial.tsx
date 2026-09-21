@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { LoaderCircle, Play, Square, X } from "lucide-react";
-import {
-  RoundupRopeMark,
-  SpotifyMark,
-} from "@/components/music/AudioSourceMarks";
+import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
 import { formatTunedPlace } from "@/lib/radio/format-place";
 import { stationFace, stationTagline } from "@/lib/radio/parse-identity";
 import {
@@ -47,7 +43,6 @@ import {
   playRadio,
   radioIsLive,
   rememberTunedStation,
-  stopRadioForSpotifyPlayback,
   stopRadioPlayback,
   useRadioPlayer,
 } from "@/lib/radio/use-radio-player";
@@ -107,8 +102,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [lassoNote, setLassoNote] = useState<string | null>(null);
   const [roundupHint, setRoundupHint] = useState(false);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
-
-  const router = useRouter();
 
   const wxStation = useMemo(
     () => (wxStreamUrl.trim() ? makeWxStation(wxStreamUrl.trim()) : null),
@@ -332,15 +325,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     unlockStaticCrackle();
     retuneFx();
     playStaticCrackle();
-  };
-
-  // Leaving for Spotify STOPS the stream: audio element released, lock
-  // screen cleared, player left "stopped" so the dial comes back with a play
-  // button. Not a pause, nothing buffering behind the next screen.
-  const onSpotifyKey = () => {
-    writeLastBand(browseBand);
-    stopRadioForSpotifyPlayback();
-    router.push("/music?source=spotify");
   };
 
   const onBand = (band: RadioFaceBand) => {
@@ -668,22 +652,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     ) : null}
                   </button>
                 ))}
-                {/* A KEY, NOT A BAND. It sits in this row for thumb reach:
-                    no lit state, no ON AIR dot, no needle move, and the band
-                    the dial is on stays lit behind it. Signed-in only — the
-                    Spotify player lives in the app, and the public radio has
-                    nowhere to send this. */}
-                {publicMode ? null : (
-                  <button
-                    type="button"
-                    className="radio-bandflag radio-keyflag"
-                    aria-label="Open Spotify player"
-                    title="Spotify"
-                    onClick={onSpotifyKey}
-                  >
-                    <SpotifyMark size={11} tone="current" />
-                  </button>
-                )}
               </div>
               <div className={`radio-onair ${playing ? "is-lit" : ""}`}>
                 <span className="lamp" aria-hidden />

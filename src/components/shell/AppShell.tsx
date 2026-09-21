@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BuildStamp } from "./BuildStamp";
 import { HomeButton } from "./HomeButton";
@@ -18,23 +18,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const immersive = pathname.startsWith("/hive/slideshow");
   const onHome = pathname === "/home";
   const onMusic = pathname === "/music";
-  // The cabinet now carries its own close control (the X on the top strap),
-  // so the floating Home chip is REPLACED on the radio face rather than
-  // shown alongside it. The Spotify face has no X — it has the radio icon —
-  // so it keeps the chip exactly as before.
+  // Both the radio cabinet and the Spotify player carry their own close X,
+  // so the floating Home chip is replaced on this route rather than shown
+  // alongside it. Path between the two faces is Home.
   const onRadioFace = onMusic && params.get("source") !== "spotify";
-  const [narrow, setNarrow] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const sync = () => setNarrow(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
   const hideHomeChip =
-    onHome || immersive || isCookModePath(pathname) || onRadioFace || (onMusic && narrow);
+    onHome || immersive || isCookModePath(pathname) || onMusic;
   const homeVariant =
     pathname === "/music" || pathname.startsWith("/music/")
       ? "leather"
