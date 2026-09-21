@@ -56,6 +56,10 @@ body {
   background: #fff3cf;
   font-size: 22px;
 }
+.tile-ic-pair {
+  gap: 5px;
+  color: #6b5b48;
+}
 .tile-title {
   display: block;
   font-size: 15px;
@@ -315,6 +319,45 @@ body {
   cursor: pointer;
   padding: 0;
 }
+/* Etched into the leather, not pasted on: no fill, no shadow, a thin cream
+   stroke. The hit area is 44px square while the glyph stays 15px, so the
+   touch target is honest without the control shouting. */
+.radio-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(239, 231, 210, 0.72);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.radio-close:hover {
+  color: rgba(239, 231, 210, 0.95);
+}
+.radio-close:active {
+  color: rgba(239, 231, 210, 1);
+}
+.radio-close:focus,
+.radio-close:focus-visible {
+  outline: none;
+  box-shadow: none;
+  color: #efe7d2;
+}
+.radio-close-x {
+  width: 15px;
+  height: 15px;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.4));
+}
+
 .radio-ring {
   width: 14px;
   height: 14px;
@@ -833,6 +876,20 @@ body {
   color: #8A8072;
   box-shadow: inset 0 0 0 1px #464036;
 }
+/* The Spotify key. Same gunmetal as an unlit band key and it never lights:
+   it is a door out of the radio, not a band, so it gets no active rule, no
+   ON AIR dot and no needle. Square-ish so the glyph is not squeezed by the
+   text padding the lettered keys need. */
+.radio-keyflag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 7px;
+  color: #8a8072;
+}
+.radio-keyflag:hover {
+  color: #b3a795;
+}
 .radio-bandflag.fm.active {
   background: var(--fm);
   color: #1A1712;
@@ -860,6 +917,35 @@ body {
 .radio-bandflag.active:focus-visible {
   outline: none;
   box-shadow: none;
+}
+.radio-bandflag.radio-keyflag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 4px 7px;
+  color: #8A8072;
+  background: #2A2620;
+  box-shadow: inset 0 0 0 1px #464036;
+}
+.radio-bandflag.radio-keyflag:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--stitch);
+}
+.radio-return-key {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: #2A2620;
+  box-shadow: inset 0 0 0 1px #464036;
+  color: #8A8072;
+  text-decoration: none;
+}
+.radio-return-key:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--stitch);
 }
 .radio-band-dot {
   position: absolute;
@@ -1834,7 +1920,7 @@ body {
     display: none;
   }
   .radio-world.app-radio .radio-case {
-    padding-top: 10px;
+    padding-top: 36px;
   }
 }
 

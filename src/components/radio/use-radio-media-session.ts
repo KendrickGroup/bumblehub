@@ -12,6 +12,7 @@ import {
 } from "@/lib/radio/wx-stream";
 import { RADIO_APP_NAME } from "@/lib/radio/ranch";
 import {
+  clearRadioMediaSession,
   playRadio,
   stopRadioPlayback,
   useRadioPlayer,
@@ -29,6 +30,16 @@ export function useRadioMediaSession(
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {
       return;
     }
+    // STOPPED MEANS CLEAR THE CARD, NOT RE-DRAW IT. This effect depends on
+    // player.status, so stopping the stream re-runs it — which is exactly the
+    // moment the lock screen must go blank. Writing metadata here instead put
+    // the station straight back on the lock screen a frame after the Spotify
+    // key tore it down, and the card outlived the radio.
+    if (player.status === "stopped") {
+      clearRadioMediaSession();
+      return;
+    }
+
     const face = station ? stationFace(station) : null;
     const title = wx
       ? WX_NOW_PLAYING_TITLE

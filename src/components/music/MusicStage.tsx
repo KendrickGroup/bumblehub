@@ -1,91 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { MusicNowPlayingView } from "@/components/music/MusicNowPlayingView";
 import { RadioDial } from "@/components/music/RadioDial";
-import {
-  RoundupRopeMark,
-  SpotifyMark,
-} from "@/components/music/AudioSourceMarks";
-import { stopRadioForSpotifyPlayback } from "@/lib/radio/use-radio-player";
-
-type Source = "radio" | "spotify";
+import { RadioTowerMark } from "@/components/music/AudioSourceMarks";
 
 export function MusicStage() {
-  const [source, setSource] = useState<Source>("radio");
-
-  const onSource = (next: Source) => {
-    if (next === "spotify") stopRadioForSpotifyPlayback();
-    setSource(next);
-  };
-
   return (
-    <div
-      className={
-        source === "radio"
-          ? "flex min-h-0 flex-col gap-8 pb-4 max-sm:h-full max-sm:gap-1.5 max-sm:overflow-hidden max-sm:pb-0"
-          : "flex flex-col gap-8 pb-4"
-      }
-    >
-      <div className="mx-auto flex min-h-[44px] w-full max-w-[720px] shrink-0 flex-col items-center gap-3 max-sm:min-h-0 max-sm:flex-row max-sm:justify-center max-sm:gap-2">
-        <div className="inline-flex rounded-full border border-stone-200 bg-white p-1 shadow-sm">
-          <ToggleChip
-            active={source === "radio"}
-            onClick={() => onSource("radio")}
-          >
-            Radio
-          </ToggleChip>
-          <ToggleChip
-            active={source === "spotify"}
-            onClick={() => onSource("spotify")}
-          >
-            <SpotifyMark size={14} />
-            Spotify
-          </ToggleChip>
-        </div>
-        <Link
-          href="/music/roundup"
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-[#C9A24B]/40 bg-[#FFF8EA] px-3.5 text-[13px] font-semibold text-[#3E2A1E] shadow-sm transition hover:border-[#C9A24B] hover:bg-[#FBF0D0] max-sm:min-h-[32px] max-sm:px-2.5 max-sm:text-[12px]"
-        >
-          <RoundupRopeMark size={16} className="text-[#8A6F45]" />
-          <span className="font-[family-name:var(--font-elite)]">
-            The Roundup
-          </span>
-        </Link>
-      </div>
-      {source === "radio" ? (
-        <div className="min-h-0 max-sm:h-full max-sm:flex-1">
-          <RadioDial />
-        </div>
-      ) : (
-        <MusicNowPlayingView />
-      )}
-    </div>
+    <Suspense fallback={null}>
+      <MusicStageBody />
+    </Suspense>
   );
 }
 
-function ToggleChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function MusicStageBody() {
+  const params = useSearchParams();
+  const spotify = params.get("source") === "spotify";
+
+  if (spotify) {
+    return (
+      <div className="flex flex-col gap-4 pb-4">
+        <Link
+          href="/music"
+          className="radio-return-key"
+          aria-label="Back to radio"
+        >
+          <RadioTowerMark size={16} />
+        </Link>
+        <MusicNowPlayingView />
+      </div>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition max-sm:min-h-[32px] max-sm:px-3 max-sm:text-[13px] ${
-        active
-          ? "bg-[#F4B400] text-stone-900"
-          : "text-stone-600 hover:text-stone-900"
-      }`}
-    >
-      {children}
-    </button>
+    <div className="flex min-h-0 flex-col max-sm:h-full max-sm:overflow-hidden">
+      <RadioDial />
+    </div>
   );
 }

@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Play, Square } from "lucide-react";
-import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { LoaderCircle, Play, Square, X } from "lucide-react";
+import {
+  RoundupRopeMark,
+  SpotifyMark,
+} from "@/components/music/AudioSourceMarks";
 import { formatTunedPlace } from "@/lib/radio/format-place";
 import { stationFace, stationTagline } from "@/lib/radio/parse-identity";
 import {
@@ -35,12 +40,14 @@ import {
   unlockStaticCrackle,
 } from "@/lib/radio/static-crackle";
 import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
+import { readLastBand, writeLastBand } from "@/lib/radio/band-memory";
 import {
   getRadioFeedNow,
   getRadioPlayerState,
   playRadio,
   radioIsLive,
   rememberTunedStation,
+  stopRadioForSpotifyPlayback,
   stopRadioPlayback,
   useRadioPlayer,
 } from "@/lib/radio/use-radio-player";
@@ -84,6 +91,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [crackle, setCrackle] = useState(false);
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>("fm");
   const [presetBand, setPresetBand] = useState<RadioBand>("fm");
+  const [bandRestored, setBandRestored] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const [weather, setWeather] = useState<RanchWeather | null>(null);
@@ -93,10 +101,24 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [roundupHint, setRoundupHint] = useState(false);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
 
+  const router = useRouter();
+
   const wxStation = useMemo(
     () => (wxStreamUrl.trim() ? makeWxStation(wxStreamUrl.trim()) : null),
     [wxStreamUrl],
   );
+
+  // Come back to the band you left on. Read after mount, not in the state
+  // initialiser, so the server and the first client render agree — the dial is
+  // parked until stations load, so nothing flickers on the way past.
+  useEffect(() => {
+    if (bandRestored) return;
+    setBandRestored(true);
+    const last = readLastBand();
+    if (!last) return;
+    setBrowseBand(last);
+    if (last !== "wx") setPresetBand(last);
+  }, [bandRestored]);
 
   if (tunedId && tunedId !== WX_STATION_ID && lastRealId !== tunedId) {
     setLastRealId(tunedId);
@@ -149,13 +171,16 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
   useEffect(() => {
     if (!selected) return;
-    if (selected.band === "fm" || selected.band === "am") {
-      /* Keep the flags on a newly tuned station; leave WX browse in place. */
-      /* eslint-disable react-hooks/set-state-in-effect */
-      setBrowseBand((current) => (current === "wx" ? current : selected.band));
-      setPresetBand(selected.band);
-      /* eslint-enable react-hooks/set-state-in-effect */
-    }
+    if (selected.band !== "fm" && selected.band !== "am") return;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setPresetBand(selected.band);
+    setBrowseBand((current) => {
+      if (current === "wx") return current;
+      const remembered = readLastBand();
+      if (remembered) return remembered;
+      return selected.band;
+    });
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selected?.id, selected?.band]);
 
   useEffect(() => {
@@ -269,6 +294,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const onPreset = (station: RadioStation) => {
     setBrowseBand(station.band);
     setPresetBand(station.band);
+    writeLastBand(station.band);
     const switching = getRadioPlayerState().stationId !== station.id;
     if (radioIsLive()) {
       playRadio(station);
@@ -301,8 +327,18 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     playStaticCrackle();
   };
 
+  // Leaving for Spotify STOPS the stream: audio element released, lock
+  // screen cleared, player left "stopped" so the dial comes back with a play
+  // button. Not a pause, nothing buffering behind the next screen.
+  const onSpotifyKey = () => {
+    writeLastBand(browseBand);
+    stopRadioForSpotifyPlayback();
+    router.push("/music?source=spotify");
+  };
+
   const onBand = (band: RadioFaceBand) => {
     setBrowseBand(band);
+    writeLastBand(band);
     if (band !== "wx") {
       setPresetBand(band);
       return;
@@ -444,6 +480,22 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           <span className="radio-handle-bar">Get Latigo Radio on your phone</span>
           <span className="radio-ring" aria-hidden />
         </button>
+
+        {/* SIGNED-IN ONLY. The public radio at radio.latigocowboy.com has no
+            Home to go to, so this must never render there — the strap keeps
+            the install handle and nothing else. Scratched into the leather:
+            no fill, no shadow, cream stroke, 44px of touch around a small
+            glyph. It replaces the floating Home chip on this page rather
+            than joining it (see AppShell). */}
+        {publicMode ? null : (
+          <Link
+            href="/home"
+            className="radio-close"
+            aria-label="Close radio and go home"
+          >
+            <X className="radio-close-x" strokeWidth={1.5} aria-hidden />
+          </Link>
+        )}
 
         <div className="radio-face">
           <div className="radio-maplid">
@@ -609,6 +661,22 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     ) : null}
                   </button>
                 ))}
+                {/* A KEY, NOT A BAND. It sits in this row for thumb reach:
+                    no lit state, no ON AIR dot, no needle move, and the band
+                    the dial is on stays lit behind it. Signed-in only — the
+                    Spotify player lives in the app, and the public radio has
+                    nowhere to send this. */}
+                {publicMode ? null : (
+                  <button
+                    type="button"
+                    className="radio-bandflag radio-keyflag"
+                    aria-label="Open Spotify player"
+                    title="Spotify"
+                    onClick={onSpotifyKey}
+                  >
+                    <SpotifyMark size={11} tone="current" />
+                  </button>
+                )}
               </div>
               <div className={`radio-onair ${playing ? "is-lit" : ""}`}>
                 <span className="lamp" aria-hidden />

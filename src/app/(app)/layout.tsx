@@ -1,4 +1,5 @@
 import { Bricolage_Grotesque, Fraunces, Rye, Special_Elite } from "next/font/google";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/AppShell";
@@ -44,7 +45,9 @@ export default async function AppLayout({
     <div
       className={`${fraunces.variable} ${bricolage.variable} ${rye.variable} ${elite.variable} min-h-full font-[family-name:var(--font-bricolage)]`}
     >
-      <AppShell>{children}</AppShell>
+      <Suspense fallback={null}>
+        <AppShell>{children}</AppShell>
+      </Suspense>
     </div>
   );
 }

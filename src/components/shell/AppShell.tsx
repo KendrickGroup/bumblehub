@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { BuildStamp } from "./BuildStamp";
 import { HomeButton } from "./HomeButton";
 import { IdleDriftWatcher } from "./IdleDriftWatcher";
@@ -14,9 +14,15 @@ function isCookModePath(pathname: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const params = useSearchParams();
   const immersive = pathname.startsWith("/hive/slideshow");
   const onHome = pathname === "/home";
   const onMusic = pathname === "/music";
+  // The cabinet now carries its own close control (the X on the top strap),
+  // so the floating Home chip is REPLACED on the radio face rather than
+  // shown alongside it. The Spotify face has no X — it has the radio icon —
+  // so it keeps the chip exactly as before.
+  const onRadioFace = onMusic && params.get("source") !== "spotify";
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
@@ -28,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hideHomeChip =
-    onHome || immersive || isCookModePath(pathname) || (onMusic && narrow);
+    onHome || immersive || isCookModePath(pathname) || onRadioFace || (onMusic && narrow);
   const homeVariant =
     pathname === "/music" || pathname.startsWith("/music/")
       ? "leather"
@@ -78,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <MusicSourceGuard />
           <ShellNowPlaying />
         </div>
-        <BuildStamp />
+        <BuildStamp corner={onRadioFace ? "top-left" : "bottom-right"} />
       </div>
     </>
   );

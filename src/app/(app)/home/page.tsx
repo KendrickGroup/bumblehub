@@ -5,6 +5,10 @@ import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene, SceneAction } from "@/lib/types";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { HomeMusicPill } from "@/components/home/HomeMusicPill";
+import {
+  RadioTowerMark,
+  SpotifyMark,
+} from "@/components/music/AudioSourceMarks";
 import { SceneGrid } from "@/components/home/SceneGrid";
 import { VitalsTile } from "@/components/home/VitalsTile";
 import { listSceneActions } from "@/lib/home-assistant/queries";
@@ -132,7 +136,15 @@ export default async function HomePage() {
             </span>
           </Link>
           <Link href="/music" className="tile-card">
-            <span className="tile-ic">📻</span>
+            {/* Both faces on one chip, so the tile says on its face that it
+                holds the radio AND Spotify. Same 44px chip, same cream well,
+                same size as the emoji it replaces — and both marks in the
+                tile's own icon tone, because nothing is playing from here and
+                Spotify green would read as an active source. */}
+            <span className="tile-ic tile-ic-pair">
+              <SpotifyMark size={17} tone="current" />
+              <RadioTowerMark size={17} />
+            </span>
             <span>
               <span className="tile-title">Music</span>
               <span className="tile-desc">

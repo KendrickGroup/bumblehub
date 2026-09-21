@@ -19,9 +19,14 @@ function formatLiveClock(now: Date): { time: string; date: string } {
   };
 }
 
-export function BuildStamp() {
+export function BuildStamp({
+  corner = "bottom-right",
+}: {
+  corner?: "bottom-right" | "top-left";
+}) {
   const [now, setNow] = useState<Date | null>(null);
   const built = formatBuiltLabel(BUILD_TIME_ISO);
+  const music = corner === "top-left";
 
   useEffect(() => {
     const kick = window.setTimeout(() => setNow(new Date()), 0);
@@ -39,11 +44,21 @@ export function BuildStamp() {
   return (
     <p
       aria-hidden
-      className="pointer-events-none fixed right-3 z-30 max-w-[calc(100vw-1.5rem)] truncate whitespace-nowrap font-[family-name:var(--font-bricolage)] text-[11px] leading-none tabular-nums select-none"
-      style={{
-        color: "rgba(122,112,102,.35)",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-      }}
+      className="pointer-events-none fixed z-30 max-w-[calc(100vw-1.5rem)] truncate whitespace-nowrap font-[family-name:var(--font-bricolage)] text-[11px] leading-none tabular-nums select-none"
+      style={
+        music
+          ? {
+              top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+              left: 12,
+              color: "rgba(90, 70, 48, 0.48)",
+              textShadow: "0 1px 0 rgba(250, 248, 243, 0.8)",
+            }
+          : {
+              right: 12,
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              color: "rgba(122,112,102,.35)",
+            }
+      }
     >
       {time}
       <span aria-hidden> · </span>

@@ -477,10 +477,58 @@ export function stopRadioPlayback() {
   stopInternal();
 }
 
-/** Tear down the house stream before BumbleHub starts Spotify. */
+/**
+ * Wipe the lock-screen card. stopInternal() ends the audio, but iOS and
+ * Android keep showing whatever MediaMetadata was set last — so leaving the
+ * radio left the station sitting on the lock screen with a dead play button
+ * behind it. Metadata null plus playbackState "none" is what clears the card;
+ * the handlers go too so the OS buttons cannot call back into a radio the
+ * user has walked away from.
+ */
+export function clearRadioMediaSession() {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {
+    return;
+  }
+  try {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+    navigator.mediaSession.setActionHandler("play", null);
+    navigator.mediaSession.setActionHandler("pause", null);
+    navigator.mediaSession.setActionHandler("stop", null);
+  } catch {
+    // Older iOS rejects some of these; a partial clear is still a clear.
+  }
+}
+
+/**
+ * Hand the audio session back to the OS.
+ *
+ * stopInternal() detaches the source, which stops the sound, but the
+ * HTMLAudioElement lives on in module scope and iOS keeps the audio session
+ * open behind it — the transport stays warm and the app keeps "holding" audio
+ * after the radio is gone. Dropping the element (and the bound flag, so the
+ * listeners re-attach) is what actually releases it. getAudio() builds a fresh
+ * one the next time something plays.
+ */
+function releaseAudioElement() {
+  if (audio) {
+    detachSource(audio);
+    audio = null;
+  }
+  bound = false;
+}
+
+/**
+ * Leave the radio for Spotify: stop the stream, clear the lock screen, and
+ * release the audio element. Not a pause — nothing is left buffering, and the
+ * player returns as "stopped" so the dial comes back with a play button rather
+ * than a stop glyph.
+ */
 export function stopRadioForSpotifyPlayback() {
   claimMusicExclusive("spotify");
   stopInternal();
+  clearRadioMediaSession();
+  releaseAudioElement();
 }
 
 export function rememberTunedStation(
