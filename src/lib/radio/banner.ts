@@ -6,7 +6,10 @@ export const BANNER_MAX_IMAGES = 24;
 export const BANNER_LINE_MAX = 200;
 export const BANNER_NAME_MAX = 80;
 export const BANNER_PITCH_MAX = 140;
-export const BANNER_ROTATE_MS = 8000;
+export const BANNER_ROTATE_MIN_SEC = 4;
+export const BANNER_ROTATE_MAX_SEC = 30;
+export const BANNER_ROTATE_DEFAULT_SEC = 8;
+export const BANNER_ROTATE_MS = BANNER_ROTATE_DEFAULT_SEC * 1000;
 export const BANNER_FADE_MS = 500;
 export const BANNER_HOLD_RESUME_MS = 600;
 export const BANNER_PRODUCT_STORE_PX = 800;
@@ -43,7 +46,42 @@ export type BannerPayload = {
   products: BannerProduct[];
   images: string[];
   lines: string[];
+  rotateSeconds: number;
 };
+
+export function isBannerRotateSeconds(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= BANNER_ROTATE_MIN_SEC &&
+    value <= BANNER_ROTATE_MAX_SEC
+  );
+}
+
+/** Live banner: unset or invalid storage always returns 8 and never throws. */
+export function parseBannerRotateSeconds(raw: unknown): number {
+  const n =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string"
+        ? Number(raw)
+        : NaN;
+  if (!Number.isFinite(n)) return BANNER_ROTATE_DEFAULT_SEC;
+  const rounded = Math.round(n);
+  return isBannerRotateSeconds(rounded)
+    ? rounded
+    : BANNER_ROTATE_DEFAULT_SEC;
+}
+
+export function parseBannerRotateSecondsFromLayout(
+  dashboardLayout: unknown,
+): number {
+  if (!dashboardLayout || typeof dashboardLayout !== "object") {
+    return BANNER_ROTATE_DEFAULT_SEC;
+  }
+  return parseBannerRotateSeconds(
+    (dashboardLayout as Record<string, unknown>).banner_rotate_seconds,
+  );
+}
 
 function layoutObject(dashboardLayout: unknown): Record<string, unknown> {
   return dashboardLayout && typeof dashboardLayout === "object"
@@ -73,6 +111,7 @@ export function jsonBannerPayload(banner: BannerPayload) {
     banner_products: banner.products,
     banner_images: banner.images,
     banner_lines: banner.lines,
+    banner_rotate_seconds: banner.rotateSeconds,
   };
 }
 
@@ -205,6 +244,7 @@ function payloadFrom(layout: unknown): BannerPayload {
     products,
     images: products.map((item) => item.image),
     lines: parseBannerLines(layout).lines,
+    rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
   };
 }
 
@@ -245,6 +285,7 @@ export async function ensureBannerLines(
       products,
       images: products.map((item) => item.image),
       lines: parsed.lines,
+      rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
     };
   }
 
@@ -261,13 +302,18 @@ export async function ensureBannerLines(
     products,
     images: products.map((item) => item.image),
     lines: needsLines ? [...DEFAULT_BANNER_LINES] : parsed.lines,
+    rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
   };
 }
 
 export async function saveBannerLayout(
   supabase: SupabaseClient,
   propertyId: string,
-  patch: { products?: BannerProduct[]; lines?: string[] },
+  patch: {
+    products?: BannerProduct[];
+    lines?: string[];
+    rotateSeconds?: number;
+  },
 ): Promise<BannerPayload> {
   const { data } = await supabase
     .from("property_settings")
@@ -280,6 +326,12 @@ export async function saveBannerLayout(
     layout.banner_images = patch.products.map((item) => item.image);
   }
   if (patch.lines) layout.banner_lines = patch.lines;
+  if (
+    patch.rotateSeconds != null &&
+    isBannerRotateSeconds(patch.rotateSeconds)
+  ) {
+    layout.banner_rotate_seconds = patch.rotateSeconds;
+  }
   const { error } = await supabase.from("property_settings").upsert(
     {
       property_id: propertyId,

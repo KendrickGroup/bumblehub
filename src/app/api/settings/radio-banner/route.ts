@@ -8,11 +8,13 @@ import {
   BANNER_MAX_IMAGES,
   BANNER_NAME_MAX,
   BANNER_PITCH_MAX,
+  BANNER_ROTATE_DEFAULT_SEC,
   bannerPublicUrl,
   bannerStoragePath,
   emptyBannerProduct,
   fetchBanner,
   hasBannerEmoji,
+  isBannerRotateSeconds,
   isBannerShopUrl,
   jsonBannerPayload,
   normalizeBannerLines,
@@ -34,7 +36,12 @@ export async function GET() {
   const propertyId = await getDefaultPropertyIdForUser(user.id);
   if (!propertyId) {
     return NextResponse.json({
-      ...jsonBannerPayload({ products: [], images: [], lines: [] }),
+      ...jsonBannerPayload({
+        products: [],
+        images: [],
+        lines: [],
+        rotateSeconds: BANNER_ROTATE_DEFAULT_SEC,
+      }),
       hasProperty: false,
     });
   }
@@ -191,6 +198,29 @@ export async function POST(request: Request) {
     const lines = normalizeBannerLines((body as { lines?: unknown }).lines);
     try {
       const banner = await saveBannerLayout(supabase, propertyId, { lines });
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Could not save." },
+        { status: 500 },
+      );
+    }
+  }
+
+  if (action === "rotate") {
+    const raw = (body as { banner_rotate_seconds?: unknown })
+      .banner_rotate_seconds;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (!isBannerRotateSeconds(n)) {
+      return NextResponse.json(
+        { error: "Use 4 to 30 seconds." },
+        { status: 400 },
+      );
+    }
+    try {
+      const banner = await saveBannerLayout(supabase, propertyId, {
+        rotateSeconds: n,
+      });
       return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
     } catch (err) {
       return NextResponse.json(

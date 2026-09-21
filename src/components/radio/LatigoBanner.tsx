@@ -13,9 +13,10 @@ import {
   BANNER_DEFAULT_LINE,
   BANNER_FADE_MS,
   BANNER_HOLD_RESUME_MS,
-  BANNER_ROTATE_MS,
+  BANNER_ROTATE_DEFAULT_SEC,
   BANNER_TITLE,
   bannerProductHref,
+  parseBannerRotateSeconds,
   type BannerProduct,
 } from "@/lib/radio/banner";
 
@@ -78,11 +79,13 @@ export function LatigoBanner({
   products,
   lines,
   link,
+  rotateSeconds = BANNER_ROTATE_DEFAULT_SEC,
   children,
 }: {
   products: BannerProduct[];
   lines: string[];
   link: boolean;
+  rotateSeconds?: number;
   children: ReactNode;
 }) {
   const [order, setOrder] = useState<string[]>(() =>
@@ -150,13 +153,14 @@ export function LatigoBanner({
         fadingLock.current = false;
       }, BANNER_FADE_MS);
     };
-    const id = window.setInterval(tick, BANNER_ROTATE_MS);
+    const ms = parseBannerRotateSeconds(rotateSeconds) * 1000;
+    const id = window.setInterval(tick, ms);
     return () => {
       window.clearInterval(id);
       if (fadeTimer) window.clearTimeout(fadeTimer);
       if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
     };
-  }, []);
+  }, [rotateSeconds]);
 
   const product = byImage.get(order[index] ?? "") ?? null;
   const pitch = product?.pitch.trim() || line;

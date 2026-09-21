@@ -84,8 +84,15 @@ function stationTown(cityLabel: string | null | undefined): string {
 }
 
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
-  const { visible, loaded, wxStreamUrl, chartArt, bannerProducts, bannerLines } =
-    useRadioStations({ publicMode });
+  const {
+    visible,
+    loaded,
+    wxStreamUrl,
+    chartArt,
+    bannerProducts,
+    bannerLines,
+    bannerRotateSeconds,
+  } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
   const [crackle, setCrackle] = useState(false);
@@ -846,6 +853,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           <LatigoBanner
             products={bannerProducts}
             lines={bannerLines}
+            rotateSeconds={bannerRotateSeconds}
             link={publicMode}
           >
             <button

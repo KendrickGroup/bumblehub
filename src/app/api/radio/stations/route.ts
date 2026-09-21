@@ -4,7 +4,7 @@ import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { ensureLaunchStations } from "@/lib/radio/queries";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { fetchChartArt } from "@/lib/radio/chart-art";
-import { ensureBannerLines } from "@/lib/radio/banner";
+import { ensureBannerLines, BANNER_ROTATE_DEFAULT_SEC } from "@/lib/radio/banner";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -25,6 +25,7 @@ export async function GET(request: Request) {
       banner_images: [],
       banner_lines: [],
       banner_products: [],
+      banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
       hasProperty: false,
     });
   }
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
     banner_images: banner.images,
     banner_lines: banner.lines,
     banner_products: banner.products,
+    banner_rotate_seconds: banner.rotateSeconds,
     hasProperty: true,
   });
 }

@@ -2331,3 +2331,299 @@ body {
   background-size: 200% 100%;
   animation: scene-shimmer 1.15s ease-in-out infinite;
 }
+
+/* Settings: phone index + wide sidebar, one section array. */
+.settings-page {
+  --settings-cream: #f6f1e6;
+  --settings-card: #fffdf8;
+  --settings-line: #ded5c2;
+  --settings-line-soft: #ebe3d3;
+  --settings-ink: #3a2f22;
+  --settings-ink-soft: #7b6d59;
+  --settings-honey: #e7ae2e;
+  --settings-honey-soft: #fbf0d4;
+  --settings-honey-edge: #edd9a4;
+  --settings-red: #c8352a;
+  --settings-side: #f1ebdd;
+  padding-bottom: 24px;
+  color: var(--settings-ink);
+}
+.settings-pbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -4px 10px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--settings-line);
+  background: var(--settings-side);
+  border-radius: 14px 14px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.settings-back {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin: -10px -8px -10px -12px;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  text-decoration: none;
+}
+.settings-back-chev {
+  width: 9px;
+  height: 9px;
+  border-bottom: 1.8px solid #6b5c45;
+  border-left: 1.8px solid #6b5c45;
+  transform: rotate(45deg);
+}
+.settings-side {
+  display: none;
+  padding: 14px 10px;
+  border-right: 1px solid var(--settings-line);
+  background: var(--settings-side);
+}
+.settings-side-title {
+  padding: 6px 10px 14px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-navitem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 2px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: inherit;
+  text-decoration: none;
+}
+.settings-navitem:hover {
+  background: #eae2d0;
+}
+.settings-navitem.on {
+  background: var(--settings-honey-soft);
+  box-shadow: inset 0 0 0 1px var(--settings-honey-edge);
+}
+.settings-ic {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  background: #e2d8c2;
+}
+.settings-ic svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #6b5c45;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.settings-navitem.on .settings-ic {
+  background: var(--settings-honey);
+}
+.settings-navitem.on .settings-ic svg {
+  stroke: #4a3110;
+}
+.settings-tx {
+  flex: 1;
+  min-width: 0;
+}
+.settings-tx b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-tx span {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--settings-ink-soft);
+}
+.settings-detail {
+  min-width: 0;
+}
+.settings-detail-head {
+  display: none;
+}
+.settings-detail-title {
+  margin: 0 0 3px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.settings-detail-sub {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--settings-ink-soft);
+}
+.settings-index {
+  padding: 4px 0 8px;
+}
+@media (min-width: 768px) {
+  .settings-phone-only,
+  .settings-index {
+    display: none;
+  }
+  .settings-shell {
+    display: grid;
+    grid-template-columns: 266px 1fr;
+    min-height: 540px;
+    overflow: hidden;
+    border: 1px solid var(--settings-line);
+    border-radius: 14px;
+    background: var(--settings-cream);
+    box-shadow: 0 6px 18px rgba(80, 60, 35, 0.1);
+  }
+  .settings-side {
+    display: block;
+  }
+  .settings-detail {
+    padding: 22px 26px;
+  }
+  .settings-detail-head {
+    display: block;
+  }
+}
+.settings-group {
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid var(--settings-line);
+  border-radius: 11px;
+  background: var(--settings-card);
+}
+.settings-group h4,
+.settings-account h4 {
+  margin: 0;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--settings-line-soft);
+  background: #fbf7ee;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--settings-ink-soft);
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--settings-line-soft);
+  color: inherit;
+  text-decoration: none;
+}
+.settings-row:last-child {
+  border-bottom: 0;
+}
+.settings-row-link {
+  cursor: pointer;
+}
+.settings-lab {
+  flex: 1;
+  min-width: 0;
+}
+.settings-lab b {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+.settings-lab span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-ink-soft);
+}
+.settings-value {
+  max-width: 46%;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--settings-ink-soft);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-chev {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 1.8px solid #a1907a;
+  border-bottom: 1.8px solid #a1907a;
+  transform: rotate(-45deg);
+}
+.settings-badge {
+  padding: 2px 9px;
+  border: 1px solid var(--settings-line);
+  border-radius: 20px;
+  background: #efe7d5;
+  font-size: 11px;
+  color: var(--settings-ink-soft);
+  white-space: nowrap;
+}
+.settings-badge.warn {
+  border-color: #f0cdc9;
+  background: #fbeceb;
+  color: var(--settings-red);
+}
+.settings-hint {
+  margin: -2px 0 0;
+  padding: 0 15px 13px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--settings-ink-soft);
+}
+.settings-hint-error {
+  color: var(--settings-red);
+}
+.settings-num {
+  width: 74px;
+  padding: 7px 10px;
+  border: 1px solid var(--settings-line);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  color: var(--settings-ink);
+  text-align: center;
+}
+.settings-unit {
+  font-size: 12.5px;
+  color: var(--settings-ink-soft);
+}
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 14px;
+}
+.settings-account {
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid var(--settings-line);
+  border-radius: 11px;
+  background: var(--settings-card);
+}
+.settings-signout {
+  padding: 0 15px 13px;
+}
+.settings-signout button {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid var(--settings-line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--settings-ink);
+}
+.settings-signout button:hover {
+  background: #faf8f3;
+}

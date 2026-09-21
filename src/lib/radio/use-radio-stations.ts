@@ -9,7 +9,9 @@ import {
 } from "@/lib/radio/types";
 import type { ChartArtMap } from "@/lib/radio/chart-art";
 import {
+  BANNER_ROTATE_DEFAULT_SEC,
   parseBannerProducts,
+  parseBannerRotateSeconds,
   type BannerProduct,
 } from "@/lib/radio/banner";
 
@@ -21,6 +23,7 @@ type Payload = {
   banner_images?: string[];
   banner_lines?: string[];
   banner_products?: BannerProduct[];
+  banner_rotate_seconds?: number;
 };
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
@@ -31,6 +34,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [chartArt, setChartArt] = useState<ChartArtMap>({});
   const [bannerProducts, setBannerProducts] = useState<BannerProduct[]>([]);
   const [bannerLines, setBannerLines] = useState<string[]>([]);
+  const [bannerRotateSeconds, setBannerRotateSeconds] = useState(
+    BANNER_ROTATE_DEFAULT_SEC,
+  );
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
@@ -50,6 +56,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setChartArt(body.chart_art && typeof body.chart_art === "object" ? body.chart_art : {});
       setBannerProducts(parseBannerProducts(body));
       setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
+      setBannerRotateSeconds(parseBannerRotateSeconds(body.banner_rotate_seconds));
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -78,6 +85,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
           Array.isArray(body.banner_lines)
             ? body.banner_lines.filter((u): u is string => typeof u === "string")
             : [],
+        );
+        setBannerRotateSeconds(
+          parseBannerRotateSeconds(body.banner_rotate_seconds),
         );
         setHasProperty(body.hasProperty !== false);
       } catch {
@@ -118,6 +128,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     chartArt,
     bannerProducts,
     bannerLines,
+    bannerRotateSeconds,
     loaded,
     hasProperty,
     refresh,

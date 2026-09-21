@@ -8,7 +8,7 @@ import {
 } from "@/lib/radio/types";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { fetchChartArt } from "@/lib/radio/chart-art";
-import { ensureBannerLines } from "@/lib/radio/banner";
+import { ensureBannerLines, BANNER_ROTATE_DEFAULT_SEC } from "@/lib/radio/banner";
 
 export async function GET() {
   try {
@@ -21,6 +21,7 @@ export async function GET() {
         banner_images: [],
         banner_lines: [],
         banner_products: [],
+        banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
       });
     }
     const service = createServiceClient();
@@ -62,6 +63,7 @@ export async function GET() {
       banner_images: banner.images,
       banner_lines: banner.lines,
       banner_products: banner.products,
+      banner_rotate_seconds: banner.rotateSeconds,
     });
   } catch {
     return NextResponse.json({
@@ -71,6 +73,7 @@ export async function GET() {
       banner_images: [],
       banner_lines: [],
       banner_products: [],
+      banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
     });
   }
 }
