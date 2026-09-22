@@ -8,11 +8,13 @@ import {
 import { klaviyoListId } from "@/lib/radio/klaviyo";
 import { LATIGO_LIST_ENABLED } from "@/lib/radio/latigo-list";
 import { PUBLIC_ROUNDUP_PLAYLIST_URL } from "@/lib/radio/ranch";
+import { fetchRoundupPlaylist } from "@/lib/radio/roundup-playlist";
 import { subscriberCount } from "@/lib/radio/subscriber-count";
 import { ShopPicksPanel } from "../ShopPicksPanel";
 import { BannerPerformancePanel } from "@/components/settings/AnalyticsPanels";
 import { BannerRotateField } from "@/components/settings/BannerRotateField";
 import { ExpandCardFields } from "@/components/settings/ExpandCardFields";
+import { RoundupPlaylistField } from "@/components/settings/RoundupPlaylistField";
 import { SettingsGroup, SettingsRow } from "@/components/settings/SettingsRows";
 
 export const metadata: Metadata = {
@@ -27,8 +29,9 @@ export default async function LatigoSettingsPage() {
     banner = await ensureBannerLines(supabase, propertyId);
   }
 
-  const playlist = PUBLIC_ROUNDUP_PLAYLIST_URL;
-  const playlistHint = playlist || "Not set";
+  const savedPlaylist = propertyId
+    ? await fetchRoundupPlaylist(supabase, propertyId)
+    : "";
 
   const subscribers = await subscriberCount();
   const listId = klaviyoListId();
@@ -98,10 +101,10 @@ export default async function LatigoSettingsPage() {
       </SettingsGroup>
 
       <SettingsGroup title="SPOTIFY">
-        <SettingsRow
-          title="Roundup playlist"
-          hint={playlistHint}
-          needed={!playlist}
+        <RoundupPlaylistField
+          hasProperty={!!propertyId}
+          initialUrl={savedPlaylist}
+          envFallback={PUBLIC_ROUNDUP_PLAYLIST_URL}
         />
       </SettingsGroup>
     </>

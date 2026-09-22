@@ -17,6 +17,7 @@ import {
   type BannerCardSettings,
   type BannerProduct,
 } from "@/lib/radio/banner";
+import { roundupPlaylistUrl } from "@/lib/radio/roundup-playlist";
 
 type Payload = {
   stations: RadioStation[];
@@ -29,6 +30,7 @@ type Payload = {
   banner_rotate_seconds?: number;
   banner_show_price?: boolean;
   banner_buy_label?: string;
+  roundup_playlist_url?: string;
 };
 
 function cardFrom(body: Payload): BannerCardSettings {
@@ -52,6 +54,10 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [bannerCard, setBannerCard] = useState<BannerCardSettings>(
     DEFAULT_BANNER_CARD,
   );
+  // Settings wins, the env var is the fallback, empty hides the ROUNDUP key.
+  const [roundupPlaylist, setRoundupPlaylist] = useState(
+    roundupPlaylistUrl(null),
+  );
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
 
@@ -73,6 +79,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
       setBannerRotateSeconds(parseBannerRotateSeconds(body.banner_rotate_seconds));
       setBannerCard(cardFrom(body));
+      setRoundupPlaylist(roundupPlaylistUrl(body.roundup_playlist_url));
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -106,6 +113,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
           parseBannerRotateSeconds(body.banner_rotate_seconds),
         );
         setBannerCard(cardFrom(body));
+        setRoundupPlaylist(roundupPlaylistUrl(body.roundup_playlist_url));
         setHasProperty(body.hasProperty !== false);
       } catch {
         // Keep last known list.
@@ -147,6 +155,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     bannerLines,
     bannerRotateSeconds,
     bannerCard,
+    roundupPlaylist,
     loaded,
     hasProperty,
     refresh,

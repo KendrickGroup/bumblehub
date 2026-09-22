@@ -20,7 +20,6 @@ import {
   milesFromRanch,
   needlePercent,
   presetsForBand,
-  PUBLIC_ROUNDUP_PLAYLIST_URL,
   RADIO_APP_NAME,
   RADIO_APP_STRIP,
   stateCodeFromLabel,
@@ -96,6 +95,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     bannerLines,
     bannerRotateSeconds,
     bannerCard,
+    roundupPlaylist,
   } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
@@ -299,9 +299,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const showPrivateLasso = Boolean(
     !publicMode && !wxFace && !isFeed && song?.title,
   );
-  const showPublicRoundup = Boolean(
-    publicMode && PUBLIC_ROUNDUP_PLAYLIST_URL && !wxFace,
-  );
+  const showPublicRoundup = Boolean(publicMode && roundupPlaylist && !wxFace);
 
   useEffect(() => {
     if (!showPublicRoundup) return;
@@ -406,8 +404,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   };
 
   const onRoundup = () => {
-    if (!PUBLIC_ROUNDUP_PLAYLIST_URL) return;
-    window.open(PUBLIC_ROUNDUP_PLAYLIST_URL, "_blank", "noopener,noreferrer");
+    if (!roundupPlaylist) return;
+    window.open(roundupPlaylist, "_blank", "noopener,noreferrer");
     setRoundupHint(false);
     try {
       window.sessionStorage.setItem(ROUNDUP_HINT_KEY, "1");

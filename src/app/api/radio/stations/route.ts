@@ -9,6 +9,7 @@ import {
   BANNER_ROTATE_DEFAULT_SEC,
   DEFAULT_BANNER_CARD,
 } from "@/lib/radio/banner";
+import { fetchRoundupPlaylist } from "@/lib/radio/roundup-playlist";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
       banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
       banner_show_price: DEFAULT_BANNER_CARD.showPrice,
       banner_buy_label: DEFAULT_BANNER_CARD.buyLabel,
+      roundup_playlist_url: "",
       hasProperty: false,
     });
   }
@@ -42,6 +44,7 @@ export async function GET(request: Request) {
   const wx_stream_url = await ensureWxStreamUrl(supabase, propertyId);
   const chart_art = await fetchChartArt(supabase, propertyId);
   const banner = await ensureBannerLines(supabase, propertyId);
+  const roundup_playlist_url = await fetchRoundupPlaylist(supabase, propertyId);
 
   return NextResponse.json({
     stations: all ? stations : stations.filter((s) => s.is_visible),
@@ -53,6 +56,7 @@ export async function GET(request: Request) {
     banner_rotate_seconds: banner.rotateSeconds,
     banner_show_price: banner.card.showPrice,
     banner_buy_label: banner.card.buyLabel,
+    roundup_playlist_url,
     hasProperty: true,
   });
 }
