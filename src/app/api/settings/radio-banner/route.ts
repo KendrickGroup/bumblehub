@@ -41,6 +41,9 @@ export async function GET() {
         images: [],
         lines: [],
         rotateSeconds: BANNER_ROTATE_DEFAULT_SEC,
+        source: "uploads",
+        uploads: [],
+        picks: [],
       }),
       hasProperty: false,
     });

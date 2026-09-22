@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LATIGO_COWBOY_URL } from "./ranch";
+import { parseBannerFrame, type BannerFrame } from "./banner-frame";
 
 export const BANNER_ART_BUCKET = "banner-art";
 export const BANNER_MAX_IMAGES = 24;
+export const BANNER_MAX_PICKS = 24;
 export const BANNER_LINE_MAX = 200;
 export const BANNER_NAME_MAX = 80;
 export const BANNER_PITCH_MAX = 140;
@@ -40,13 +42,27 @@ export type BannerProduct = {
   name: string;
   url: string;
   pitch: string;
+  /** Shopify handle. Present only on picked products. */
+  handle?: string;
+  price?: string;
+  currency?: string;
+  /** Square window into the photo for the 108px well. */
+  frame?: BannerFrame;
 };
+
+/** Picked from the shop, or hand-uploaded before the picker existed. */
+export type BannerSource = "picks" | "uploads";
 
 export type BannerPayload = {
   products: BannerProduct[];
   images: string[];
   lines: string[];
   rotateSeconds: number;
+  /** Which list the banner is actually showing. */
+  source: BannerSource;
+  /** Hand-uploaded products, kept whether or not picks exist. */
+  uploads: BannerProduct[];
+  picks: BannerProduct[];
 };
 
 export function isBannerRotateSeconds(value: number): boolean {
@@ -112,6 +128,7 @@ export function jsonBannerPayload(banner: BannerPayload) {
     banner_images: banner.images,
     banner_lines: banner.lines,
     banner_rotate_seconds: banner.rotateSeconds,
+    banner_source: banner.source,
   };
 }
 
@@ -183,7 +200,40 @@ function parseOneProduct(raw: unknown): BannerProduct | null {
     0,
     BANNER_PITCH_MAX,
   );
-  return { image, name, url, pitch };
+  const product: BannerProduct = { image, name, url, pitch };
+  const handle = String(row.handle ?? "").trim().slice(0, 120);
+  if (handle) product.handle = handle;
+  const price = String(row.price ?? "").trim().slice(0, 20);
+  if (price) product.price = price;
+  const currency = String(row.currency ?? "").trim().slice(0, 8);
+  if (currency) product.currency = currency;
+  const frame = parseBannerFrame(row.frame);
+  if (frame) product.frame = frame;
+  return product;
+}
+
+/** A pick is only usable with the three things Shopify gave it. */
+function parseOnePick(raw: unknown): BannerProduct | null {
+  const product = parseOneProduct(raw);
+  if (!product?.handle || !product.url || !product.name) return null;
+  return product;
+}
+
+export function parseBannerPicks(dashboardLayout: unknown): BannerProduct[] {
+  if (!dashboardLayout || typeof dashboardLayout !== "object") return [];
+  const layout = dashboardLayout as Record<string, unknown>;
+  const raw = Array.isArray(layout.banner_picks) ? layout.banner_picks : null;
+  if (!raw) return [];
+  const out: BannerProduct[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const pick = parseOnePick(item);
+    if (!pick || seen.has(pick.handle!)) continue;
+    seen.add(pick.handle!);
+    out.push(pick);
+    if (out.length >= BANNER_MAX_PICKS) break;
+  }
+  return out;
 }
 
 export function parseBannerProducts(dashboardLayout: unknown): BannerProduct[] {
@@ -238,13 +288,30 @@ export function normalizeBannerLines(raw: unknown): string[] {
   return out;
 }
 
+/**
+ * Picks win the moment there is one. Hand-uploaded rows stay in storage and
+ * keep running the banner until then, so nothing goes dark mid-switch.
+ */
+function effectiveProducts(
+  uploads: BannerProduct[],
+  picks: BannerProduct[],
+): { products: BannerProduct[]; source: BannerSource } {
+  if (picks.length > 0) return { products: picks, source: "picks" };
+  return { products: uploads, source: "uploads" };
+}
+
 function payloadFrom(layout: unknown): BannerPayload {
-  const products = parseBannerProducts(layout);
+  const uploads = parseBannerProducts(layout);
+  const picks = parseBannerPicks(layout);
+  const { products, source } = effectiveProducts(uploads, picks);
   return {
     products,
     images: products.map((item) => item.image),
     lines: parseBannerLines(layout).lines,
     rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
+    source,
+    uploads,
+    picks,
   };
 }
 
@@ -271,7 +338,9 @@ export async function ensureBannerLines(
     .maybeSingle();
   const layout = layoutObject(data?.dashboard_layout);
   const parsed = parseBannerLines(layout);
-  const products = parseBannerProducts(layout);
+  const uploads = parseBannerProducts(layout);
+  const picks = parseBannerPicks(layout);
+  const { products, source } = effectiveProducts(uploads, picks);
   const needsLines = parsed.missing;
   const storedRaw = Array.isArray(layout.banner_lines)
     ? layout.banner_lines.filter((row): row is string => typeof row === "string")
@@ -286,6 +355,9 @@ export async function ensureBannerLines(
       images: products.map((item) => item.image),
       lines: parsed.lines,
       rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
+      source,
+      uploads,
+      picks,
     };
   }
 
@@ -303,6 +375,9 @@ export async function ensureBannerLines(
     images: products.map((item) => item.image),
     lines: needsLines ? [...DEFAULT_BANNER_LINES] : parsed.lines,
     rotateSeconds: parseBannerRotateSecondsFromLayout(layout),
+    source,
+    uploads,
+    picks,
   };
 }
 
@@ -311,6 +386,7 @@ export async function saveBannerLayout(
   propertyId: string,
   patch: {
     products?: BannerProduct[];
+    picks?: BannerProduct[];
     lines?: string[];
     rotateSeconds?: number;
   },
@@ -324,6 +400,9 @@ export async function saveBannerLayout(
   if (patch.products) {
     layout.banner_products = patch.products;
     layout.banner_images = patch.products.map((item) => item.image);
+  }
+  if (patch.picks) {
+    layout.banner_picks = patch.picks.slice(0, BANNER_MAX_PICKS);
   }
   if (patch.lines) layout.banner_lines = patch.lines;
   if (
