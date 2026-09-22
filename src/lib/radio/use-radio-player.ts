@@ -30,6 +30,7 @@ export type RadioPlayerState = {
   status: RadioPlayerStatus;
   stationId: string | null;
   stationName: string | null;
+  stationCall: string | null;
   cityLabel: string | null;
   streamUrl: string | null;
   reconnectAttempt: number;
@@ -88,10 +89,18 @@ let gainNode: GainNode | null = null;
 let analyserNode: AnalyserNode | null = null;
 let graphBoundEl: HTMLAudioElement | null = null;
 
+function stationCallOf(station: PlayableStation): string | null {
+  const call = station.call_sign?.trim();
+  if (call) return call.slice(0, 80);
+  const name = station.station_name?.trim();
+  return name ? name.slice(0, 80) : null;
+}
+
 let snapshot: RadioPlayerState = {
   status: "stopped",
   stationId: null,
   stationName: null,
+  stationCall: null,
   cityLabel: null,
   streamUrl: null,
   reconnectAttempt: 0,
@@ -102,6 +111,7 @@ function emit(next: RadioPlayerState) {
     snapshot.status === next.status &&
     snapshot.stationId === next.stationId &&
     snapshot.stationName === next.stationName &&
+    snapshot.stationCall === next.stationCall &&
     snapshot.cityLabel === next.cityLabel &&
     snapshot.streamUrl === next.streamUrl &&
     snapshot.reconnectAttempt === next.reconnectAttempt
@@ -659,6 +669,7 @@ export function playRadio(station: PlayableStation) {
       status: "failed",
       stationId: station.id,
       stationName: station.station_name,
+      stationCall: stationCallOf(station),
       cityLabel: station.city_label,
       streamUrl: null,
       reconnectAttempt: 0,
@@ -675,6 +686,7 @@ export function playRadio(station: PlayableStation) {
     status: "buffering",
     stationId: station.id,
     stationName: station.station_name,
+    stationCall: stationCallOf(station),
     cityLabel: station.city_label,
     streamUrl: url || station.stream_url,
     reconnectAttempt: 0,
@@ -809,12 +821,13 @@ export function stopRadioForSpotifyPlayback() {
 }
 
 export function rememberTunedStation(
-  station: Pick<RadioStation, "id" | "station_name" | "city_label">,
+  station: Pick<RadioStation, "id" | "station_name" | "city_label" | "call_sign">,
 ) {
   writeTunedStationId(station.id);
   patch({
     stationId: station.id,
     stationName: station.station_name,
+    stationCall: station.call_sign?.trim() || station.station_name,
     cityLabel: station.city_label,
     status: isLive() ? snapshot.status : "stopped",
   });

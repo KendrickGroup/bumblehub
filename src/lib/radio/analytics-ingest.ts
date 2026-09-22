@@ -14,7 +14,11 @@ import { isPropertyOwner } from "@/lib/photos";
 import { isRadioHostName } from "./host";
 import { SESSION_KEY_MAX } from "./analytics";
 
-export type IngestContext = { isOwner: boolean; isPublic: boolean };
+export type IngestContext = {
+  isOwner: boolean;
+  isPublic: boolean;
+  hasUser: boolean;
+};
 
 export async function ingestContext(
   request: Request,
@@ -27,12 +31,14 @@ export async function ingestContext(
   const isPublic = isRadioHostName(host) || surface === "public";
 
   let isOwner = false;
+  let hasUser = false;
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
+      hasUser = true;
       const propertyId = await getDefaultPropertyIdForUser(user.id);
       isOwner = propertyId
         ? await isPropertyOwner(propertyId, user.id)
@@ -42,7 +48,7 @@ export async function ingestContext(
     // No session to read on the public radio; the row is simply not Dave's.
   }
 
-  return { isOwner, isPublic };
+  return { isOwner, isPublic, hasUser };
 }
 
 export function cleanSessionKey(raw: unknown): string | null {

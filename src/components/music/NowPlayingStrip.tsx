@@ -58,6 +58,7 @@ export function NowPlayingStrip({
   const song = useRadioNowPlaying(
     wxLive ? null : radio.streamUrl,
     radio.status === "playing" && !wxLive,
+    { stationCall: radio.stationCall ?? radio.stationName },
   );
 
   // Radio wins the strip during a transition race; the next Spotify poll

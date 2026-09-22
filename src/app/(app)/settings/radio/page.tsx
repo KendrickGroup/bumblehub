@@ -5,6 +5,7 @@ import { ensureLaunchStations } from "@/lib/radio/queries";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { RadioSettingsPanel } from "../RadioSettingsPanel";
 import { StationPlaysPanel } from "@/components/settings/AnalyticsPanels";
+import { RecognitionPanel } from "@/components/settings/RecognitionPanel";
 
 export const metadata: Metadata = {
   title: "Radio · Settings",
@@ -35,6 +36,7 @@ export default async function RadioSettingsPage() {
         initialWxStreamUrl={wxStreamUrl}
         initialChartArt={chartArt}
       />
+      <RecognitionPanel />
       <StationPlaysPanel />
     </>
   );

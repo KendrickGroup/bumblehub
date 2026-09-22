@@ -181,6 +181,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const song = useRadioNowPlaying(
     !isFeed && !wxPlaying && playing ? (playingStation?.stream_url ?? null) : null,
     Boolean(!isFeed && !wxPlaying && playing),
+    {
+      stationCall: playingStation?.call_sign ?? playingStation?.station_name,
+      publicMode,
+    },
   );
   const feedNow = isFeed && !wxPlaying ? getRadioFeedNow() : null;
 

@@ -79,6 +79,24 @@ export function listEnvPresence(): EnvPresence[] {
       required: false,
     },
     {
+      key: "NEXT_PUBLIC_RECOGNITION_ENABLED",
+      label: "Song recognition flag",
+      present: present(process.env.NEXT_PUBLIC_RECOGNITION_ENABLED),
+      required: false,
+    },
+    {
+      key: "AUDD_API_TOKEN",
+      label: "AudD API token",
+      present: present(process.env.AUDD_API_TOKEN),
+      required: false,
+    },
+    {
+      key: "AUDD_MONTHLY_LIMIT",
+      label: "AudD monthly limit",
+      present: present(process.env.AUDD_MONTHLY_LIMIT),
+      required: false,
+    },
+    {
       key: "ANTHROPIC_API_KEY",
       label: "Anthropic API key",
       present: present(process.env.ANTHROPIC_API_KEY),

@@ -22,6 +22,7 @@ export function HomeMusicPill() {
   const song = useRadioNowPlaying(
     wxLive ? null : radio.streamUrl,
     radio.status === "playing" && !wxLive,
+    { stationCall: radio.stationCall ?? radio.stationName },
   );
 
   const openMusic = () => router.push("/music");

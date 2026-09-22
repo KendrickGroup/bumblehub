@@ -34,12 +34,16 @@ function setSnapshot(next: Snapshot) {
   emit();
 }
 
+let extra: { call?: string; surface?: "public" | "app" } = {};
+
 async function load(url: string) {
   try {
-    const response = await fetch(
-      `/api/radio/now-playing?url=${encodeURIComponent(url)}`,
-      { cache: "no-store" },
-    );
+    const params = new URLSearchParams({ url });
+    if (extra.call) params.set("call", extra.call);
+    if (extra.surface) params.set("surface", extra.surface);
+    const response = await fetch(`/api/radio/now-playing?${params}`, {
+      cache: "no-store",
+    });
     if (!response.ok) return;
     const body = (await response.json()) as {
       track?: RadioNowPlayingTrack | null;
@@ -91,10 +95,14 @@ function getSnapshot() {
 export function useRadioNowPlaying(
   streamUrl: string | null,
   enabled: boolean,
+  opts?: { stationCall?: string | null; publicMode?: boolean },
 ): RadioNowPlayingTrack | null {
   const url = enabled ? streamUrl : null;
+  const call = opts?.stationCall?.trim() || undefined;
+  const surface = opts?.publicMode ? "public" : "app";
 
   useEffect(() => {
+    extra = { call, surface };
     if (!url) return;
     refs.set(url, (refs.get(url) ?? 0) + 1);
     retarget();
@@ -104,7 +112,7 @@ export function useRadioNowPlaying(
       else refs.set(url, remaining);
       retarget();
     };
-  }, [url]);
+  }, [url, call, surface]);
 
   const current = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   if (!url) return null;

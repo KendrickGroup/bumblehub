@@ -17,6 +17,12 @@ import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
 import { listEnvPresence } from "@/lib/settings/env-presence";
+import {
+  RECOGNITION_ENABLED,
+  auddToken,
+} from "@/lib/radio/recognition";
+import { fetchAuddUsage } from "@/lib/radio/recognition-store";
+import { LATIGO_LIST_ENABLED } from "@/lib/radio/latigo-list";
 import { getCatalogSnapshot } from "@/lib/shopify/catalog-cache";
 import { parseShopifyLog, type ShopifyLogEntry } from "@/lib/shopify/log";
 import { IdleDriftSettingsPanel } from "../IdleDriftSettingsPanel";
@@ -118,6 +124,8 @@ export default async function SystemSettingsPage() {
 
   const env = listEnvPresence();
   const shop = await getCatalogSnapshot();
+  const audd = await fetchAuddUsage();
+  const auddTokenSet = Boolean(auddToken());
 
   return (
     <>
@@ -166,11 +174,33 @@ export default async function SystemSettingsPage() {
         )}
       </SettingsGroup>
 
+      <SettingsGroup
+        title="SONG RECOGNITION"
+        hint="AudD calls this calendar month. When the ceiling is hit, the plaque falls back to metadata."
+      >
+        <SettingsRow
+          title="Calls this month"
+          hint={audd.month}
+          value={`${audd.calls} / ${audd.limit}`}
+        />
+        <SettingsRow
+          title="Token"
+          hint="AUDD_API_TOKEN"
+          value={auddTokenSet ? "Set" : "Not set"}
+          needed={RECOGNITION_ENABLED && !auddTokenSet}
+        />
+      </SettingsGroup>
+
       <SettingsGroup title="FEATURE FLAGS">
         <SettingsRow
-          title="Flags"
-          hint="No runtime flags are wired yet"
-          value="None"
+          title="Song recognition"
+          hint="NEXT_PUBLIC_RECOGNITION_ENABLED"
+          value={RECOGNITION_ENABLED ? "On" : "Off"}
+        />
+        <SettingsRow
+          title="Latigo List"
+          hint="NEXT_PUBLIC_LATIGO_LIST_ENABLED"
+          value={LATIGO_LIST_ENABLED ? "On" : "Off"}
         />
       </SettingsGroup>
 
