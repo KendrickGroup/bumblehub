@@ -1,11 +1,11 @@
 /**
- * Shopify connection health. Aggregates only — no secret, no token, no scope
- * list beyond naming what is missing, so Settings > System and a quick curl
- * after a deploy can both tell whether the catalog is reachable.
+ * Shopify connection health, behind the same session as the rest of Settings.
+ * Aggregates only — no secret, no token — so a signed-in curl can say whether
+ * the catalog is reachable and which door answered.
  */
 
 import { NextResponse } from "next/server";
-import { getCatalogSnapshot, searchCatalogSafely } from "@/lib/shopify/catalog-cache";
+import { getCatalogSnapshot } from "@/lib/shopify/catalog-cache";
 import {
   adminGraphql,
   fetchGrantedScopes,
@@ -59,20 +59,9 @@ export async function GET() {
     }
   }
 
-  const hit = await searchCatalogSafely("tee");
-  const sample = snapshot.products.slice(0, 3).map((p) => ({
-    handle: p.handle,
-    title: p.title,
-    price: `${p.price} ${p.currency}`,
-    image: p.image.slice(0, 70),
-    pitch: p.description,
-  }));
-
   return NextResponse.json(
     {
       configured: config.configured,
-      sample,
-      searchTee: { count: hit.products.length, error: hit.error },
       shop: config.adminDomain,
       storeDomain: config.storeDomain,
       apiVersion: config.apiVersion,
