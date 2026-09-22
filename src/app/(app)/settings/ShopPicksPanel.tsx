@@ -72,7 +72,7 @@ function shopErrorLine(error: { code: string; message: string }): string {
     return "Shopify keys are not set on this deployment.";
   }
   if (error.code === "ACCESS_DENIED" || error.code === "unauthorized") {
-    return "The Shopify app can't read products yet. In the Dev Dashboard, release a new app version with the read_products scope, then install it on the store.";
+    return "The Shopify app can't read products yet. In the Dev Dashboard, edit the app's version, add either unauthenticated_read_product_listings or read_products under Select scopes, then release it.";
   }
   return `Shopify did not answer: ${error.message}`;
 }

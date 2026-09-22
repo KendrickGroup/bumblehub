@@ -16,7 +16,8 @@ export const BANNER_FADE_MS = 500;
 export const BANNER_HOLD_RESUME_MS = 600;
 export const BANNER_PRODUCT_STORE_PX = 800;
 export const BANNER_TITLE = "LATIGO COWBOY AUTHENTICS";
-export const BANNER_CHIP = "See it in the shop";
+/** The tap opens the card now, not the shop. Only BUY NOW leaves the radio. */
+export const BANNER_CHIP = "See it closer";
 export const BANNER_DEFAULT_LINE =
   "Sutter Creek, California · latigocowboy.com";
 

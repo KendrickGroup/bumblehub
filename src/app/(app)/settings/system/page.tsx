@@ -47,7 +47,8 @@ function clockLabel(iso: string): string {
 }
 
 const CATALOG_SOURCE_LABEL: Record<string, string> = {
-  "admin-collections": "Best sellers",
+  "storefront-best-selling": "Best sellers",
+  "admin-collections": "Best sellers by collection",
   "admin-updated": "Newest (no best-seller data)",
   none: "Nothing came back",
 };

@@ -55,6 +55,12 @@ export function ProductFramer({ product, onSave, onClose }: Props) {
   const [natural, setNatural] = useState<Natural | null>(null);
   const [side, setSide] = useState(FRAME_DEFAULT_SIDE);
   const [center, setCenter] = useState({ cx: 0.5, cy: 0.5 });
+  /**
+   * Gestures read and write these, not the rendered state: a fast lift can put
+   * the last move and the pointerup in one commit, and a save built from the
+   * render closure would then miss the final inch of the drag.
+   */
+  const live = useRef({ side: FRAME_DEFAULT_SIDE, cx: 0.5, cy: 0.5 });
 
   const width = natural?.width ?? 0;
   const height = natural?.height ?? 0;
@@ -105,26 +111,50 @@ export function ProductFramer({ product, onSave, onClose }: Props) {
     [width, height],
   );
 
-  const applySide = useCallback(
-    (nextSideRaw: number) => {
+  /** Single place the window changes, so refs and rendered state agree. */
+  const applyWindow = useCallback(
+    (nextSideRaw: number, cx: number, cy: number) => {
       const nextSide = clamp(nextSideRaw, FRAME_MIN_SIDE, 1);
+      const nextCenter = clampCenter(cx, cy, nextSide);
+      live.current = { side: nextSide, ...nextCenter };
       setSide(nextSide);
-      setCenter((current) => clampCenter(current.cx, current.cy, nextSide));
+      setCenter(nextCenter);
     },
     [clampCenter],
   );
 
+  const liveFrame = useCallback(
+    () =>
+      frameFromSquare(
+        live.current.side,
+        live.current.cx,
+        live.current.cy,
+        width || 1,
+        height || 1,
+      ),
+    [width, height],
+  );
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!natural) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A finger lifted between events; the gesture still tracks fine.
+    }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const points = [...pointers.current.values()];
     if (points.length === 2) {
       pan.current = null;
-      pinch.current = { dist: distance(points[0]!, points[1]!), side };
+      pinch.current = { dist: distance(points[0]!, points[1]!), side: live.current.side };
       return;
     }
-    pan.current = { x: event.clientX, y: event.clientY, cx: center.cx, cy: center.cy };
+    pan.current = {
+      x: event.clientX,
+      y: event.clientY,
+      cx: live.current.cx,
+      cy: live.current.cy,
+    };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -137,18 +167,20 @@ export function ProductFramer({ product, onSave, onClose }: Props) {
     if (points.length >= 2 && pinch.current) {
       const ratio = distance(points[0]!, points[1]!) / Math.max(pinch.current.dist, 1);
       // Spreading fingers zooms in, which means a smaller window.
-      applySide(pinch.current.side / ratio);
+      applyWindow(pinch.current.side / ratio, live.current.cx, live.current.cy);
       return;
     }
 
     const grab = pan.current;
     if (!grab) return;
     const shortest = Math.min(width, height) || 1;
-    const scale = stage.width / (side * shortest);
+    const scale = stage.width / (live.current.side * shortest);
     const dx = (event.clientX - grab.x) / scale;
     const dy = (event.clientY - grab.y) / scale;
-    setCenter(
-      clampCenter(grab.cx - dx / (width || 1), grab.cy - dy / (height || 1), side),
+    applyWindow(
+      live.current.side,
+      grab.cx - dx / (width || 1),
+      grab.cy - dy / (height || 1),
     );
   };
 
@@ -157,26 +189,29 @@ export function ProductFramer({ product, onSave, onClose }: Props) {
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 0) {
       pan.current = null;
-      queueSave(frame);
+      queueSave(liveFrame());
     }
   };
 
   const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (!natural) return;
     event.preventDefault();
-    applySide(side * (event.deltaY > 0 ? 1.06 : 0.94));
-    queueSave(frameFromSquare(side, center.cx, center.cy, width, height));
+    applyWindow(
+      live.current.side * (event.deltaY > 0 ? 1.06 : 0.94),
+      live.current.cx,
+      live.current.cy,
+    );
+    queueSave(liveFrame());
   };
 
   const reset = () => {
-    setSide(FRAME_DEFAULT_SIDE);
-    setCenter({ cx: 0.5, cy: 0.5 });
-    queueSave(frameFromSquare(FRAME_DEFAULT_SIDE, 0.5, 0.5, width || 1, height || 1));
+    applyWindow(FRAME_DEFAULT_SIDE, 0.5, 0.5);
+    queueSave(liveFrame());
   };
 
   const done = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    onSave(frame);
+    onSave(liveFrame());
     onClose();
   };
 
@@ -239,14 +274,16 @@ export function ProductFramer({ product, onSave, onClose }: Props) {
                 const img = event.currentTarget;
                 const w = img.naturalWidth || 1;
                 const h = img.naturalHeight || 1;
+                const opening = product.frame
+                  ? {
+                      side: frameSide(product.frame, w, h),
+                      ...frameCenter(product.frame),
+                    }
+                  : { side: FRAME_DEFAULT_SIDE, cx: 0.5, cy: 0.5 };
+                live.current = opening;
                 setNatural({ width: w, height: h });
-                if (product.frame) {
-                  setSide(frameSide(product.frame, w, h));
-                  setCenter(frameCenter(product.frame));
-                } else {
-                  setSide(FRAME_DEFAULT_SIDE);
-                  setCenter({ cx: 0.5, cy: 0.5 });
-                }
+                setSide(opening.side);
+                setCenter({ cx: opening.cx, cy: opening.cy });
               }}
             />
             <span className="framer-grid" aria-hidden />

@@ -11,53 +11,46 @@ import {
   fetchGrantedScopes,
   missingScopes,
   shopifyConfig,
+  storefrontGraphql,
 } from "@/lib/shopify/client";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
 /**
- * Field-level authorization runs after the query is parsed, so an ACCESS_DENIED
- * still tells us the shape is right. Lets the queries be verified while the
- * install is missing read_products.
+ * Products can be read through either door, and which one answers depends on
+ * the scopes the install holds. Reporting both says where to look when the
+ * catalog is empty.
  */
-async function shapeCheck(name: string, query: string, variables?: Record<string, unknown>) {
+async function probe(name: string, run: () => Promise<unknown>) {
   try {
-    await adminGraphql(query, variables);
+    await run();
     return [name, "ok"] as const;
   } catch (err) {
     const message = err instanceof Error ? err.message : "failed";
     const code = (err as { code?: string }).code ?? "error";
-    return [name, `${code}: ${message}`.slice(0, 120)] as const;
+    return [name, `${code}: ${message}`.slice(0, 140)] as const;
   }
 }
 
 export async function GET() {
   const config = shopifyConfig();
   const snapshot = await getCatalogSnapshot();
-  const checks = Object.fromEntries(
+  const doors = Object.fromEntries(
     await Promise.all([
-      shapeCheck(
-        "collections",
-        `{ collections(first: 2) { nodes { id handle productsCount { count } } } }`,
+      probe("storefront", () =>
+        storefrontGraphql(
+          `{ products(first: 1, sortKey: BEST_SELLING) { nodes { handle } } }`,
+        ),
       ),
-      shapeCheck(
-        "collectionProducts",
-        `{ collections(first: 1) { nodes { products(first: 1, sortKey: BEST_SELLING) { nodes { handle title onlineStoreUrl descriptionHtml featuredMedia { preview { image { url width height } } } priceRangeV2 { minVariantPrice { amount currencyCode } } } } } } }`,
-      ),
-      shapeCheck(
-        "search",
-        `{ products(first: 1, query: "status:active AND title:*tee*", sortKey: RELEVANCE) { nodes { handle title } } }`,
-      ),
-      shapeCheck(
-        "newest",
-        `{ products(first: 1, sortKey: PUBLISHED_AT, reverse: true, query: "status:active") { nodes { handle } } }`,
+      probe("admin", () =>
+        adminGraphql(`{ products(first: 1) { nodes { handle } } }`),
       ),
     ]),
   );
 
   let missing: string[] = [];
   let granted: string[] = [];
-  if (config.configured && !snapshot.ok) {
+  if (config.configured) {
     try {
       granted = await fetchGrantedScopes();
       missing = missingScopes(granted);
@@ -70,9 +63,9 @@ export async function GET() {
     {
       configured: config.configured,
       shop: config.adminDomain,
+      storeDomain: config.storeDomain,
       apiVersion: config.apiVersion,
-      api: "admin-graphql",
-      auth: "client_credentials",
+      auth: "client_credentials + delegate",
       ok: snapshot.ok,
       products: snapshot.products.length,
       strategy: snapshot.strategy,
@@ -80,7 +73,7 @@ export async function GET() {
       fetchedAt: snapshot.fetchedAt,
       missingScopes: missing,
       grantedScopes: granted,
-      checks,
+      doors,
       error: snapshot.error,
     },
     { headers: NO_STORE },

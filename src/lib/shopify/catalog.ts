@@ -1,14 +1,20 @@
 /**
  * The Latigo catalog, as the banner picker sees it.
  *
- * The Admin API has no store-wide BEST_SELLING sort — that key only exists on
- * Collection.products — so best sellers are read from the largest collections
- * and merged by catalog share, which keeps each collection's real sales order
- * while still mixing Men and Ladies the way the shop does.
+ * Best sellers come from the Storefront API, where BEST_SELLING is a store-wide
+ * sort key. The Admin API has no such key at the query root — it only exists on
+ * Collection.products — so the Admin fallbacks approximate it by reading the
+ * largest collections and merging them by catalog share, which keeps each
+ * collection's real sales order while still mixing Men and Ladies.
  */
 
 import "server-only";
-import { adminGraphql, shopifyConfig, ShopifyError } from "./client";
+import {
+  adminGraphql,
+  shopifyConfig,
+  ShopifyError,
+  storefrontGraphql,
+} from "./client";
 import { stripBannerEmoji } from "@/lib/radio/banner";
 
 export type CatalogProduct = {
@@ -23,7 +29,11 @@ export type CatalogProduct = {
   currency: string;
 };
 
-export type CatalogStrategy = "admin-collections" | "admin-updated" | "none";
+export type CatalogStrategy =
+  | "storefront-best-selling"
+  | "admin-collections"
+  | "admin-updated"
+  | "none";
 
 export type CatalogResult = {
   products: CatalogProduct[];
@@ -55,6 +65,38 @@ const PRODUCT_FIELDS = `
   featuredMedia { preview { image { url width height } } }
   priceRangeV2 { minVariantPrice { amount currencyCode } }
 `;
+
+/** Same product, Storefront names: featuredImage and priceRange, not V2. */
+const STOREFRONT_PRODUCT_FIELDS = `
+  handle
+  title
+  onlineStoreUrl
+  descriptionHtml
+  featuredImage { url width height }
+  priceRange { minVariantPrice { amount currencyCode } }
+`;
+
+type StorefrontProductNode = {
+  handle?: string | null;
+  title?: string | null;
+  onlineStoreUrl?: string | null;
+  descriptionHtml?: string | null;
+  featuredImage?: { url?: string | null; width?: number | null; height?: number | null } | null;
+  priceRange?: {
+    minVariantPrice?: { amount?: string | null; currencyCode?: string | null } | null;
+  } | null;
+};
+
+function fromStorefront(node: StorefrontProductNode): ProductNode {
+  return {
+    handle: node.handle,
+    title: node.title,
+    onlineStoreUrl: node.onlineStoreUrl,
+    descriptionHtml: node.descriptionHtml,
+    featuredMedia: { preview: { image: node.featuredImage ?? null } },
+    priceRangeV2: node.priceRange ?? null,
+  };
+}
 
 /**
  * Shopify descriptions are theme HTML: entities, <br>, marketing tables. The
@@ -89,7 +131,10 @@ function normalizeProduct(node: ProductNode): CatalogProduct | null {
   const title = stripBannerEmoji(node.title ?? "").trim();
   const image = node.featuredMedia?.preview?.image;
   const imageUrl = (image?.url ?? "").trim();
-  const url = (node.onlineStoreUrl ?? "").trim();
+  // onlineStoreUrl comes back null on some products; the handle still routes.
+  const url =
+    (node.onlineStoreUrl ?? "").trim() ||
+    (handle ? `https://${shopifyConfig().storeDomain}/products/${handle}` : "");
   if (!handle || !title || !imageUrl || !url) return null;
   return {
     handle,
@@ -129,6 +174,42 @@ function mergeByShare(lists: CatalogProduct[][], limit: number): CatalogProduct[
     if (!moved) break;
   }
   return out;
+}
+
+/** The real thing: Shopify's own best-selling order across the whole shop. */
+async function storefrontBestSellers(limit: number): Promise<CatalogProduct[]> {
+  const data = await storefrontGraphql<{
+    products: { nodes: StorefrontProductNode[] };
+  }>(
+    `query BestSelling($first: Int!) {
+      products(first: $first, sortKey: BEST_SELLING) {
+        nodes { ${STOREFRONT_PRODUCT_FIELDS} }
+      }
+    }`,
+    { first: limit },
+  );
+  return (data.products?.nodes ?? [])
+    .map((node) => normalizeProduct(fromStorefront(node)))
+    .filter((item): item is CatalogProduct => item !== null);
+}
+
+async function storefrontSearch(
+  term: string,
+  limit: number,
+): Promise<CatalogProduct[]> {
+  const data = await storefrontGraphql<{
+    products: { nodes: StorefrontProductNode[] };
+  }>(
+    `query Search($first: Int!, $query: String!) {
+      products(first: $first, query: $query, sortKey: RELEVANCE) {
+        nodes { ${STOREFRONT_PRODUCT_FIELDS} }
+      }
+    }`,
+    { first: limit, query: `title:*${term}*` },
+  );
+  return (data.products?.nodes ?? [])
+    .map((node) => normalizeProduct(fromStorefront(node)))
+    .filter((item): item is CatalogProduct => item !== null);
 }
 
 async function bestSellersFromCollections(limit: number): Promise<CatalogProduct[]> {
@@ -190,16 +271,54 @@ async function newestProducts(limit: number): Promise<CatalogProduct[]> {
     .filter((item): item is CatalogProduct => item !== null);
 }
 
+async function adminSearch(term: string, limit: number): Promise<CatalogProduct[]> {
+  const data = await adminGraphql<{ products: { nodes: ProductNode[] } }>(
+    `query Search($first: Int!, $query: String!) {
+      products(first: $first, query: $query, sortKey: RELEVANCE) {
+        nodes { ${PRODUCT_FIELDS} }
+      }
+    }`,
+    { first: limit, query: `status:active AND title:*${term}*` },
+  );
+  return (data.products?.nodes ?? [])
+    .map(normalizeProduct)
+    .filter((item): item is CatalogProduct => item !== null);
+}
+
+/**
+ * Walk the routes in order of how good the answer is. Which scopes this app
+ * holds decides where it lands, and the error that surfaces is the first one,
+ * since that is the door we wanted open.
+ */
+async function firstThatAnswers(
+  attempts: { strategy: CatalogStrategy; run: () => Promise<CatalogProduct[]> }[],
+): Promise<CatalogResult> {
+  let firstError: unknown = null;
+  for (const attempt of attempts) {
+    try {
+      const products = await attempt.run();
+      if (products.length > 0) return { products, strategy: attempt.strategy };
+    } catch (error) {
+      firstError ??= error;
+    }
+  }
+  if (firstError) throw firstError;
+  return { products: [], strategy: "none" };
+}
+
 export async function fetchCatalog(limit = CATALOG_LIMIT): Promise<CatalogResult> {
   const config = shopifyConfig();
   if (!config.configured) {
     throw new ShopifyError("not_configured", "Shopify credentials are not set");
   }
-  const best = await bestSellersFromCollections(limit);
-  if (best.length > 0) return { products: best, strategy: "admin-collections" };
-  const newest = await newestProducts(limit);
-  if (newest.length > 0) return { products: newest, strategy: "admin-updated" };
-  return { products: [], strategy: "none" };
+  return firstThatAnswers([
+    {
+      strategy: "storefront-best-selling",
+      run: () => storefrontBestSellers(limit),
+    },
+    { strategy: "admin-collections", run: () => bestSellersFromCollections(limit) },
+    { strategy: "admin-updated", run: () => newestProducts(limit) },
+  ]);
 }
 
 /** Name search for the long tail that never makes the top 40. */
@@ -209,15 +328,9 @@ export async function searchCatalog(
 ): Promise<CatalogProduct[]> {
   const clean = term.trim().slice(0, 60).replace(/["\\]/g, "");
   if (!clean) return [];
-  const data = await adminGraphql<{ products: { nodes: ProductNode[] } }>(
-    `query Search($first: Int!, $query: String!) {
-      products(first: $first, query: $query, sortKey: RELEVANCE) {
-        nodes { ${PRODUCT_FIELDS} }
-      }
-    }`,
-    { first: limit, query: `status:active AND title:*${clean}*` },
-  );
-  return (data.products?.nodes ?? [])
-    .map(normalizeProduct)
-    .filter((item): item is CatalogProduct => item !== null);
+  const found = await firstThatAnswers([
+    { strategy: "storefront-best-selling", run: () => storefrontSearch(clean, limit) },
+    { strategy: "admin-updated", run: () => adminSearch(clean, limit) },
+  ]);
+  return found.products;
 }
