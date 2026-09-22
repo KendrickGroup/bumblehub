@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isIdleBlockedByGates, subscribeIdleGates } from "@/lib/idle/gates";
+import { isFrameViewport } from "@/lib/idle/frame-width";
 import {
   DEFAULT_IDLE_DRIFT_SETTINGS,
   IDLE_DRIFT_SETTINGS_EVENT,
@@ -119,6 +120,7 @@ export function IdleDriftWatcher() {
     const id = window.setInterval(() => {
       const current = settingsRef.current;
       if (!current.enabled) return;
+      if (!isFrameViewport()) return;
       if (document.visibilityState !== "visible") return;
 
       const path = pathnameRef.current;

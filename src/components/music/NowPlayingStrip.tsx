@@ -12,8 +12,8 @@ import {
   Volume2,
 } from "lucide-react";
 import {
+  LatigoRadioMark,
   RadioLiveBadge,
-  RadioTowerMark,
   SpotifyMark,
 } from "@/components/music/AudioSourceMarks";
 import type { NowPlayingResponse, PlaybackContext } from "@/lib/music/types";
@@ -230,7 +230,7 @@ function RadioNowPlaying({
               className="radio-sleeve-photo h-full w-full object-cover"
             />
           ) : (
-            <RadioTowerMark size={18} />
+            <LatigoRadioMark size={40} />
           )}
         </div>
       )}

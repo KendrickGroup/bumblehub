@@ -52,6 +52,7 @@ import {
 } from "@/lib/radio/use-radio-stations";
 import { ChartArtLightbox } from "@/components/radio/ChartArtLightbox";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
+import { RadioVolumeControl } from "@/components/radio/RadioVolumeControl";
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
@@ -627,7 +628,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             <span className="rbtn" />
             <span className="rbtn round" />
             <span className="gname">{RADIO_APP_STRIP}</span>
-            <span className="solid">SOLID STATE</span>
+            <RadioVolumeControl />
           </div>
 
           <div className="radio-glass">
@@ -834,28 +835,36 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 if (parked || !selected) return;
                 onPlayToggle();
               }}
-              aria-label={live ? "Stop radio" : "Play radio"}
+              aria-label={live ? "Stop radio" : "Listen"}
               aria-pressed={live}
-              className={`radio-play-honey ${live ? "is-pressed" : ""}`}
+              className={`radio-play ${live ? "is-live" : ""}`}
             >
-              {buffering && !reconnecting ? (
-                <LoaderCircle
-                  className="h-8 w-8 animate-spin text-[#3E2A1E]"
-                  strokeWidth={2.25}
-                />
-              ) : live ? (
-                <Square
-                  className="h-7 w-7 text-[#3E2A1E]"
-                  strokeWidth={2.25}
-                  fill="currentColor"
-                />
-              ) : (
-                <Play
-                  className="ml-0.5 h-8 w-8 text-[#3E2A1E]"
-                  strokeWidth={2.25}
-                  fill="currentColor"
-                />
-              )}
+              <span
+                className={`radio-play-honey ${live ? "is-pressed" : ""}`}
+                aria-hidden
+              >
+                {buffering && !reconnecting ? (
+                  <LoaderCircle
+                    className="h-8 w-8 animate-spin text-[#3E2A1E]"
+                    strokeWidth={2.25}
+                  />
+                ) : live ? (
+                  <Square
+                    className="h-7 w-7 text-[#3E2A1E]"
+                    strokeWidth={2.25}
+                    fill="currentColor"
+                  />
+                ) : (
+                  <Play
+                    className="ml-0.5 h-8 w-8 text-[#3E2A1E]"
+                    strokeWidth={2.25}
+                    fill="currentColor"
+                  />
+                )}
+              </span>
+              <span className="radio-play-label">
+                {live ? "STOP" : "LISTEN"}
+              </span>
             </button>
           </LatigoBanner>
         </div>

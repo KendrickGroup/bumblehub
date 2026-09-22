@@ -30,6 +30,27 @@ export function SpotifyMark({
   );
 }
 
+/** Leather LATIGO square from the PWA / iPhone home-screen icon. Do not recolor. */
+export function LatigoRadioMark({
+  size = 32,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- existing PWA PNG
+    <img
+      src="/radio/icon-192.png"
+      alt=""
+      width={size}
+      height={size}
+      draggable={false}
+      className={`latigo-app-badge${className ? ` ${className}` : ""}`}
+    />
+  );
+}
+
 export function RadioTowerMark({
   size = 16,
   className,

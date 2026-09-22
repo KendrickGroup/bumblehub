@@ -6,7 +6,7 @@ import type { Property, Scene, SceneAction } from "@/lib/types";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { HomeMusicPill } from "@/components/home/HomeMusicPill";
 import {
-  RadioTowerMark,
+  LatigoRadioMark,
   SpotifyMark,
 } from "@/components/music/AudioSourceMarks";
 import { SceneGrid } from "@/components/home/SceneGrid";
@@ -142,7 +142,7 @@ export default async function HomePage() {
                 className="tile-ic-btn"
                 aria-label="Open Latigo Radio"
               >
-                <RadioTowerMark size={17} />
+                <LatigoRadioMark size={32} />
               </Link>
               <Link
                 href="/music?source=spotify"

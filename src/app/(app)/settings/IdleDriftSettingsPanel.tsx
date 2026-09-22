@@ -69,8 +69,9 @@ export function IdleDriftSettingsPanel({
         Idle slideshow
       </h2>
       <p className="mt-2 text-sm text-stone-600">
-        When the house is quiet, drift into Photo Booth memories. Pick the
-        slideshow style under Photo Booth below.
+        When the house is quiet, drift into Photo Booth memories. The frame
+        only runs on the wall tablet and desktop — phones keep a normal sleep.
+        Pick the slideshow style under Photo Booth below.
       </p>
 
       <label className="mt-5 flex min-h-[56px] cursor-pointer items-center justify-between gap-4 rounded-[16px] bg-[#FAF8F3] px-4">

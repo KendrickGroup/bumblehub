@@ -7,6 +7,7 @@ import {
   IDLE_RETURN_PATH_KEY,
   isSafeReturnPath,
 } from "@/lib/idle/settings";
+import { canHoldScreenAwake } from "@/lib/idle/frame-width";
 import { shuffleInPlace } from "@/lib/hive/format";
 import type { SlideshowStyle } from "@/lib/hive/slideshow-style";
 import type { SlideshowPhoto } from "./types";
@@ -197,6 +198,7 @@ export function GuestbookSlideshow({
     async function requestWakeLock() {
       try {
         if (!("wakeLock" in navigator)) return;
+        if (!canHoldScreenAwake()) return;
         const sentinel = await navigator.wakeLock.request("screen");
         if (cancelled) {
           await sentinel.release();

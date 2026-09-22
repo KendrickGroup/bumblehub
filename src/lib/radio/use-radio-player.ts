@@ -11,6 +11,16 @@ import { writeTunedStationId } from "./use-radio-stations";
 import { loadFeedEpisodes, peekFeedEpisodes } from "./feed-cache";
 import type { RadioFeedEpisode } from "./feed";
 import { pickFeedEpisodeIndex } from "./feed-shuffle";
+import {
+  fallbackOutput,
+  getRadioVolumeState,
+  hydrateRadioVolume,
+  patchRadioVolume,
+  readGainSupport,
+  showAirPlayPicker,
+  writeGainSupport,
+  writeStoredLevel,
+} from "./radio-volume";
 
 export type RadioPlayerStatus = "stopped" | "buffering" | "playing" | "failed";
 
@@ -37,6 +47,11 @@ const FAIL_MS = 12000;
 const STALL_MS = 8000;
 const RECONNECT_GAP_MS = 5000;
 const RECONNECT_MAX = 3;
+const ANALYSER_TICK_MS = 400;
+// ~5s of real audio before calling the graph tainted. Short windows read a
+// still-buffering MP3 as silence and tear down a gain path that works.
+const ANALYSER_TICKS = 12;
+const ANALYSER_MIN_PLAYED_SEC = 1.5;
 
 const listeners = new Set<() => void>();
 
@@ -46,6 +61,7 @@ let failTimer: ReturnType<typeof setTimeout> | null = null;
 let stallTimer: ReturnType<typeof setTimeout> | null = null;
 let watchdog: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let analyserTimer: ReturnType<typeof setInterval> | null = null;
 let generation = 0;
 let tuned: PlayableStation | null = null;
 let ignoreErrorUntil = 0;
@@ -57,6 +73,15 @@ let feedUrls: string[] = [];
 let feedTitles: string[] = [];
 let feedDates: string[] = [];
 let feedIndex = 0;
+let usingCors = false;
+let corsFallbackUsed = false;
+let mutePaused = false;
+
+let audioCtx: AudioContext | null = null;
+let sourceNode: MediaElementAudioSourceNode | null = null;
+let gainNode: GainNode | null = null;
+let analyserNode: AnalyserNode | null = null;
+let graphBoundEl: HTMLAudioElement | null = null;
 
 let snapshot: RadioPlayerState = {
   status: "stopped",
@@ -114,6 +139,13 @@ function clearReconnectTimer() {
   }
 }
 
+function clearAnalyserTimer() {
+  if (analyserTimer) {
+    clearInterval(analyserTimer);
+    analyserTimer = null;
+  }
+}
+
 function audioHasUrl(el: HTMLAudioElement, url: string): boolean {
   const attr = el.getAttribute("src");
   if (!attr) return false;
@@ -151,6 +183,214 @@ export function getRadioFeedNow(): {
   };
 }
 
+function getAudioContextCtor(): (typeof AudioContext) | null {
+  if (typeof window === "undefined") return null;
+  const fromWindow = window as Window & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+  return window.AudioContext ?? fromWindow.webkitAudioContext ?? null;
+}
+
+function resumeAudioContext(): void {
+  const Ctor = getAudioContextCtor();
+  if (!Ctor) return;
+  if (!audioCtx) audioCtx = new Ctor();
+  if (audioCtx.state === "suspended") void audioCtx.resume();
+}
+
+function teardownGraph(): void {
+  try {
+    sourceNode?.disconnect();
+  } catch {
+    // Already gone.
+  }
+  try {
+    gainNode?.disconnect();
+  } catch {
+    // Already gone.
+  }
+  try {
+    analyserNode?.disconnect();
+  } catch {
+    // Already gone.
+  }
+  sourceNode = null;
+  gainNode = null;
+  analyserNode = null;
+  graphBoundEl = null;
+}
+
+function applyOutputVolume(): void {
+  const { level, muted, output } = getRadioVolumeState();
+  const gain = muted ? 0 : level;
+  if (gainNode && output === "gain") {
+    gainNode.gain.value = gain;
+  }
+  if (audio) {
+    audio.volume = output === "element" ? gain : 1;
+  }
+}
+
+function connectGraph(el: HTMLAudioElement): boolean {
+  resumeAudioContext();
+  if (!audioCtx) return false;
+  if (graphBoundEl === el && sourceNode && gainNode) {
+    applyOutputVolume();
+    return true;
+  }
+  if (graphBoundEl && graphBoundEl !== el) {
+    teardownGraph();
+  }
+  try {
+    sourceNode = audioCtx.createMediaElementSource(el);
+    gainNode = audioCtx.createGain();
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 256;
+    sourceNode.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    sourceNode.connect(analyserNode);
+    graphBoundEl = el;
+    applyOutputVolume();
+    return true;
+  } catch {
+    teardownGraph();
+    return false;
+  }
+}
+
+function analyserHasSignal(): boolean {
+  if (!analyserNode) return false;
+  const data = new Uint8Array(analyserNode.fftSize);
+  analyserNode.getByteTimeDomainData(data);
+  let drift = 0;
+  for (const sample of data) {
+    drift += Math.abs(sample - 128);
+  }
+  return drift > 24;
+}
+
+function armAnalyserProbe(stationId: string, gen: number): void {
+  clearAnalyserTimer();
+  if (getRadioVolumeState().output !== "gain" || !analyserNode) return;
+  if (readGainSupport(stationId) === true) return;
+  let ticks = 0;
+  analyserTimer = setInterval(() => {
+    if (generation !== gen) {
+      clearAnalyserTimer();
+      return;
+    }
+    if (snapshot.status !== "playing") return;
+    if ((audio?.currentTime ?? 0) < ANALYSER_MIN_PLAYED_SEC) return;
+    ticks += 1;
+    if (analyserHasSignal()) {
+      writeGainSupport(stationId, true);
+      clearAnalyserTimer();
+      return;
+    }
+    if (ticks >= ANALYSER_TICKS) {
+      clearAnalyserTimer();
+      writeGainSupport(stationId, false);
+      fallbackFromTaint(gen);
+    }
+  }, ANALYSER_TICK_MS);
+}
+
+function cacheBust(url: string): string {
+  if (feedRss) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}_bh=${Date.now()}`;
+}
+
+function recycleAudioForPolicy(wantGraph: boolean): HTMLAudioElement {
+  if (audio && graphBoundEl === audio && !wantGraph) {
+    releaseAudioElement();
+  }
+  const el = getAudio();
+  if (wantGraph) {
+    el.crossOrigin = "anonymous";
+  } else {
+    el.removeAttribute("crossOrigin");
+  }
+  return el;
+}
+
+function startElement(
+  el: HTMLAudioElement,
+  url: string,
+  gen: number,
+  onFail: "failed" | "reconnect",
+): void {
+  attachInFlight = true;
+  if (!audioHasUrl(el, url)) {
+    el.src = cacheBust(url);
+  }
+  applyOutputVolume();
+  const started = el.play();
+  if (started !== undefined) {
+    void started.catch(() => {
+      if (generation !== gen) return;
+      attachInFlight = false;
+      if (maybeFallbackFromCors(gen, url)) return;
+      if (onFail === "reconnect") {
+        startReconnect();
+        return;
+      }
+      patch({ status: "failed" });
+    });
+  }
+}
+
+function maybeFallbackFromCors(gen: number, url: string): boolean {
+  if (generation !== gen) return false;
+  if (!usingCors || corsFallbackUsed || !tuned || !url) return false;
+  usingCors = false;
+  corsFallbackUsed = true;
+  writeGainSupport(tuned.id, false);
+  patchRadioVolume({ output: fallbackOutput() });
+  const el = recycleAudioForPolicy(false);
+  startElement(el, url, gen, "failed");
+  return true;
+}
+
+function fallbackFromTaint(gen: number): void {
+  if (generation !== gen || !tuned) return;
+  const url = currentPlayUrl();
+  if (!url) return;
+  usingCors = false;
+  corsFallbackUsed = true;
+  patchRadioVolume({ output: fallbackOutput() });
+  const el = recycleAudioForPolicy(false);
+  patch({ status: "buffering" });
+  startElement(el, url, gen, "failed");
+}
+
+function beginPlayback(
+  url: string,
+  gen: number,
+  tryGain: boolean,
+  onFail: "failed" | "reconnect",
+): void {
+  usingCors = tryGain;
+  corsFallbackUsed = !tryGain;
+  const el = recycleAudioForPolicy(tryGain);
+  if (tryGain) {
+    if (connectGraph(el)) {
+      patchRadioVolume({ output: "gain" });
+    } else {
+      if (tuned) writeGainSupport(tuned.id, false);
+      usingCors = false;
+      corsFallbackUsed = true;
+      patchRadioVolume({ output: fallbackOutput() });
+      return beginPlayback(url, gen, false, onFail);
+    }
+  } else {
+    patchRadioVolume({ output: fallbackOutput() });
+  }
+  startElement(el, url, gen, onFail);
+  if (tryGain && tuned && getRadioVolumeState().output === "gain") {
+    armAnalyserProbe(tuned.id, gen);
+  }
+}
+
 function getAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio();
@@ -159,7 +399,8 @@ function getAudio(): HTMLAudioElement {
     audio.preload = "auto";
     audio.setAttribute("playsinline", "true");
     audio.setAttribute("webkit-playsinline", "true");
-    audio.volume = 1;
+    audio.setAttribute("x-webkit-airplay", "allow");
+    applyOutputVolume();
   }
   if (!bound) {
     bound = true;
@@ -187,6 +428,7 @@ function getAudio(): HTMLAudioElement {
       if (snapshot.status === "playing") clearStallTimer();
     });
     audio.addEventListener("pause", () => {
+      if (mutePaused) return;
       if (snapshot.status === "stopped" || snapshot.status === "failed") return;
       if (snapshot.status === "buffering") return;
       if (snapshot.reconnectAttempt > 0) return;
@@ -215,6 +457,8 @@ function getAudio(): HTMLAudioElement {
       if (snapshot.status === "stopped") return;
       if (Date.now() < ignoreErrorUntil) return;
       attachInFlight = false;
+      const url = currentPlayUrl();
+      if (url && maybeFallbackFromCors(generation, url)) return;
       if (snapshot.reconnectAttempt > 0) {
         startReconnect();
         return;
@@ -297,25 +541,15 @@ function startReconnect() {
 
 function reattach(station: PlayableStation) {
   const claim = claimMusicExclusive("radio");
-  const el = getAudio();
   const gen = ++generation;
   const raw = currentPlayUrl() || station.stream_url.trim();
   attachInFlight = true;
-  detachSource(el);
   patch({
     status: "buffering",
     streamUrl: raw,
   });
-  el.src = feedRss ? raw : `${raw}${raw.includes("?") ? "&" : "?"}_bh=${Date.now()}`;
-  el.volume = 1;
-  const started = el.play();
-  if (started !== undefined) {
-    void started.catch(() => {
-      if (generation !== gen) return;
-      attachInFlight = false;
-      startReconnect();
-    });
-  }
+  const tryGain = readGainSupport(station.id) !== false;
+  beginPlayback(raw, gen, tryGain, "reconnect");
   armFailTimer(gen);
   armWatchdog(gen);
   void pauseSpotifyForRadio(claim);
@@ -324,10 +558,14 @@ function reattach(station: PlayableStation) {
 function stopInternal() {
   generation += 1;
   attachInFlight = false;
+  mutePaused = false;
+  usingCors = false;
+  corsFallbackUsed = false;
   clearFailTimer();
   clearStallTimer();
   clearWatchdog();
   clearReconnectTimer();
+  clearAnalyserTimer();
   if (audio) {
     detachSource(audio);
   }
@@ -337,6 +575,7 @@ function stopInternal() {
   feedTitles = [];
   feedDates = [];
   feedIndex = 0;
+  patchRadioVolume({ muted: false });
   patch({ status: "stopped", reconnectAttempt: 0 });
 }
 
@@ -372,6 +611,10 @@ function loadFeed(
  */
 export function playRadio(station: PlayableStation) {
   exclusiveRadio();
+  hydrateRadioVolume();
+  resumeAudioContext();
+  mutePaused = false;
+  patchRadioVolume({ muted: false });
   const claim = claimMusicExclusive("radio");
   tuned = station;
   writeTunedStationId(station.id);
@@ -414,11 +657,11 @@ export function playRadio(station: PlayableStation) {
     return;
   }
 
-  const el = getAudio();
   const gen = ++generation;
   attachInFlight = true;
   clearReconnectTimer();
   clearStallTimer();
+  clearAnalyserTimer();
   patch({
     status: "buffering",
     stationId: station.id,
@@ -428,9 +671,12 @@ export function playRadio(station: PlayableStation) {
     reconnectAttempt: 0,
   });
 
+  const tryGain = readGainSupport(station.id) !== false;
+
   if (isFeed && !url) {
+    const el = recycleAudioForPolicy(false);
     el.src = SILENT_WAV;
-    el.volume = 1;
+    applyOutputVolume();
     void el.play()?.catch(() => {});
     const rss = feedRss;
     void loadFeedEpisodes(station.stream_url).then((episodes) => {
@@ -443,12 +689,7 @@ export function playRadio(station: PlayableStation) {
         patch({ status: "failed" });
         return;
       }
-      el.src = next;
-      void el.play()?.catch(() => {
-        if (generation !== gen) return;
-        attachInFlight = false;
-        patch({ status: "failed" });
-      });
+      beginPlayback(next, gen, tryGain, "failed");
     });
     armFailTimer(gen);
     armWatchdog(gen);
@@ -456,21 +697,47 @@ export function playRadio(station: PlayableStation) {
     return;
   }
 
-  if (!audioHasUrl(el, url)) {
-    el.src = url;
-  }
-  el.volume = 1;
-  const started = el.play();
-  if (started !== undefined) {
-    void started.catch(() => {
-      if (generation !== gen) return;
-      attachInFlight = false;
-      patch({ status: "failed" });
-    });
-  }
+  beginPlayback(url, gen, tryGain, "failed");
   armFailTimer(gen);
   armWatchdog(gen);
   void pauseSpotifyForRadio(claim);
+}
+
+export function setRadioVolume(level: number): void {
+  const n = Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 1;
+  if (n <= 0.001) {
+    patchRadioVolume({ muted: true });
+    applyOutputVolume();
+    return;
+  }
+  writeStoredLevel(n);
+  patchRadioVolume({ level: n, muted: false });
+  applyOutputVolume();
+}
+
+export function toggleRadioMute(): void {
+  const { muted, output } = getRadioVolumeState();
+  const next = !muted;
+  if (output === "none") {
+    mutePaused = next;
+    patchRadioVolume({ muted: next });
+    if (next) {
+      audio?.pause();
+    } else if (snapshot.status === "stopped" || snapshot.status === "failed") {
+      mutePaused = false;
+    } else {
+      void audio?.play()?.catch(() => {});
+    }
+    return;
+  }
+  mutePaused = false;
+  patchRadioVolume({ muted: next });
+  applyOutputVolume();
+}
+
+export function showRadioAirPlayPicker(): void {
+  const el = audio ?? getAudio();
+  showAirPlayPicker(el);
 }
 
 export function stopRadioPlayback() {
@@ -511,6 +778,7 @@ export function clearRadioMediaSession() {
  * one the next time something plays.
  */
 function releaseAudioElement() {
+  teardownGraph();
   if (audio) {
     detachSource(audio);
     audio = null;
