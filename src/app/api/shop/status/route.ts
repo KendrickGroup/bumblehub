@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getCatalogSnapshot } from "@/lib/shopify/catalog-cache";
+import { getCatalogSnapshot, searchCatalogSafely } from "@/lib/shopify/catalog-cache";
 import {
   adminGraphql,
   fetchGrantedScopes,
@@ -59,9 +59,20 @@ export async function GET() {
     }
   }
 
+  const hit = await searchCatalogSafely("tee");
+  const sample = snapshot.products.slice(0, 3).map((p) => ({
+    handle: p.handle,
+    title: p.title,
+    price: `${p.price} ${p.currency}`,
+    image: p.image.slice(0, 70),
+    pitch: p.description,
+  }));
+
   return NextResponse.json(
     {
       configured: config.configured,
+      sample,
+      searchTee: { count: hit.products.length, error: hit.error },
       shop: config.adminDomain,
       storeDomain: config.storeDomain,
       apiVersion: config.apiVersion,

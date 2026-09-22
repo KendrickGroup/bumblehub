@@ -193,6 +193,11 @@ async function storefrontBestSellers(limit: number): Promise<CatalogProduct[]> {
     .filter((item): item is CatalogProduct => item !== null);
 }
 
+/**
+ * The bare term, not title:*term*: Shopify's search syntax only takes a
+ * trailing wildcard, and an unqualified term already searches title, type, tag
+ * and vendor — which is what a search box is for.
+ */
 async function storefrontSearch(
   term: string,
   limit: number,
@@ -205,7 +210,7 @@ async function storefrontSearch(
         nodes { ${STOREFRONT_PRODUCT_FIELDS} }
       }
     }`,
-    { first: limit, query: `title:*${term}*` },
+    { first: limit, query: term },
   );
   return (data.products?.nodes ?? [])
     .map((node) => normalizeProduct(fromStorefront(node)))
