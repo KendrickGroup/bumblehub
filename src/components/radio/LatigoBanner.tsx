@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
   type ReactNode,
 } from "react";
 import {
@@ -15,10 +14,12 @@ import {
   BANNER_HOLD_RESUME_MS,
   BANNER_ROTATE_DEFAULT_SEC,
   BANNER_TITLE,
-  bannerProductHref,
   parseBannerRotateSeconds,
   type BannerProduct,
 } from "@/lib/radio/banner";
+import { frameImageStyle } from "@/lib/radio/banner-frame";
+import { shopifyImageUrl } from "@/lib/shopify/image";
+import { BannerProductCard } from "@/components/radio/BannerProductCard";
 
 function shuffle<T>(items: T[]): T[] {
   const out = [...items];
@@ -41,8 +42,9 @@ function pickLine(last: string, lines: string[]): string {
   return next;
 }
 
-function BannerShot({ src }: { src: string | null }) {
+function BannerShot({ product }: { product: BannerProduct | null }) {
   const [failed, setFailed] = useState(false);
+  const src = product?.image ?? null;
 
   useEffect(() => {
     setFailed(false);
@@ -56,19 +58,21 @@ function BannerShot({ src }: { src: string | null }) {
     );
   }
 
+  const frame = product?.frame ?? null;
+  // A framed window blows the photo up, so ask the CDN for room to do it.
+  const requested = frame ? Math.min(1600, Math.round(324 / frame.w)) : 800;
+
   return (
     <span className="radio-banner-shot">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={shopifyImageUrl(src, requested)}
         alt=""
-        width={800}
-        height={800}
-        sizes="108px"
-        srcSet={`${src} 800w`}
-        className="radio-banner-thumb"
+        className={`radio-banner-thumb${frame ? " is-framed" : ""}`}
+        style={frame ? frameImageStyle(frame) : undefined}
         loading="lazy"
         decoding="async"
+        draggable={false}
         onError={() => setFailed(true)}
       />
     </span>
@@ -78,13 +82,11 @@ function BannerShot({ src }: { src: string | null }) {
 export function LatigoBanner({
   products,
   lines,
-  link,
   rotateSeconds = BANNER_ROTATE_DEFAULT_SEC,
   children,
 }: {
   products: BannerProduct[];
   lines: string[];
-  link: boolean;
   rotateSeconds?: number;
   children: ReactNode;
 }) {
@@ -101,8 +103,8 @@ export function LatigoBanner({
   const fadingLock = useRef(false);
   const heldRef = useRef(false);
   const resumeTimer = useRef<number | undefined>(undefined);
-  const pressHrefRef = useRef<string | null>(null);
-  const hrefRef = useRef("");
+  const pressKeyRef = useRef<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const productKey = products.map((item) => item.image).join("\n");
   const byImage = useMemo(() => {
     const map = new Map<string, BannerProduct>();
@@ -165,12 +167,9 @@ export function LatigoBanner({
   const product = byImage.get(order[index] ?? "") ?? null;
   const pitch = product?.pitch.trim() || line;
   const name = product?.name.trim() ?? "";
-  const href = bannerProductHref(product?.url ?? "");
-  hrefRef.current = href;
+  const openProduct = openKey ? byImage.get(openKey) ?? null : null;
   const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
-  const ariaLabel = name
-    ? `${name}. ${BANNER_CHIP}`
-    : `${BANNER_TITLE}. ${BANNER_CHIP}`;
+  const ariaLabel = name ? `${name}. See it closer` : BANNER_TITLE;
 
   const hold = () => {
     heldRef.current = true;
@@ -180,7 +179,7 @@ export function LatigoBanner({
     }
   };
 
-  const scheduleResume = () => {
+  const resumeSoon = () => {
     if (resumeTimer.current) window.clearTimeout(resumeTimer.current);
     resumeTimer.current = window.setTimeout(() => {
       heldRef.current = false;
@@ -188,70 +187,67 @@ export function LatigoBanner({
     }, BANNER_HOLD_RESUME_MS);
   };
 
+  const scheduleResume = () => {
+    // The card is a window into the product; nothing rotates behind it.
+    if (openKey) return;
+    resumeSoon();
+  };
+
   const onPointerDown = () => {
     hold();
-    pressHrefRef.current = hrefRef.current;
+    pressKeyRef.current = product?.image ?? null;
   };
 
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    const began = pressHrefRef.current;
-    pressHrefRef.current = null;
-    if (fadingLock.current) {
-      event.preventDefault();
-      if (began) window.open(began, "_blank", "noopener,noreferrer");
-      return;
-    }
-    if (began && began !== hrefRef.current) {
-      event.preventDefault();
-      window.open(began, "_blank", "noopener,noreferrer");
-    }
+  /**
+   * Open whichever product was under the thumb when the press began, so a
+   * crossfade landing mid-tap can't swap the shirt out from under it.
+   */
+  const onClick = () => {
+    const began = pressKeyRef.current;
+    pressKeyRef.current = null;
+    const key = began ?? product?.image ?? null;
+    if (!key) return;
+    hold();
+    setOpenKey(key);
   };
 
-  const brand = <div className="radio-banner-l1">{BANNER_TITLE}</div>;
-  const stage = (
-    <>
-      <BannerShot src={product?.image ?? null} />
-      <div className="radio-banner-txt">
-        <div className="radio-banner-name">{name}</div>
-        <div className="radio-banner-pitch">{pitch}</div>
-        <span className="radio-banner-chip" aria-hidden>
-          {BANNER_CHIP}
-        </span>
-      </div>
-    </>
-  );
+  const closeCard = () => {
+    setOpenKey(null);
+    resumeSoon();
+  };
 
   return (
     <div className="radio-banner">
-      {link ? (
-        <a
-          className="radio-banner-hit"
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={ariaLabel}
-          onPointerEnter={hold}
-          onPointerLeave={scheduleResume}
-          onFocus={hold}
-          onBlur={scheduleResume}
-          onTouchStart={hold}
-          onPointerDown={onPointerDown}
-          onClick={onClick}
-        >
-          <div className="radio-banner-tier1" aria-hidden>
-            {brand}
+      <button
+        type="button"
+        className="radio-banner-hit"
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        disabled={!product}
+        onPointerEnter={hold}
+        onPointerLeave={scheduleResume}
+        onFocus={hold}
+        onBlur={scheduleResume}
+        onTouchStart={hold}
+        onPointerDown={onPointerDown}
+        onClick={onClick}
+      >
+        <div className="radio-banner-tier1" aria-hidden>
+          <div className="radio-banner-l1">{BANNER_TITLE}</div>
+        </div>
+        <div className={stageClass} aria-hidden>
+          <BannerShot product={product} />
+          <div className="radio-banner-txt">
+            <div className="radio-banner-name">{name}</div>
+            <div className="radio-banner-pitch">{pitch}</div>
+            <span className="radio-banner-chip">{BANNER_CHIP}</span>
           </div>
-          <div className={stageClass} aria-hidden>
-            {stage}
-          </div>
-        </a>
-      ) : (
-        <>
-          <div className="radio-banner-tier1">{brand}</div>
-          <div className={stageClass}>{stage}</div>
-        </>
-      )}
+        </div>
+      </button>
       {children}
+      {openProduct ? (
+        <BannerProductCard product={openProduct} onClose={closeCard} />
+      ) : null}
     </div>
   );
 }

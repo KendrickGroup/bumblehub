@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/api/radio/now-playing",
   "/api/radio/public",
   "/api/radio/stationwx",
+  "/api/shop/status",
 ];
 
 const EMBED_FRAME_ANCESTORS =

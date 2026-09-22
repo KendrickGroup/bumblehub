@@ -49,6 +49,24 @@ export function listEnvPresence(): EnvPresence[] {
       required: true,
     },
     {
+      key: "SHOPIFY_STORE_DOMAIN",
+      label: "Shopify store domain",
+      present: present(process.env.SHOPIFY_STORE_DOMAIN),
+      required: true,
+    },
+    {
+      key: "SHOPIFY_CLIENT_ID",
+      label: "Shopify client ID",
+      present: present(process.env.SHOPIFY_CLIENT_ID),
+      required: true,
+    },
+    {
+      key: "SHOPIFY_CLIENT_SECRET",
+      label: "Shopify client secret",
+      present: present(process.env.SHOPIFY_CLIENT_SECRET),
+      required: true,
+    },
+    {
       key: "ANTHROPIC_API_KEY",
       label: "Anthropic API key",
       present: present(process.env.ANTHROPIC_API_KEY),

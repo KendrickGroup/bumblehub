@@ -162,7 +162,7 @@ export function productHandleFromUrl(raw: string): string | null {
   }
 }
 
-export function bannerProductHref(rawUrl: string): string {
+export function bannerProductHref(rawUrl: string, handleHint?: string): string {
   const utm = new URLSearchParams({
     utm_source: "latigo_radio",
     utm_medium: "banner",
@@ -173,7 +173,7 @@ export function bannerProductHref(rawUrl: string): string {
   const parsed = new URL(rawUrl);
   parsed.searchParams.set("utm_source", "latigo_radio");
   parsed.searchParams.set("utm_medium", "banner");
-  const handle = productHandleFromUrl(rawUrl);
+  const handle = handleHint?.trim() || productHandleFromUrl(rawUrl);
   if (handle) parsed.searchParams.set("utm_content", handle);
   else parsed.searchParams.delete("utm_content");
   return parsed.toString();

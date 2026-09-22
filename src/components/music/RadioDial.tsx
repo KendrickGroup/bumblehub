@@ -823,7 +823,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             products={bannerProducts}
             lines={bannerLines}
             rotateSeconds={bannerRotateSeconds}
-            link={publicMode}
           >
             <button
               type="button"

@@ -18,6 +18,8 @@ import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
 import { BUILD_SHA, BUILD_TIME_ISO, formatBuiltLabel } from "@/lib/build-info";
 import { listEnvPresence } from "@/lib/settings/env-presence";
+import { getCatalogSnapshot } from "@/lib/shopify/catalog-cache";
+import { parseShopifyLog, type ShopifyLogEntry } from "@/lib/shopify/log";
 import { IdleDriftSettingsPanel } from "../IdleDriftSettingsPanel";
 import { IntegrationsSettingsPanel } from "../IntegrationsSettingsPanel";
 import { PhotoBoothSettingsSection } from "../PhotoBoothSettingsSection";
@@ -32,6 +34,23 @@ function ComingSoonRow({ title }: { title: string }) {
     <SettingsRow title={title} value="Coming soon" />
   );
 }
+
+function clockLabel(iso: string): string {
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at)) return iso;
+  return new Date(at).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const CATALOG_SOURCE_LABEL: Record<string, string> = {
+  "admin-collections": "Best sellers",
+  "admin-updated": "Newest (no best-seller data)",
+  none: "Nothing came back",
+};
 
 export default async function SystemSettingsPage() {
   const { supabase, user, propertyId } = await settingsSession();
@@ -48,6 +67,7 @@ export default async function SystemSettingsPage() {
     displayName: null as string | null,
     lastSyncedAt: null as string | null,
   };
+  let shopifyLog: ShopifyLogEntry[] = [];
 
   if (propertyId) {
     const { data } = await supabase
@@ -55,6 +75,7 @@ export default async function SystemSettingsPage() {
       .select("dashboard_layout")
       .eq("property_id", propertyId)
       .maybeSingle();
+    shopifyLog = parseShopifyLog(data?.dashboard_layout);
     idleSettings = parseIdleDriftSettings(data?.dashboard_layout);
     slideshowStyle = parseSlideshowStyle(data?.dashboard_layout);
     homeAssistantUrl = parseHomeAssistantUrl(data?.dashboard_layout);
@@ -97,6 +118,7 @@ export default async function SystemSettingsPage() {
 
   const env = listEnvPresence();
   const built = formatBuiltLabel(BUILD_TIME_ISO);
+  const shop = await getCatalogSnapshot();
 
   return (
     <>
@@ -118,6 +140,39 @@ export default async function SystemSettingsPage() {
             needed={item.required && !item.present}
           />
         ))}
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="SHOPIFY"
+        hint="Admin GraphQL API, client credentials grant. Read hourly, never per listener."
+      >
+        <SettingsRow
+          title="Catalog"
+          hint={
+            shop.ok
+              ? CATALOG_SOURCE_LABEL[shop.strategy] ?? shop.strategy
+              : (shop.error?.message ?? "Unreachable")
+          }
+          value={shop.ok ? `${shop.products.length} products` : "Failing"}
+          needed={!shop.ok}
+        />
+        <SettingsRow
+          title="Last read"
+          hint={shop.stale ? "Serving the last good list" : undefined}
+          value={clockLabel(shop.fetchedAt)}
+        />
+        {shopifyLog.length > 0 ? (
+          shopifyLog.map((entry) => (
+            <SettingsRow
+              key={`${entry.at}-${entry.code}`}
+              title={clockLabel(entry.at)}
+              hint={entry.message}
+              value={entry.code}
+            />
+          ))
+        ) : (
+          <SettingsRow title="Fetch failures" value="None" />
+        )}
       </SettingsGroup>
 
       <SettingsGroup title="FEATURE FLAGS">
