@@ -67,6 +67,16 @@ type CatalogView = {
   error: string | null;
 };
 
+function shopErrorLine(error: { code: string; message: string }): string {
+  if (error.code === "not_configured") {
+    return "Shopify keys are not set on this deployment.";
+  }
+  if (error.code === "ACCESS_DENIED" || error.code === "unauthorized") {
+    return "The Shopify app can't read products yet. In the Dev Dashboard, release a new app version with the read_products scope, then install it on the store.";
+  }
+  return `Shopify did not answer: ${error.message}`;
+}
+
 async function readCatalog(query: string): Promise<CatalogView> {
   try {
     const url = query
@@ -77,11 +87,7 @@ async function readCatalog(query: string): Promise<CatalogView> {
     return {
       products: body.products ?? [],
       stale: body.stale === true,
-      error: body.error
-        ? body.error.code === "not_configured"
-          ? "Shopify keys are not set on this deployment."
-          : `Shopify did not answer: ${body.error.message}`
-        : null,
+      error: body.error ? shopErrorLine(body.error) : null,
     };
   } catch {
     return { products: [], stale: false, error: "Could not reach the shop." };
