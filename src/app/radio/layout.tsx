@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Bricolage_Grotesque, Rye, Special_Elite } from "next/font/google";
 import { RadioPwa } from "@/components/radio/RadioPwa";
+import { BUILD_SHA, BUILD_TIME_ISO } from "@/lib/build-info";
 import {
   isRadioHostName,
   RADIO_OG_DESCRIPTION,
@@ -102,6 +103,10 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: RADIO_ICONS,
     other: {
       "mobile-web-app-capable": "yes",
+      // Repeated from the root layout: a nested `other` replaces it, and the
+      // build has to stay checkable here too now that nothing shows on screen.
+      "build-sha": BUILD_SHA,
+      "build-time": BUILD_TIME_ISO || "dev",
     },
   };
 

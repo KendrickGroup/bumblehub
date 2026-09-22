@@ -5,7 +5,10 @@ import {
   DEFAULT_BANNER_CARD,
   ensureBannerLines,
 } from "@/lib/radio/banner";
+import { klaviyoListId } from "@/lib/radio/klaviyo";
+import { LATIGO_LIST_ENABLED } from "@/lib/radio/latigo-list";
 import { PUBLIC_ROUNDUP_PLAYLIST_URL } from "@/lib/radio/ranch";
+import { subscriberCount } from "@/lib/radio/subscriber-count";
 import { ShopPicksPanel } from "../ShopPicksPanel";
 import { BannerPerformancePanel } from "@/components/settings/AnalyticsPanels";
 import { BannerRotateField } from "@/components/settings/BannerRotateField";
@@ -26,6 +29,15 @@ export default async function LatigoSettingsPage() {
 
   const playlist = PUBLIC_ROUNDUP_PLAYLIST_URL;
   const playlistHint = playlist || "Not set";
+
+  const subscribers = await subscriberCount();
+  const listId = klaviyoListId();
+  const keySet = Boolean((process.env.KLAVIYO_PRIVATE_KEY ?? "").trim());
+  const subscriberHint = !subscribers.available
+    ? "Count unavailable"
+    : subscribers.total === subscribers.synced
+      ? "All synced to Klaviyo"
+      : `${subscribers.total - subscribers.synced} waiting on Klaviyo`;
 
   return (
     <>
@@ -52,6 +64,38 @@ export default async function LatigoSettingsPage() {
       />
 
       <BannerPerformancePanel />
+
+      <SettingsGroup
+        title="LATIGO LIST"
+        hint={
+          LATIGO_LIST_ENABLED
+            ? "Listeners are asked to join after 20 minutes of listening, then after every 30 more."
+            : "Off. Set NEXT_PUBLIC_LATIGO_LIST_ENABLED to true in Vercel to start asking."
+        }
+      >
+        <SettingsRow
+          title="Email gate"
+          hint="NEXT_PUBLIC_LATIGO_LIST_ENABLED"
+          value={LATIGO_LIST_ENABLED ? "On" : "Off"}
+        />
+        <SettingsRow
+          title="Klaviyo list"
+          hint="KLAVIYO_LIST_ID"
+          value={listId || undefined}
+          needed={!listId}
+        />
+        <SettingsRow
+          title="Klaviyo key"
+          hint="KLAVIYO_PRIVATE_KEY"
+          value={keySet ? "Set" : undefined}
+          needed={!keySet}
+        />
+        <SettingsRow
+          title="Subscribers"
+          hint={subscriberHint}
+          value={subscribers.available ? String(subscribers.total) : "—"}
+        />
+      </SettingsGroup>
 
       <SettingsGroup title="SPOTIFY">
         <SettingsRow

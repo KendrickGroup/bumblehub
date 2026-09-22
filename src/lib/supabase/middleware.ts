@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   // Write-only ingest: the public radio has no session to log with.
   "/api/radio/plays",
   "/api/radio/banner-events",
+  "/api/radio/subscribe",
 ];
 
 const EMBED_FRAME_ANCESTORS =

@@ -1,8 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { BuildStamp } from "./BuildStamp";
+import { usePathname } from "next/navigation";
 import { HomeButton } from "./HomeButton";
 import { IdleDriftWatcher } from "./IdleDriftWatcher";
 import { MusicSourceGuard } from "@/components/music/MusicSourceGuard";
@@ -14,14 +13,12 @@ function isCookModePath(pathname: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const params = useSearchParams();
   const immersive = pathname.startsWith("/hive/slideshow");
   const onHome = pathname === "/home";
   const onMusic = pathname === "/music";
   // Both the radio cabinet and the Spotify player carry their own close X,
   // so the floating Home chip is replaced on this route rather than shown
   // alongside it. Path between the two faces is Home.
-  const onRadioFace = onMusic && params.get("source") !== "spotify";
   const hideHomeChip =
     onHome || immersive || isCookModePath(pathname) || onMusic;
   const homeVariant =
@@ -73,7 +70,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <MusicSourceGuard />
           <ShellNowPlaying />
         </div>
-        <BuildStamp corner={onRadioFace ? "top-left" : "bottom-right"} />
       </div>
     </>
   );

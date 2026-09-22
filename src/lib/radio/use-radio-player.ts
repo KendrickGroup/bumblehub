@@ -6,6 +6,7 @@ import {
   pauseSpotifyForRadio,
 } from "@/lib/music/source-exclusive";
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
+import { noteListening } from "./list-gate";
 import { trackPlayerStatus } from "./play-log";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
@@ -111,6 +112,7 @@ function emit(next: RadioPlayerState) {
   // Every status change funnels through here, so the play log sees switches,
   // reconnects and stops without each call site remembering to say so.
   trackPlayerStatus(next, tuned);
+  noteListening(next.status === "playing");
   for (const listener of listeners) listener();
 }
 

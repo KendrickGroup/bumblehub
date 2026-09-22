@@ -16,7 +16,6 @@ import { parseHomeAssistantUrl } from "@/lib/integrations/home-assistant";
 import { parseCustomBackdrops } from "@/lib/guestbook/backdrops";
 import { isSpotifyConnected } from "@/lib/spotify/tokens";
 import { isHomeAssistantConnected } from "@/lib/home-assistant/tokens";
-import { BUILD_SHA, BUILD_TIME_ISO, formatBuiltLabel } from "@/lib/build-info";
 import { listEnvPresence } from "@/lib/settings/env-presence";
 import { getCatalogSnapshot } from "@/lib/shopify/catalog-cache";
 import { parseShopifyLog, type ShopifyLogEntry } from "@/lib/shopify/log";
@@ -118,19 +117,10 @@ export default async function SystemSettingsPage() {
   }
 
   const env = listEnvPresence();
-  const built = formatBuiltLabel(BUILD_TIME_ISO);
   const shop = await getCatalogSnapshot();
 
   return (
     <>
-      <SettingsGroup title="BUILD">
-        <SettingsRow title="Stamp" value={BUILD_SHA} />
-        <SettingsRow
-          title="Built"
-          value={built ?? (BUILD_TIME_ISO || "dev")}
-        />
-      </SettingsGroup>
-
       <SettingsGroup title="KEYS">
         {env.map((item) => (
           <SettingsRow

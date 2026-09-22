@@ -1956,6 +1956,139 @@ body {
   border-color: #d4a000;
 }
 
+/* The Latigo List ask rides the To-Go shell, dressed as a screwed plaque so it
+   reads as part of the cabinet. Sized to clear a phone keyboard. */
+.radio-list-card {
+  width: min(380px, 100%);
+  max-height: min(92dvh, 560px);
+  padding: 20px 20px 14px;
+  border: 3px solid var(--leather);
+  background: linear-gradient(165deg, #f6efdc, #ede2c6);
+  box-shadow:
+    0 18px 40px rgba(30, 20, 12, 0.35),
+    inset 0 0 0 1px #c9b98f,
+    inset 0 0 0 3px rgba(201, 160, 53, 0.35);
+}
+.radio-list-title {
+  margin: 0 0 6px;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #3e2f20;
+}
+.radio-list-sub {
+  margin: 0;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5a4632;
+}
+.radio-list-form {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+/* 16px keeps iOS from zooming the whole cabinet when the field takes focus. */
+.radio-list-input {
+  min-height: 48px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #d9c9a8;
+  background: #fff;
+  padding: 0 12px;
+  font-size: 16px;
+  color: #3e2f20;
+}
+.radio-list-input::placeholder {
+  color: #a8926c;
+}
+.radio-list-input:focus {
+  outline: none;
+  border-color: #f4b400;
+  box-shadow: 0 0 0 3px rgba(244, 180, 0, 0.3);
+}
+.radio-list-error {
+  margin: 0;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  color: #8a2a1c;
+}
+.radio-list-go {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.radio-list-go:disabled {
+  opacity: 0.7;
+}
+.radio-list-dismiss {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  margin: 6px 0 2px;
+  border: none;
+  background: none;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 12px;
+  color: #8a6f45;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.radio-list-fine {
+  margin: 0;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8a6f45;
+}
+.radio-list-done {
+  display: grid;
+  gap: 12px;
+  place-items: center;
+  padding: 10px 0 6px;
+}
+.radio-list-stamp {
+  display: inline-block;
+  transform: rotate(-3deg);
+  border: 3px double #8a2a1c;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 17px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a2a1c;
+}
+/* An open keyboard on a small phone leaves about this much room. Everything
+   still has to be reachable without scrolling the card. */
+@media (max-height: 440px) {
+  .radio-list-modal {
+    padding: 8px;
+  }
+  .radio-list-card {
+    max-height: 96dvh;
+    padding: 12px 16px 10px;
+  }
+  .radio-list-title {
+    font-size: 17px;
+  }
+  .radio-list-sub {
+    font-size: 12px;
+  }
+  .radio-list-form {
+    margin-top: 8px;
+  }
+  .radio-list-dismiss {
+    min-height: 32px;
+    margin: 4px 0 0;
+  }
+  .radio-list-fine {
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 639px) {
   .radio-world {
     display: flex;

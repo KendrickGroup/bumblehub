@@ -67,6 +67,18 @@ export function listEnvPresence(): EnvPresence[] {
       required: true,
     },
     {
+      key: "KLAVIYO_PRIVATE_KEY",
+      label: "Klaviyo private key",
+      present: present(process.env.KLAVIYO_PRIVATE_KEY),
+      required: false,
+    },
+    {
+      key: "KLAVIYO_LIST_ID",
+      label: "Klaviyo list ID",
+      present: present(process.env.KLAVIYO_LIST_ID),
+      required: false,
+    },
+    {
       key: "ANTHROPIC_API_KEY",
       label: "Anthropic API key",
       present: present(process.env.ANTHROPIC_API_KEY),

@@ -51,8 +51,14 @@ import {
   useRadioStations,
   useTunedStationId,
 } from "@/lib/radio/use-radio-stations";
+import {
+  dismissListAsk,
+  markListJoined,
+  useListAskDue,
+} from "@/lib/radio/list-gate";
 import { ChartArtLightbox } from "@/components/radio/ChartArtLightbox";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
+import { LatigoListModal } from "@/components/radio/LatigoListModal";
 import { RadioVolumeControl } from "@/components/radio/RadioVolumeControl";
 import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
@@ -93,6 +99,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
+  const listAskDue = useListAskDue();
+  const [listOpen, setListOpen] = useState(false);
   const [crackle, setCrackle] = useState(false);
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>("fm");
   const [presetBand, setPresetBand] = useState<RadioBand>("fm");
@@ -131,6 +139,19 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   if (tunedId && tunedId !== WX_STATION_ID && lastRealId !== tunedId) {
     setLastRealId(tunedId);
   }
+
+  // The ask owns its own closing: signing up stamps the card for a beat, and
+  // the gate going quiet underneath must not yank it away mid-thank-you. The
+  // handlers have to keep their identity or the card's timer never runs down.
+  if (listAskDue && !listOpen) {
+    setListOpen(true);
+  }
+
+  const closeListAsk = useCallback(() => setListOpen(false), []);
+  const dismissListAndClose = useCallback(() => {
+    setListOpen(false);
+    dismissListAsk();
+  }, []);
 
   const playingStation =
     player.stationId === WX_STATION_ID
@@ -890,6 +911,16 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         onClose={() => setHandleOpen(false)}
         variant={publicMode ? "public" : "app"}
       />
+      {listOpen ? (
+        <LatigoListModal
+          stationCall={
+            playingStation?.call_sign ?? displayStation?.call_sign ?? null
+          }
+          onDismiss={dismissListAndClose}
+          onJoined={markListJoined}
+          onClose={closeListAsk}
+        />
+      ) : null}
       {mapArtUrl && chartOpen ? (
         <ChartArtLightbox
           src={mapArtUrl}
