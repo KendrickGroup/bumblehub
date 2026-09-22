@@ -761,6 +761,9 @@ body {
   font-weight: 800;
   letter-spacing: 0.16em;
   text-align: center;
+  /* Dave types the label in Settings; the cabinet speaks in caps either way. */
+  text-transform: uppercase;
+  white-space: nowrap;
   text-decoration: none;
   color: #3e2f20;
   border-radius: 999px;
@@ -2955,6 +2958,16 @@ body {
   font-size: 14px;
   color: var(--settings-ink);
   text-align: center;
+}
+.settings-label-input {
+  width: 148px;
+  padding: 7px 10px;
+  border: 1px solid var(--settings-line);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  color: var(--settings-ink);
 }
 .settings-unit {
   font-size: 12.5px;

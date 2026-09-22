@@ -10,8 +10,11 @@ import {
 import type { ChartArtMap } from "@/lib/radio/chart-art";
 import {
   BANNER_ROTATE_DEFAULT_SEC,
+  DEFAULT_BANNER_CARD,
+  normalizeBuyLabel,
   parseBannerProducts,
   parseBannerRotateSeconds,
+  type BannerCardSettings,
   type BannerProduct,
 } from "@/lib/radio/banner";
 
@@ -24,7 +27,16 @@ type Payload = {
   banner_lines?: string[];
   banner_products?: BannerProduct[];
   banner_rotate_seconds?: number;
+  banner_show_price?: boolean;
+  banner_buy_label?: string;
 };
+
+function cardFrom(body: Payload): BannerCardSettings {
+  return {
+    showPrice: body.banner_show_price !== false,
+    buyLabel: normalizeBuyLabel(body.banner_buy_label),
+  };
+}
 
 export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean }) {
   const all = opts?.all === true;
@@ -36,6 +48,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [bannerLines, setBannerLines] = useState<string[]>([]);
   const [bannerRotateSeconds, setBannerRotateSeconds] = useState(
     BANNER_ROTATE_DEFAULT_SEC,
+  );
+  const [bannerCard, setBannerCard] = useState<BannerCardSettings>(
+    DEFAULT_BANNER_CARD,
   );
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
@@ -57,6 +72,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setBannerProducts(parseBannerProducts(body));
       setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
       setBannerRotateSeconds(parseBannerRotateSeconds(body.banner_rotate_seconds));
+      setBannerCard(cardFrom(body));
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
@@ -89,6 +105,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
         setBannerRotateSeconds(
           parseBannerRotateSeconds(body.banner_rotate_seconds),
         );
+        setBannerCard(cardFrom(body));
         setHasProperty(body.hasProperty !== false);
       } catch {
         // Keep last known list.
@@ -129,6 +146,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     bannerProducts,
     bannerLines,
     bannerRotateSeconds,
+    bannerCard,
     loaded,
     hasProperty,
     refresh,

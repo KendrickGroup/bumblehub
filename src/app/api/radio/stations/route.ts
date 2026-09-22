@@ -4,7 +4,11 @@ import { getDefaultPropertyIdForUser } from "@/lib/property";
 import { ensureLaunchStations } from "@/lib/radio/queries";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { fetchChartArt } from "@/lib/radio/chart-art";
-import { ensureBannerLines, BANNER_ROTATE_DEFAULT_SEC } from "@/lib/radio/banner";
+import {
+  ensureBannerLines,
+  BANNER_ROTATE_DEFAULT_SEC,
+  DEFAULT_BANNER_CARD,
+} from "@/lib/radio/banner";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -26,6 +30,8 @@ export async function GET(request: Request) {
       banner_lines: [],
       banner_products: [],
       banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
+      banner_show_price: DEFAULT_BANNER_CARD.showPrice,
+      banner_buy_label: DEFAULT_BANNER_CARD.buyLabel,
       hasProperty: false,
     });
   }
@@ -45,6 +51,8 @@ export async function GET(request: Request) {
     banner_lines: banner.lines,
     banner_products: banner.products,
     banner_rotate_seconds: banner.rotateSeconds,
+    banner_show_price: banner.card.showPrice,
+    banner_buy_label: banner.card.buyLabel,
     hasProperty: true,
   });
 }

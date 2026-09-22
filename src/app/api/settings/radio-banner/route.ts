@@ -11,6 +11,7 @@ import {
   BANNER_ROTATE_DEFAULT_SEC,
   bannerPublicUrl,
   bannerStoragePath,
+  DEFAULT_BANNER_CARD,
   emptyBannerProduct,
   fetchBanner,
   hasBannerEmoji,
@@ -44,6 +45,7 @@ export async function GET() {
         source: "uploads",
         uploads: [],
         picks: [],
+        card: { ...DEFAULT_BANNER_CARD },
       }),
       hasProperty: false,
     });
@@ -201,6 +203,25 @@ export async function POST(request: Request) {
     const lines = normalizeBannerLines((body as { lines?: unknown }).lines);
     try {
       const banner = await saveBannerLayout(supabase, propertyId, { lines });
+      return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Could not save." },
+        { status: 500 },
+      );
+    }
+  }
+
+  if (action === "card") {
+    const raw = body as { show_price?: unknown; buy_label?: unknown };
+    const patch: { showPrice?: boolean; buyLabel?: string } = {};
+    if (typeof raw.show_price === "boolean") patch.showPrice = raw.show_price;
+    if (raw.buy_label !== undefined) patch.buyLabel = String(raw.buy_label);
+    if (patch.showPrice === undefined && patch.buyLabel === undefined) {
+      return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
+    }
+    try {
+      const banner = await saveBannerLayout(supabase, propertyId, patch);
       return NextResponse.json(jsonBannerPayload(banner), { headers: NO_STORE });
     } catch (err) {
       return NextResponse.json(

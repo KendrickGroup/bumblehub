@@ -16,6 +16,9 @@ const PUBLIC_PATHS = [
   "/api/radio/now-playing",
   "/api/radio/public",
   "/api/radio/stationwx",
+  // Write-only ingest: the public radio has no session to log with.
+  "/api/radio/plays",
+  "/api/radio/banner-events",
 ];
 
 const EMBED_FRAME_ANCESTORS =
@@ -66,6 +69,9 @@ function isRadioHostAllowed(pathname: string): boolean {
   if (pathname.startsWith("/api/radio/stationwx")) return true;
   if (pathname.startsWith("/api/radio/feed")) return true;
   if (pathname.startsWith("/api/radio/now-playing")) return true;
+  // Without these the radio host would 308 the POSTs over to bumblehub.dev.
+  if (pathname === "/api/radio/plays") return true;
+  if (pathname === "/api/radio/banner-events") return true;
   if (
     pathname === "/api/radio/subscribe" ||
     pathname.startsWith("/api/radio/subscribe/")

@@ -14,10 +14,15 @@ import {
   BANNER_HOLD_RESUME_MS,
   BANNER_ROTATE_DEFAULT_SEC,
   BANNER_TITLE,
+  DEFAULT_BANNER_CARD,
+  bannerEventHandle,
   parseBannerRotateSeconds,
+  type BannerCardSettings,
   type BannerProduct,
 } from "@/lib/radio/banner";
 import { frameImageStyle } from "@/lib/radio/banner-frame";
+import { noteExpand } from "@/lib/radio/banner-log";
+import { useBannerImpression } from "@/lib/radio/use-banner-impression";
 import { shopifyImageUrl } from "@/lib/shopify/image";
 import { BannerProductCard } from "@/components/radio/BannerProductCard";
 
@@ -83,13 +88,16 @@ export function LatigoBanner({
   products,
   lines,
   rotateSeconds = BANNER_ROTATE_DEFAULT_SEC,
+  card = DEFAULT_BANNER_CARD,
   children,
 }: {
   products: BannerProduct[];
   lines: string[];
   rotateSeconds?: number;
+  card?: BannerCardSettings;
   children: ReactNode;
 }) {
+  const stripRef = useRef<HTMLDivElement>(null);
   const [order, setOrder] = useState<string[]>(() =>
     shuffle(products.map((item) => item.image)),
   );
@@ -171,6 +179,15 @@ export function LatigoBanner({
   const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
   const ariaLabel = name ? `${name}. See it closer` : BANNER_TITLE;
 
+  // Mid-crossfade the strip is dimmed and the card sits over it, so neither
+  // moment is something a listener actually saw.
+  useBannerImpression(
+    stripRef,
+    product ? bannerEventHandle(product) : "",
+    name,
+    fading || openKey !== null,
+  );
+
   const hold = () => {
     heldRef.current = true;
     if (resumeTimer.current) {
@@ -209,6 +226,8 @@ export function LatigoBanner({
     if (!key) return;
     hold();
     setOpenKey(key);
+    const opened = byImage.get(key);
+    if (opened) noteExpand(bannerEventHandle(opened), opened.name);
   };
 
   const closeCard = () => {
@@ -217,7 +236,7 @@ export function LatigoBanner({
   };
 
   return (
-    <div className="radio-banner">
+    <div className="radio-banner" ref={stripRef}>
       <button
         type="button"
         className="radio-banner-hit"
@@ -246,7 +265,11 @@ export function LatigoBanner({
       </button>
       {children}
       {openProduct ? (
-        <BannerProductCard product={openProduct} onClose={closeCard} />
+        <BannerProductCard
+          product={openProduct}
+          card={card}
+          onClose={closeCard}
+        />
       ) : null}
     </div>
   );

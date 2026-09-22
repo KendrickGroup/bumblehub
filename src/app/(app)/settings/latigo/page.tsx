@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
 import { settingsSession } from "@/lib/settings/session";
-import { BANNER_ROTATE_DEFAULT_SEC, ensureBannerLines } from "@/lib/radio/banner";
+import {
+  BANNER_ROTATE_DEFAULT_SEC,
+  DEFAULT_BANNER_CARD,
+  ensureBannerLines,
+} from "@/lib/radio/banner";
 import { PUBLIC_ROUNDUP_PLAYLIST_URL } from "@/lib/radio/ranch";
 import { ShopPicksPanel } from "../ShopPicksPanel";
+import { BannerPerformancePanel } from "@/components/settings/AnalyticsPanels";
 import { BannerRotateField } from "@/components/settings/BannerRotateField";
+import { ExpandCardFields } from "@/components/settings/ExpandCardFields";
 import { SettingsGroup, SettingsRow } from "@/components/settings/SettingsRows";
 
 export const metadata: Metadata = {
@@ -30,6 +36,13 @@ export default async function LatigoSettingsPage() {
         />
       </SettingsGroup>
 
+      <SettingsGroup title="PRODUCT CARD">
+        <ExpandCardFields
+          hasProperty={!!propertyId}
+          initial={banner?.card ?? DEFAULT_BANNER_CARD}
+        />
+      </SettingsGroup>
+
       <ShopPicksPanel
         hasProperty={!!propertyId}
         initialPicks={banner?.picks ?? []}
@@ -37,6 +50,8 @@ export default async function LatigoSettingsPage() {
         initialLines={banner?.lines ?? []}
         initialSource={banner?.source ?? "uploads"}
       />
+
+      <BannerPerformancePanel />
 
       <SettingsGroup title="SPOTIFY">
         <SettingsRow

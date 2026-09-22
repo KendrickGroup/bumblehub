@@ -10,11 +10,19 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { bannerProductHref, type BannerProduct } from "@/lib/radio/banner";
+import {
+  bannerEventHandle,
+  bannerProductHref,
+  DEFAULT_BANNER_CARD,
+  type BannerCardSettings,
+  type BannerProduct,
+} from "@/lib/radio/banner";
+import { noteBuy } from "@/lib/radio/banner-log";
 import { shopifyImageUrl } from "@/lib/shopify/image";
 
 type Props = {
   product: BannerProduct;
+  card?: BannerCardSettings;
   onClose: () => void;
 };
 
@@ -32,7 +40,11 @@ function money(price: string | undefined, currency: string | undefined): string 
   }
 }
 
-export function BannerProductCard({ product, onClose }: Props) {
+export function BannerProductCard({
+  product,
+  card = DEFAULT_BANNER_CARD,
+  onClose,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -51,7 +63,7 @@ export function BannerProductCard({ product, onClose }: Props) {
 
   if (typeof document === "undefined") return null;
 
-  const price = money(product.price, product.currency);
+  const price = card.showPrice ? money(product.price, product.currency) : "";
   const href = bannerProductHref(product.url, product.handle);
 
   return createPortal(
@@ -97,8 +109,9 @@ export function BannerProductCard({ product, onClose }: Props) {
             href={href}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => noteBuy(bannerEventHandle(product), product.name)}
           >
-            BUY NOW
+            {card.buyLabel}
           </a>
         </div>
       </div>

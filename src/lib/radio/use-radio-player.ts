@@ -6,6 +6,7 @@ import {
   pauseSpotifyForRadio,
 } from "@/lib/music/source-exclusive";
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
+import { trackPlayerStatus } from "./play-log";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
 import { loadFeedEpisodes, peekFeedEpisodes } from "./feed-cache";
@@ -38,6 +39,9 @@ type PlayableStation = Pick<
   "id" | "station_name" | "city_label" | "stream_url"
 > & {
   station_type?: RadioStation["station_type"];
+  /** Carried for the play log; every real dial row already has both. */
+  call_sign?: RadioStation["call_sign"];
+  band?: RadioStation["band"];
 };
 
 const SILENT_WAV =
@@ -104,6 +108,9 @@ function emit(next: RadioPlayerState) {
     return;
   }
   snapshot = next;
+  // Every status change funnels through here, so the play log sees switches,
+  // reconnects and stops without each call site remembering to say so.
+  trackPlayerStatus(next, tuned);
   for (const listener of listeners) listener();
 }
 

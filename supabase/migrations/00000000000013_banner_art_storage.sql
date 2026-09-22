@@ -15,6 +15,13 @@ SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
+-- The bucket was created by hand before this file landed, so the policies
+-- are dropped first and this migration can be applied to either state.
+DROP POLICY IF EXISTS "banner-art public read" ON storage.objects;
+DROP POLICY IF EXISTS "banner-art member upload" ON storage.objects;
+DROP POLICY IF EXISTS "banner-art member update" ON storage.objects;
+DROP POLICY IF EXISTS "banner-art member delete" ON storage.objects;
+
 CREATE POLICY "banner-art public read"
 ON storage.objects
 FOR SELECT

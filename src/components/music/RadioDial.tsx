@@ -35,6 +35,7 @@ import {
   playStaticCrackle,
   unlockStaticCrackle,
 } from "@/lib/radio/static-crackle";
+import { setAnalyticsSurface } from "@/lib/radio/analytics-session";
 import { useRadioNowPlaying } from "@/lib/radio/use-radio-now-playing";
 import { readLastBand, writeLastBand } from "@/lib/radio/band-memory";
 import {
@@ -88,6 +89,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     bannerProducts,
     bannerLines,
     bannerRotateSeconds,
+    bannerCard,
   } = useRadioStations({ publicMode });
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
@@ -103,6 +105,11 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [lassoNote, setLassoNote] = useState<string | null>(null);
   const [roundupHint, setRoundupHint] = useState(false);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
+
+  // Tags every play and banner event with the radio it came from.
+  useEffect(() => {
+    setAnalyticsSurface(publicMode ? "public" : "app");
+  }, [publicMode]);
 
   const wxStation = useMemo(
     () => (wxStreamUrl.trim() ? makeWxStation(wxStreamUrl.trim()) : null),
@@ -823,6 +830,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             products={bannerProducts}
             lines={bannerLines}
             rotateSeconds={bannerRotateSeconds}
+            card={bannerCard}
           >
             <button
               type="button"

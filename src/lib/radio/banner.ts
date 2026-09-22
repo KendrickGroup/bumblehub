@@ -18,6 +18,9 @@ export const BANNER_PRODUCT_STORE_PX = 800;
 export const BANNER_TITLE = "LATIGO COWBOY AUTHENTICS";
 /** The tap opens the card now, not the shop. Only BUY NOW leaves the radio. */
 export const BANNER_CHIP = "See it closer";
+export const BANNER_BUY_LABEL_DEFAULT = "Buy Now";
+/** Long enough for "Get yours today", short enough never to wrap the button. */
+export const BANNER_BUY_LABEL_MAX = 20;
 export const BANNER_DEFAULT_LINE =
   "Sutter Creek, California · latigocowboy.com";
 
@@ -54,6 +57,12 @@ export type BannerProduct = {
 /** Picked from the shop, or hand-uploaded before the picker existed. */
 export type BannerSource = "picks" | "uploads";
 
+/** Set in Settings, applied on the live card on both surfaces. */
+export type BannerCardSettings = {
+  showPrice: boolean;
+  buyLabel: string;
+};
+
 export type BannerPayload = {
   products: BannerProduct[];
   images: string[];
@@ -64,7 +73,33 @@ export type BannerPayload = {
   /** Hand-uploaded products, kept whether or not picks exist. */
   uploads: BannerProduct[];
   picks: BannerProduct[];
+  card: BannerCardSettings;
 };
+
+export const DEFAULT_BANNER_CARD: BannerCardSettings = {
+  showPrice: true,
+  buyLabel: BANNER_BUY_LABEL_DEFAULT,
+};
+
+/** An empty label ships a blank button, so the default wins over nothing. */
+export function normalizeBuyLabel(raw: unknown): string {
+  const text = stripBannerEmoji(String(raw ?? ""))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, BANNER_BUY_LABEL_MAX);
+  return text || BANNER_BUY_LABEL_DEFAULT;
+}
+
+export function parseBannerCard(dashboardLayout: unknown): BannerCardSettings {
+  if (!dashboardLayout || typeof dashboardLayout !== "object") {
+    return { ...DEFAULT_BANNER_CARD };
+  }
+  const layout = dashboardLayout as Record<string, unknown>;
+  return {
+    showPrice: layout.banner_show_price !== false,
+    buyLabel: normalizeBuyLabel(layout.banner_buy_label),
+  };
+}
 
 export function isBannerRotateSeconds(value: number): boolean {
   return (
@@ -130,6 +165,8 @@ export function jsonBannerPayload(banner: BannerPayload) {
     banner_lines: banner.lines,
     banner_rotate_seconds: banner.rotateSeconds,
     banner_source: banner.source,
+    banner_show_price: banner.card.showPrice,
+    banner_buy_label: banner.card.buyLabel,
   };
 }
 
@@ -178,6 +215,17 @@ export function bannerProductHref(rawUrl: string, handleHint?: string): string {
   if (handle) parsed.searchParams.set("utm_content", handle);
   else parsed.searchParams.delete("utm_content");
   return parsed.toString();
+}
+
+/**
+ * What a product is called in the event log. Picks carry a Shopify handle;
+ * hand-uploaded rows fall back to the handle in their shop link, so the two
+ * eras of the same shirt share one history.
+ */
+export function bannerEventHandle(product: BannerProduct): string {
+  const handle = product.handle?.trim();
+  if (handle) return handle;
+  return productHandleFromUrl(product.url) ?? "";
 }
 
 export function emptyBannerProduct(image: string): BannerProduct {
@@ -313,6 +361,7 @@ function payloadFrom(layout: unknown): BannerPayload {
     source,
     uploads,
     picks,
+    card: parseBannerCard(layout),
   };
 }
 
@@ -359,6 +408,7 @@ export async function ensureBannerLines(
       source,
       uploads,
       picks,
+      card: parseBannerCard(layout),
     };
   }
 
@@ -379,6 +429,7 @@ export async function ensureBannerLines(
     source,
     uploads,
     picks,
+    card: parseBannerCard(layout),
   };
 }
 
@@ -390,6 +441,8 @@ export async function saveBannerLayout(
     picks?: BannerProduct[];
     lines?: string[];
     rotateSeconds?: number;
+    showPrice?: boolean;
+    buyLabel?: string;
   },
 ): Promise<BannerPayload> {
   const { data } = await supabase
@@ -411,6 +464,12 @@ export async function saveBannerLayout(
     isBannerRotateSeconds(patch.rotateSeconds)
   ) {
     layout.banner_rotate_seconds = patch.rotateSeconds;
+  }
+  if (typeof patch.showPrice === "boolean") {
+    layout.banner_show_price = patch.showPrice;
+  }
+  if (patch.buyLabel !== undefined) {
+    layout.banner_buy_label = normalizeBuyLabel(patch.buyLabel);
   }
   const { error } = await supabase.from("property_settings").upsert(
     {

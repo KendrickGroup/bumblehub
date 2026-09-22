@@ -8,7 +8,11 @@ import {
 } from "@/lib/radio/types";
 import { ensureWxStreamUrl } from "@/lib/radio/wx-stream";
 import { fetchChartArt } from "@/lib/radio/chart-art";
-import { ensureBannerLines, BANNER_ROTATE_DEFAULT_SEC } from "@/lib/radio/banner";
+import {
+  ensureBannerLines,
+  BANNER_ROTATE_DEFAULT_SEC,
+  DEFAULT_BANNER_CARD,
+} from "@/lib/radio/banner";
 
 export async function GET() {
   try {
@@ -22,6 +26,8 @@ export async function GET() {
         banner_lines: [],
         banner_products: [],
         banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
+        banner_show_price: DEFAULT_BANNER_CARD.showPrice,
+        banner_buy_label: DEFAULT_BANNER_CARD.buyLabel,
       });
     }
     const service = createServiceClient();
@@ -64,6 +70,8 @@ export async function GET() {
       banner_lines: banner.lines,
       banner_products: banner.products,
       banner_rotate_seconds: banner.rotateSeconds,
+      banner_show_price: banner.card.showPrice,
+      banner_buy_label: banner.card.buyLabel,
     });
   } catch {
     return NextResponse.json({
@@ -74,6 +82,8 @@ export async function GET() {
       banner_lines: [],
       banner_products: [],
       banner_rotate_seconds: BANNER_ROTATE_DEFAULT_SEC,
+      banner_show_price: DEFAULT_BANNER_CARD.showPrice,
+      banner_buy_label: DEFAULT_BANNER_CARD.buyLabel,
     });
   }
 }
