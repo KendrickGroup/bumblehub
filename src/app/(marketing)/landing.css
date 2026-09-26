@@ -622,3 +622,9 @@
     display: none;
   }
 }
+
+@media (hover: none) and (pointer: coarse) and (min-width: 700px) and (min-height: 700px) {
+  .landing-page .hero-logo {
+    mix-blend-mode: normal;
+  }
+}

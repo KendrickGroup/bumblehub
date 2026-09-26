@@ -27,7 +27,6 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
             fill
             className="object-cover"
             sizes="(max-width: 640px) 100vw, 320px"
-            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-5xl">

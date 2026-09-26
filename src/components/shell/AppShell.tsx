@@ -1,11 +1,18 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useCallback, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { HomeButton } from "./HomeButton";
 import { IdleDriftWatcher } from "./IdleDriftWatcher";
 import { MusicSourceGuard } from "@/components/music/MusicSourceGuard";
+import { SessionKeepAlive } from "./SessionKeepAlive";
 import { ShellNowPlaying } from "./ShellNowPlaying";
+
+const DriftFrame = dynamic(
+  () => import("./DriftFrame").then((mod) => mod.DriftFrame),
+  { ssr: false },
+);
 
 function isCookModePath(pathname: string): boolean {
   return /^\/recipes\/(?!new$)[^/]+$/.test(pathname);
@@ -13,6 +20,8 @@ function isCookModePath(pathname: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [driftOn, setDriftOn] = useState(false);
+  const dismissDrift = useCallback(() => setDriftOn(false), []);
   const immersive = pathname.startsWith("/hive/slideshow");
   const onHome = pathname === "/home";
   const onMusic = pathname === "/music";
@@ -30,8 +39,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <>
         <Suspense fallback={null}>
-          <IdleDriftWatcher />
+          <IdleDriftWatcher paused={driftOn} onDrift={() => setDriftOn(true)} />
         </Suspense>
+        <SessionKeepAlive />
+        {driftOn ? <DriftFrame onDismiss={dismissDrift} /> : null}
         <div className="min-h-full bg-[#141210]">{children}</div>
       </>
     );
@@ -40,8 +51,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Suspense fallback={null}>
-        <IdleDriftWatcher />
+        <IdleDriftWatcher paused={driftOn} onDrift={() => setDriftOn(true)} />
       </Suspense>
+      <SessionKeepAlive />
+      {driftOn ? <DriftFrame onDismiss={dismissDrift} /> : null}
 
       <div className="flex h-dvh flex-col overflow-hidden bg-[#FAF8F3]">
         {hideHomeChip ? null : (

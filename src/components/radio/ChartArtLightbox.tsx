@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -151,10 +152,12 @@ export function ChartArtLightbox({ src, title, footline, onClose }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={src}
             alt=""
+            width={1200}
+            height={800}
+            sizes="100vw"
             draggable={false}
             className="radio-chart-lb-art"
             style={{

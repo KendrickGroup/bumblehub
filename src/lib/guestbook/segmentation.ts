@@ -1,6 +1,6 @@
 "use client";
 
-import { FilesetResolver, ImageSegmenter } from "@mediapipe/tasks-vision";
+import type { ImageSegmenter } from "@mediapipe/tasks-vision";
 
 let segmenterPromise: Promise<ImageSegmenter | null> | null = null;
 
@@ -18,6 +18,9 @@ export function loadSelfieSegmenter(): Promise<ImageSegmenter | null> {
 
   segmenterPromise = (async () => {
     try {
+      const { FilesetResolver, ImageSegmenter } = await import(
+        "@mediapipe/tasks-vision"
+      );
       const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
       try {
         return await ImageSegmenter.createFromOptions(vision, {

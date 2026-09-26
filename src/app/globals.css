@@ -3178,3 +3178,47 @@ body {
 .settings-signout button:hover {
   background: #faf8f3;
 }
+
+/* Wall iPad: drop the GPU-heavy cabinet treatment. Phones and desktops keep it. */
+@media (hover: none) and (pointer: coarse) and (min-width: 700px) and (min-height: 700px) {
+  .radio-chart-art {
+    mix-blend-mode: normal;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .radio-case {
+    background: var(--leather);
+    box-shadow: 0 6px 14px rgba(44, 29, 20, 0.28);
+  }
+  .radio-grillepad,
+  .radio-grilleband {
+    background: linear-gradient(180deg, #c9a035, #9a7820);
+    box-shadow: none;
+  }
+  .radio-plaque {
+    background: #f6efdc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  }
+  .radio-onair.is-lit .lamp,
+  .radio-beacon-glow {
+    animation: none;
+    box-shadow: none;
+  }
+  .radio-needle {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio-onair.is-lit .lamp,
+  .radio-beacon-glow {
+    animation: none;
+  }
+}
+
+html.screensaver-black *,
+html.screensaver-black *::before,
+html.screensaver-black *::after {
+  animation: none !important;
+  transition: none !important;
+}

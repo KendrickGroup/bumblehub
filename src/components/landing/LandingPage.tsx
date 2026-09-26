@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LandingWordmark } from "./LandingWordmark";
 
 export function LandingPage() {
@@ -56,11 +57,14 @@ export function LandingPage() {
           </div>
           <div className="hero-art reveal d2">
             <div className="hero-logo-wrap">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src="/brand/hero-logo.png"
                 alt="BumbleHub"
+                width={1024}
+                height={512}
+                sizes="(max-width: 800px) 80vw, 660px"
                 className="hero-logo"
+                style={{ width: "100%", height: "auto" }}
               />
             </div>
           </div>

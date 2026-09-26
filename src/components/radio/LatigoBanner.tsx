@@ -65,7 +65,9 @@ function BannerShot({ product }: { product: BannerProduct | null }) {
 
   const frame = product?.frame ?? null;
   // A framed window blows the photo up, so ask the CDN for room to do it.
-  const requested = frame ? Math.min(1600, Math.round(324 / frame.w)) : 800;
+  const requested = frame
+    ? Math.min(640, Math.ceil(216 / Math.max(frame.w, 0.15)))
+    : 216;
 
   return (
     <span className="radio-banner-shot">

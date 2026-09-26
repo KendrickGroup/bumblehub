@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene, SceneAction } from "@/lib/types";
@@ -18,12 +19,21 @@ import {
   firstNameFromUser,
   parseHouseModeSettings,
 } from "@/lib/house-mode/settings";
+import HomeLoading from "./loading";
 
 export const metadata: Metadata = {
   title: "Home",
 };
 
-export default async function HomePage() {
+export default function HomePage() {
+  return (
+    <Suspense fallback={<HomeLoading />}>
+      <HomeCabin />
+    </Suspense>
+  );
+}
+
+async function HomeCabin() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,53 +50,54 @@ export default async function HomePage() {
   let sceneActions: SceneAction[] = [];
   let houseGreeting = DEFAULT_HOUSE_GREETING;
   let vitalsConfig = parseVitalsConfig(null);
+  let recipeCount = 0;
 
   if (settings?.default_property_id) {
-    const { data: propertyRow } = await supabase
-      .from("properties")
-      .select("id, name, slug, timezone")
-      .eq("id", settings.default_property_id)
-      .maybeSingle();
-
-    property = propertyRow;
-
-    if (property) {
-      const { data: sceneRows } = await supabase
+    const propertyId = settings.default_property_id;
+    const [propertyRes, sceneRes, settingsRes, recipes] = await Promise.all([
+      supabase
+        .from("properties")
+        .select("id, name, slug, timezone")
+        .eq("id", propertyId)
+        .maybeSingle(),
+      supabase
         .from("scenes")
         .select(
           "id, property_id, name, description, icon, accent_color, display_order, is_favorite, is_enabled",
         )
-        .eq("property_id", property.id)
+        .eq("property_id", propertyId)
         .eq("is_enabled", true)
-        .order("display_order", { ascending: true });
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("property_settings")
+        .select("dashboard_layout")
+        .eq("property_id", propertyId)
+        .maybeSingle(),
+      countRecipesForProperty(propertyId),
+    ]);
 
-      scenes = sceneRows ?? [];
+    property = propertyRes.data;
+    scenes = sceneRes.data ?? [];
+    recipeCount = recipes;
+    const layout = settingsRes.data?.dashboard_layout;
+    houseGreeting = parseHouseModeSettings(layout).greeting;
+    vitalsConfig = parseVitalsConfig(layout);
+
+    if (property && scenes.length > 0) {
       try {
         sceneActions = await listSceneActions(scenes.map((s) => s.id));
       } catch {
-        if (scenes.length > 0) {
-          const { data: actionRows } = await supabase
-            .from("scene_actions")
-            .select(
-              "id, scene_id, action_type, device_id, payload, delay_seconds, display_order",
-            )
-            .in(
-              "scene_id",
-              scenes.map((s) => s.id),
-            );
-          sceneActions = (actionRows ?? []) as SceneAction[];
-        }
+        const { data: actionRows } = await supabase
+          .from("scene_actions")
+          .select(
+            "id, scene_id, action_type, device_id, payload, delay_seconds, display_order",
+          )
+          .in(
+            "scene_id",
+            scenes.map((s) => s.id),
+          );
+        sceneActions = (actionRows ?? []) as SceneAction[];
       }
-
-      const { data: propertySettings } = await supabase
-        .from("property_settings")
-        .select("dashboard_layout")
-        .eq("property_id", property.id)
-        .maybeSingle();
-      houseGreeting = parseHouseModeSettings(
-        propertySettings?.dashboard_layout,
-      ).greeting;
-      vitalsConfig = parseVitalsConfig(propertySettings?.dashboard_layout);
     }
   }
 
@@ -95,11 +106,6 @@ export default async function HomePage() {
     email: user?.email,
     user_metadata: user?.user_metadata as Record<string, unknown> | null,
   });
-
-  let recipeCount = 0;
-  if (property) {
-    recipeCount = await countRecipesForProperty(property.id);
-  }
 
   const recipeLine =
     recipeCount === 0
@@ -139,6 +145,7 @@ export default async function HomePage() {
             <span className="tile-ic-btns">
               <Link
                 href="/music"
+                prefetch={false}
                 className="tile-ic-btn"
                 aria-label="Open Latigo Radio"
               >
@@ -146,27 +153,28 @@ export default async function HomePage() {
               </Link>
               <Link
                 href="/music?source=spotify"
+                prefetch={false}
                 className="tile-ic-btn"
                 aria-label="Open Spotify"
               >
                 <SpotifyMark size={17} tone="current" />
               </Link>
             </span>
-            <Link href="/music" className="tile-music-copy">
+            <Link href="/music" prefetch={false} className="tile-music-copy">
               <span className="tile-title">Music</span>
               <span className="tile-desc">
                 Latigo Radio &amp; Spotify playlists
               </span>
             </Link>
           </div>
-          <Link href="/recipes" className="tile-card">
+          <Link href="/recipes" prefetch={false} className="tile-card">
             <span className="tile-ic">🍳</span>
             <span>
               <span className="tile-title">Recipes</span>
               <span className="tile-desc">{recipeLine}</span>
             </span>
           </Link>
-          <Link href="/hive" className="tile-card">
+          <Link href="/hive" prefetch={false} className="tile-card">
             <span className="tile-ic">📷</span>
             <span>
               <span className="tile-title">Guestbook</span>

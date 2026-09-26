@@ -16,6 +16,9 @@ export const IDLE_DRIFT_SETTINGS_EVENT = "bumblehub:idle-drift-settings";
 export const IDLE_DRIFT_SETTINGS_CACHE_KEY =
   "bumblehub:idle-drift-settings-cache";
 
+/** How long the idle photo frame runs before the wall goes black. */
+export const SCREENSAVER_BLACK_AFTER_MS = 30 * 60 * 1000;
+
 export function cacheIdleDriftSettings(settings: IdleDriftSettings): void {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(

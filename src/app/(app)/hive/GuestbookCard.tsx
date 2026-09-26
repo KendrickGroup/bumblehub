@@ -95,7 +95,6 @@ export function GuestbookCard({
             fill
             className="rounded-t-[16px] object-cover"
             sizes="(max-width: 640px) 100vw, 320px"
-            unoptimized
           />
           <span className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/45 text-white opacity-90 transition group-hover:bg-stone-900/65 group-hover:opacity-100">
             <Pencil className="h-4 w-4" strokeWidth={2.25} />
@@ -154,7 +153,6 @@ export function GuestbookCard({
                 fill
                 className="object-cover"
                 sizes="512px"
-                unoptimized
               />
             </div>
 

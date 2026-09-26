@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { isIdleBlockedByGates, subscribeIdleGates } from "@/lib/idle/gates";
 import { isFrameViewport } from "@/lib/idle/frame-width";
 import {
   DEFAULT_IDLE_DRIFT_SETTINGS,
   IDLE_DRIFT_SETTINGS_EVENT,
-  IDLE_RETURN_PATH_KEY,
   readCachedIdleDriftSettings,
   cacheIdleDriftSettings,
   type IdleDriftSettings,
@@ -25,21 +24,24 @@ const ACTIVITY_EVENTS = [
 
 const POINTER_MOVE_DEBOUNCE_MS = 800;
 
-export function IdleDriftWatcher() {
+export function IdleDriftWatcher({
+  paused = false,
+  onDrift,
+}: {
+  paused?: boolean;
+  onDrift: () => void;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [settings, setSettings] = useState<IdleDriftSettings>(
     () => readCachedIdleDriftSettings() ?? DEFAULT_IDLE_DRIFT_SETTINGS,
   );
   const lastActivityRef = useRef(Date.now());
   const pathnameRef = useRef(pathname);
-  const searchRef = useRef(searchParams.toString());
   const settingsRef = useRef(settings);
   const checkingPhotosRef = useRef(false);
 
   pathnameRef.current = pathname;
-  searchRef.current = searchParams.toString();
   settingsRef.current = settings;
 
   useEffect(() => {
@@ -123,6 +125,7 @@ export function IdleDriftWatcher() {
       if (!isFrameViewport()) return;
       if (document.visibilityState !== "visible") return;
 
+      if (paused) return;
       const path = pathnameRef.current;
       if (path.startsWith("/hive/slideshow")) return;
       if (path === "/hive" || path.startsWith("/hive/scrapbook") || path.startsWith("/guestbook")) return;
@@ -146,10 +149,7 @@ export function IdleDriftWatcher() {
             return;
           }
 
-          const search = searchRef.current;
-          const returnPath = search ? `${path}?${search}` : path;
-          sessionStorage.setItem(IDLE_RETURN_PATH_KEY, returnPath);
-          router.push("/hive/slideshow?drift=1");
+          onDrift();
         } catch {
           // Stay put on failure.
         } finally {
@@ -159,7 +159,7 @@ export function IdleDriftWatcher() {
     }, 5000);
 
     return () => window.clearInterval(id);
-  }, [router]);
+  }, [onDrift, paused]);
 
   return null;
 }

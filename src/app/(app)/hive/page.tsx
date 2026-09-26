@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
-import { PhotoBooth } from "./PhotoBooth";
+import { PhotoBoothLoader } from "./PhotoBoothLoader";
 
 export const metadata: Metadata = {
   title: "Latigo Cowboy Portrait Co.",
@@ -17,5 +17,5 @@ export default async function HivePage() {
     ? await getDefaultPropertyIdForUser(user.id)
     : null;
 
-  return <PhotoBooth hasProperty={!!propertyId} />;
+  return <PhotoBoothLoader hasProperty={!!propertyId} />;
 }

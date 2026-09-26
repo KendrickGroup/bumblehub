@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Play, Square, X } from "lucide-react";
 import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
@@ -61,11 +63,8 @@ import {
   markListJoined,
   useListAskDue,
 } from "@/lib/radio/list-gate";
-import { ChartArtLightbox } from "@/components/radio/ChartArtLightbox";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
-import { LatigoListModal } from "@/components/radio/LatigoListModal";
 import { RadioVolumeControl } from "@/components/radio/RadioVolumeControl";
-import { RadioHandleModal } from "@/components/radio/RadioHandleModal";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
 import { useRadioMediaSession } from "@/components/radio/use-radio-media-session";
@@ -75,6 +74,28 @@ import {
   WX_STATION_ID,
   makeWxStation,
 } from "@/lib/radio/wx-stream";
+
+const ChartArtLightbox = dynamic(
+  () =>
+    import("@/components/radio/ChartArtLightbox").then(
+      (mod) => mod.ChartArtLightbox,
+    ),
+  { ssr: false },
+);
+const LatigoListModal = dynamic(
+  () =>
+    import("@/components/radio/LatigoListModal").then(
+      (mod) => mod.LatigoListModal,
+    ),
+  { ssr: false },
+);
+const RadioHandleModal = dynamic(
+  () =>
+    import("@/components/radio/RadioHandleModal").then(
+      (mod) => mod.RadioHandleModal,
+    ),
+  { ssr: false },
+);
 
 const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
 const FM_NUMS = ["88", "92", "96", "100", "104", "108"];
@@ -530,10 +551,12 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     aria-label={`Open ${lightboxTitle}`}
                     onClick={() => setChartOpen(true)}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={mapArtUrl}
                       alt=""
+                      width={800}
+                      height={500}
+                      sizes="(max-width: 1100px) 90vw, 480px"
                       className="radio-chart-art"
                     />
                     <span className="radio-chart-expand" aria-hidden>
