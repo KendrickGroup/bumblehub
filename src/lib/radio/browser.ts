@@ -380,11 +380,9 @@ export function extrasFromSearchResult(station: RadioSearchResult): {
   const parsed = parseCallAndFreq(station.name);
   const freq = parsed.frequency ?? "";
   const band: RadioBand =
-    freq.includes(".") || (Number(freq) >= 87 && Number(freq) <= 108)
-      ? "fm"
-      : freq && Number(freq) >= 530 && Number(freq) <= 1700
-        ? "am"
-        : "fm";
+    freq && Number(freq) >= 530 && Number(freq) <= 1700 && !freq.includes(".")
+      ? "am"
+      : "fm1";
   return {
     latitude: station.latitude,
     longitude: station.longitude,

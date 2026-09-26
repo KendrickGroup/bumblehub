@@ -599,7 +599,7 @@ function towerTownsForState(
   for (const station of stations) {
     if (!station.is_visible) continue;
     if (station.station_type !== "stream") continue;
-    if (station.band !== "fm" && station.band !== "am") continue;
+    if (station.band !== "fm1" && station.band !== "fm2" && station.band !== "am") continue;
     const code = station.state_code?.trim().toUpperCase() ?? "";
     if (code !== stateCode) continue;
     addTown(townFromLabel(station.city_label));

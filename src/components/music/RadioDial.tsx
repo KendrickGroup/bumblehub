@@ -25,9 +25,13 @@ import {
   stateCodeFromLabel,
   type RadioBand,
   type RadioFaceBand,
+  RADIO_BANDS,
+  DEFAULT_FACE_BAND,
+  bandFlagKind,
+  faceBandLabel,
+  visibleCapForBand,
 } from "@/lib/radio/ranch";
 import {
-  MAX_VISIBLE_STATIONS,
   type RadioStation,
 } from "@/lib/radio/types";
 import {
@@ -75,11 +79,6 @@ const FM_NUMS = ["88", "92", "96", "100", "104", "108"];
 const AM_NUMS = ["540", "700", "900", "1100", "1400", "1700"];
 const ROUNDUP_HINT_KEY = "latigo-roundup-hint";
 
-function bandLabel(band: RadioFaceBand): string {
-  if (band === "wx") return "WX";
-  return band.toUpperCase();
-}
-
 function stationTown(cityLabel: string | null | undefined): string {
   if (!cityLabel) return "";
   return cityLabel.split(",")[0]?.trim() || cityLabel.trim();
@@ -102,8 +101,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const listAskDue = useListAskDue();
   const [listOpen, setListOpen] = useState(false);
   const [crackle, setCrackle] = useState(false);
-  const [browseBand, setBrowseBand] = useState<RadioFaceBand>("fm");
-  const [presetBand, setPresetBand] = useState<RadioBand>("fm");
+  const [browseBand, setBrowseBand] = useState<RadioFaceBand>(DEFAULT_FACE_BAND);
+  const [presetBand, setPresetBand] = useState<RadioBand>("fm1");
   const [bandRestored, setBandRestored] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
@@ -202,19 +201,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (!selected) return;
-    if (selected.band !== "fm" && selected.band !== "am") return;
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setPresetBand(selected.band);
-    setBrowseBand((current) => {
-      if (current === "wx") return current;
-      const remembered = readLastBand();
-      if (remembered) return remembered;
-      return selected.band;
-    });
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [selected?.id, selected?.band]);
 
   useEffect(() => {
     if (!wxFace) return;
@@ -269,7 +255,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const presets = useMemo(() => {
     const band: RadioBand =
       browseBand === "wx" ? presetBand : browseBand;
-    return presetsForBand(visible, band, MAX_VISIBLE_STATIONS);
+    return presetsForBand(visible, band, visibleCapForBand(band));
   }, [visible, browseBand, presetBand]);
 
   const parked = !loaded;
@@ -361,18 +347,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const onBand = (band: RadioFaceBand) => {
     setBrowseBand(band);
     writeLastBand(band);
-    if (band !== "wx") {
-      setPresetBand(band);
-      return;
-    }
-    if (!wxStation) return;
-    const switching = getRadioPlayerState().stationId !== WX_STATION_ID;
-    playRadio(wxStation);
-    unlockStaticCrackle();
-    if (switching) {
-      retuneFx();
-      playStaticCrackle();
-    }
+    if (band !== "wx") setPresetBand(band);
   };
 
   const onLasso = async () => {
@@ -664,16 +639,16 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           <div className="radio-glass">
             <div className="radio-toprow">
               <div className="radio-bandflags">
-                {(["fm", "am", "wx"] as const).map((band) => (
+                {RADIO_BANDS.map((band) => (
                   <button
                     key={band}
                     type="button"
-                    className={`radio-bandflag ${band} ${
+                    className={`radio-bandflag ${bandFlagKind(band)} ${
                       browseBand === band ? "active" : ""
                     }`}
                     onClick={() => onBand(band)}
                   >
-                    {bandLabel(band)}
+                    {faceBandLabel(band)}
                     {(band === "wx"
                       ? wxPlaying && live
                       : playingStation?.band === band &&
@@ -765,7 +740,11 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             <div className="radio-presets">
               {presets.map((station) => {
                 const preset = stationFace(station);
-                const active = station.id === selected?.id && !parked && !wxFace;
+                const active =
+                  station.id === selected?.id &&
+                  station.band === browseBand &&
+                  !parked &&
+                  !wxFace;
                 return (
                   <button
                     key={station.id}

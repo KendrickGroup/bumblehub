@@ -59,7 +59,7 @@ export async function ensureLaunchStations(
           is_visible: true,
           call_sign: parsed.callSign,
           frequency: parsed.frequency,
-          band: "fm" as const,
+          band: station.display_order < 4 ? ("fm1" as const) : ("fm2" as const),
           station_type: "stream" as const,
         };
       }),

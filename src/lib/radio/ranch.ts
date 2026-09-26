@@ -18,11 +18,52 @@ export const LATIGO_COWBOY_URL = "https://latigocowboy.com";
 export const RADIO_APP_NAME = "Latigo Radio";
 export const RADIO_APP_STRIP = "LATIGO RADIO";
 
-export type RadioBand = "fm" | "am";
+export type RadioBand = "fm1" | "fm2" | "am";
 export type RadioStationType = "stream" | "feed";
 export type RadioFaceBand = RadioBand | "wx";
 
-export const RADIO_BANDS: RadioFaceBand[] = ["fm", "am", "wx"];
+export const RADIO_BANDS: RadioFaceBand[] = ["fm1", "fm2", "am", "wx"];
+export const DEFAULT_FACE_BAND: RadioFaceBand = "fm1";
+
+export function parseRadioBand(value: unknown): RadioBand | undefined {
+  if (value === "fm1" || value === "fm2" || value === "am") return value;
+  if (value === "fm") return "fm1";
+  if (value === "sports") return "am";
+  return undefined;
+}
+
+export function isFmBand(band: string | null | undefined): boolean {
+  return band === "fm1" || band === "fm2" || band === "fm";
+}
+
+/** Play rows still store fm/am/wx so Run C totals stay comparable. */
+export function playLogBand(
+  stationBand: string | null | undefined,
+  isWx = false,
+): string {
+  if (isWx) return "wx";
+  const band = (stationBand ?? "").trim().toLowerCase();
+  if (band === "am" || band === "sports") return band;
+  return "fm";
+}
+
+export function faceBandLabel(band: RadioFaceBand): string {
+  if (band === "fm1") return "FM1";
+  if (band === "fm2") return "FM2";
+  if (band === "wx") return "WX";
+  return "AM";
+}
+
+export function bandFlagKind(band: RadioFaceBand): "fm" | "am" | "wx" {
+  if (band === "am") return "am";
+  if (band === "wx") return "wx";
+  return "fm";
+}
+
+/** Four presets on each FM page; AM is unchanged. */
+export function visibleCapForBand(band: RadioBand): number {
+  return band === "am" ? 10 : 4;
+}
 
 export function presetsForBand<T extends { band: RadioBand }>(
   stations: T[],

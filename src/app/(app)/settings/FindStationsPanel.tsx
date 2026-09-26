@@ -16,9 +16,9 @@ import {
   type RanchSuggestion,
 } from "@/lib/radio/browser";
 import type { RadioSearchResult, RadioStation } from "@/lib/radio/types";
-import { MAX_VISIBLE_STATIONS } from "@/lib/radio/types";
 import {
   timezoneFromStateCode,
+  visibleCapForBand,
   type RadioBand,
   type RadioStationType,
 } from "@/lib/radio/ranch";
@@ -295,7 +295,10 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
                                 s.is_visible &&
                                 s.band ===
                                   extrasFromSearchResult(state.result!).band,
-                            ).length >= MAX_VISIBLE_STATIONS
+                            ).length >=
+                            visibleCapForBand(
+                              extrasFromSearchResult(state.result!).band,
+                            )
                           }
                           onClick={() =>
                             beginAdd(
@@ -437,7 +440,10 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
                               (s) =>
                                 s.is_visible &&
                                 s.band === extrasFromSearchResult(result).band,
-                            ).length >= MAX_VISIBLE_STATIONS
+                            ).length >=
+                            visibleCapForBand(
+                              extrasFromSearchResult(result).band,
+                            )
                           }
                           onClick={() =>
                             beginAdd(result.stationuuid, result)
@@ -534,7 +540,7 @@ function AddToDialButton({
       onClick={onClick}
       title={
         atVisibleCap
-          ? "Each band holds 10 — hide one to add another."
+          ? "This band is full — hide one to add another."
           : undefined
       }
       className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4B400] px-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
@@ -542,7 +548,7 @@ function AddToDialButton({
       {busy ? "Adding…" : "Add to dial"}
       {atVisibleCap ? (
         <span className="sr-only">
-          Each band holds 10. This station will be hidden until you free a slot.
+          This band is full. The station will be hidden until you free a slot.
         </span>
       ) : null}
     </button>

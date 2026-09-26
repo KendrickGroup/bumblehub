@@ -22,11 +22,15 @@ import {
 import { StationTestButton } from "@/components/radio/StationTestButton";
 import { stopStationTest } from "@/lib/radio/use-station-test-player";
 import {
-  MAX_VISIBLE_STATIONS,
   notifyRadioStationsChanged,
   type RadioStation,
 } from "@/lib/radio/types";
-import type { RadioBand, RadioStationType } from "@/lib/radio/ranch";
+import {
+  faceBandLabel,
+  visibleCapForBand,
+  type RadioBand,
+  type RadioStationType,
+} from "@/lib/radio/ranch";
 import { FindStationsPanel } from "./FindStationsPanel";
 import { ChartArtSettingsPanel } from "./ChartArtSettingsPanel";
 import { StationStateField } from "./StationStateField";
@@ -92,8 +96,8 @@ export function RadioSettingsPanel({
 
   const bandAtCap = (band: RadioBand) =>
     stations.filter((s) => s.is_visible && s.band === band).length >=
-    MAX_VISIBLE_STATIONS;
-  const anyBandAtCap = bandAtCap("fm") || bandAtCap("am");
+    visibleCapForBand(band);
+  const anyBandAtCap = bandAtCap("fm1") || bandAtCap("fm2") || bandAtCap("am");
 
   const applyStation = useCallback((station: RadioStation) => {
     setStations((prev) => prev.map((s) => (s.id === station.id ? station : s)));
@@ -127,7 +131,7 @@ export function RadioSettingsPanel({
     async (station: RadioStation) => {
       setError(null);
       if (!station.is_visible && bandAtCap(station.band)) {
-        setError("Each band holds 10 — hide one to add another.");
+        setError("This band is full — hide one to add another.");
         return;
       }
       const nextVisible = !station.is_visible;
@@ -236,8 +240,8 @@ export function RadioSettingsPanel({
 
       {anyBandAtCap ? (
         <p className="mt-4 rounded-[14px] bg-[#FBF0D0] px-4 py-3 text-sm font-medium text-stone-800">
-          Each band holds 10 visible stations — hide one to add another on that
-          band.
+          FM1 and FM2 hold 4 visible stations each. AM holds 10. Hide one to add
+          another on that band.
         </p>
       ) : null}
 
@@ -361,7 +365,7 @@ const StationRow = memo(function StationRow({
           </p>
             <p className="truncate font-[family-name:var(--font-elite)] text-xs text-stone-500">
               {[
-                station.band.toUpperCase(),
+                faceBandLabel(station.band),
                 station.station_type === "feed" ? "feed" : null,
                 station.call_sign,
                 station.frequency,
@@ -695,7 +699,8 @@ const StationEditFields = memo(function StationEditFields({
           onBlur={flush}
           className={fieldClass}
         >
-          <option value="fm">FM</option>
+          <option value="fm1">FM1</option>
+          <option value="fm2">FM2</option>
           <option value="am">AM</option>
         </select>
       </label>
@@ -808,7 +813,7 @@ function AddStationPanel({
   const [url, setUrl] = useState("");
   const [call, setCall] = useState("");
   const [freq, setFreq] = useState("");
-  const [band, setBand] = useState<RadioBand>("fm");
+  const [band, setBand] = useState<RadioBand>("fm1");
   const [type, setType] = useState<RadioStationType>("stream");
   const [state, setState] = useState("");
   const [saving, setSaving] = useState(false);
@@ -832,7 +837,7 @@ function AddStationPanel({
       setUrl("");
       setCall("");
       setFreq("");
-      setBand("fm");
+      setBand("fm1");
       setType("stream");
       setState("");
     }
@@ -893,7 +898,8 @@ function AddStationPanel({
           onChange={(e) => setBand(e.target.value as RadioBand)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
         >
-          <option value="fm">FM</option>
+          <option value="fm1">FM1</option>
+          <option value="fm2">FM2</option>
           <option value="am">AM</option>
         </select>
         <select
@@ -926,8 +932,8 @@ function AddStationPanel({
         </button>
       </div>
       <p className="mt-2 text-xs text-stone-500">
-        Each band holds 10 visible stations. Extra stations stay hidden until
-        you free a slot on that band.
+        FM1 and FM2 hold 4 visible stations each. AM holds 10. Extra stations
+        stay hidden until you free a slot on that band.
       </p>
     </div>
   );

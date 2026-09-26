@@ -15,12 +15,12 @@ import {
   type PlayRecord,
 } from "./analytics";
 import { postAnalytics, sessionKey } from "./analytics-session";
+import { playLogBand } from "./ranch";
 import { WX_STATION_ID } from "./wx-stream";
 
 export const PLAYS_ENDPOINT = "/api/radio/plays";
 
 const CAP_TICK_MS = 30_000;
-const BANDS = new Set(["fm", "am", "sports", "wx"]);
 
 type StationLike = {
   id: string;
@@ -56,9 +56,7 @@ function metaFor(player: PlayerLike, station: StationLike | null): StationMeta |
     (station?.call_sign ?? "").trim() ||
     (station?.station_name ?? player.stationName ?? "").trim();
   if (!call) return null;
-  const rawBand = (station?.band ?? "").trim().toLowerCase();
-  const band =
-    id === WX_STATION_ID ? "wx" : BANDS.has(rawBand) ? rawBand : "fm";
+  const band = playLogBand(station?.band, id === WX_STATION_ID);
   return { id, call: call.slice(0, 80), band };
 }
 

@@ -1,4 +1,4 @@
-import type { RadioBand, RadioStationType } from "./ranch";
+import { parseRadioBand, type RadioBand, type RadioStationType } from "./ranch";
 
 export type { RadioBand, RadioStationType };
 
@@ -46,6 +46,7 @@ export type RadioSearchResult = {
 export const RADIO_STATION_COLUMNS =
   "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency, band, station_type, latitude, longitude, state_code, timezone";
 
+/** AM still holds 10. Each FM page holds four — see visibleCapForBand. */
 export const MAX_VISIBLE_STATIONS = 10;
 
 export const RADIO_STATIONS_EVENT = "bumblehub:radio-stations";
@@ -66,8 +67,7 @@ export function isHttpsStreamUrl(value: string): boolean {
 }
 
 export function normalizeRadioStation(row: RadioStation): RadioStation {
-  const rawBand = row.band as string;
-  const band = rawBand === "am" || rawBand === "sports" ? "am" : "fm";
+  const band = parseRadioBand(row.band) ?? "fm1";
   const station_type = row.station_type === "feed" ? "feed" : "stream";
   return {
     ...row,

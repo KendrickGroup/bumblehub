@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import {
-  MAX_VISIBLE_STATIONS,
   RADIO_STATION_COLUMNS,
   isHttpsStreamUrl,
   normalizeRadioStation,
@@ -12,8 +11,10 @@ import {
 import { parseCallAndFreq } from "@/lib/radio/parse-identity";
 import { countVisibleStations, fetchRadioStations } from "@/lib/radio/queries";
 import {
+  parseRadioBand,
   stateCodeFromLabel,
   timezoneFromStateCode,
+  visibleCapForBand,
   type RadioBand,
   type RadioStationType,
 } from "@/lib/radio/ranch";
@@ -54,8 +55,7 @@ function emptyToNull(
 }
 
 function parseBand(value: unknown): RadioBand | undefined {
-  if (value === "fm" || value === "am") return value;
-  return undefined;
+  return parseRadioBand(value);
 }
 
 function parseStationType(value: unknown): RadioStationType | undefined {
@@ -106,7 +106,7 @@ export async function createRadioStation(input: {
     parseBand(input.band) ??
     (frequency && !frequency.includes(".") && Number(frequency) >= 530
       ? "am"
-      : "fm");
+      : "fm1");
   const station_type: RadioStationType =
     parseStationType(input.station_type) ?? "stream";
   const state_code =
@@ -118,7 +118,7 @@ export async function createRadioStation(input: {
 
   const visibleCount = await countVisibleStations(ctx.propertyId, band);
   const wantVisible = input.is_visible !== false;
-  const is_visible = wantVisible && visibleCount < MAX_VISIBLE_STATIONS;
+  const is_visible = wantVisible && visibleCount < visibleCapForBand(band);
 
   const { data: maxRow } = await ctx.supabase
     .from("radio_stations")
@@ -201,7 +201,32 @@ export async function updateRadioStation(input: {
     patch.frequency = emptyToNull(input.frequency, 12);
   }
   const nextBand = parseBand(input.band);
-  if (nextBand) patch.band = nextBand;
+  if (nextBand) {
+    const { data: current } = await ctx.supabase
+      .from("radio_stations")
+      .select("is_visible, band")
+      .eq("id", input.id)
+      .eq("property_id", ctx.propertyId)
+      .maybeSingle();
+    const currentBand = parseRadioBand(current?.band);
+    if (
+      current?.is_visible &&
+      currentBand &&
+      currentBand !== nextBand
+    ) {
+      const visibleCount = await countVisibleStations(
+        ctx.propertyId,
+        nextBand,
+      );
+      if (visibleCount >= visibleCapForBand(nextBand)) {
+        return {
+          ok: false,
+          error: "This band is full — hide one to add another.",
+        };
+      }
+    }
+    patch.band = nextBand;
+  }
   const nextType = parseStationType(input.station_type);
   if (nextType) patch.station_type = nextType;
   if (input.latitude !== undefined) patch.latitude = parseCoord(input.latitude);
@@ -223,15 +248,16 @@ export async function updateRadioStation(input: {
         .eq("property_id", ctx.propertyId)
         .maybeSingle();
       if (!current?.is_visible) {
-        const capBand = (nextBand ?? current?.band ?? "fm") as RadioBand;
+        const capBand =
+          nextBand ?? parseRadioBand(current?.band) ?? "fm1";
         const visibleCount = await countVisibleStations(
           ctx.propertyId,
-          capBand === "am" || capBand === "fm" ? capBand : "fm",
+          capBand,
         );
-        if (visibleCount >= MAX_VISIBLE_STATIONS) {
+        if (visibleCount >= visibleCapForBand(capBand)) {
           return {
             ok: false,
-            error: "Each band holds 10 — hide one to add another.",
+            error: "This band is full — hide one to add another.",
           };
         }
       }

@@ -1,31 +1,34 @@
 "use client";
 
 /**
- * The band the dial was last tuned to, kept across navigations.
+ * The band the dial was last showing, kept across visits.
  *
- * The Spotify key in the band row leaves the radio page entirely, so
- * RadioDial unmounts and its `browseBand` state goes with it. Without this
- * the dial came back lit on FM no matter where it was left, which is the
- * one thing the band row is supposed to remember — the station id already
- * survives in localStorage (RADIO_TUNED_ID_KEY), so the band was the only
- * half of "where I was" that got lost.
+ * Landing everyone on FM1 would make those four stations look more popular
+ * just from being seen first. Play counts stay fair if people come back
+ * where they left the selector.
  */
 
-import type { RadioFaceBand } from "./ranch";
+import {
+  DEFAULT_FACE_BAND,
+  parseRadioBand,
+  type RadioFaceBand,
+} from "./ranch";
 
 const BAND_KEY = "latigo-radio-band";
 
-function isBand(value: string | null): value is RadioFaceBand {
-  return value === "fm" || value === "am" || value === "wx";
+function isFaceBand(value: string | null): value is RadioFaceBand {
+  if (value === "wx") return true;
+  return parseRadioBand(value) != null;
 }
 
 export function readLastBand(): RadioFaceBand | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(BAND_KEY);
-    return isBand(raw) ? raw : null;
+    if (!raw) return null;
+    if (raw === "fm") return "fm1";
+    return isFaceBand(raw) ? raw : null;
   } catch {
-    // Private mode / blocked storage just means no memory.
     return null;
   }
 }
@@ -38,3 +41,5 @@ export function writeLastBand(band: RadioFaceBand) {
     // ignore
   }
 }
+
+export { DEFAULT_FACE_BAND };
