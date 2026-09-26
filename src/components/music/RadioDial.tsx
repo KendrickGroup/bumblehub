@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LoaderCircle, Play, Square, X } from "lucide-react";
 import { RoundupRopeMark } from "@/components/music/AudioSourceMarks";
 import { formatTunedPlace } from "@/lib/radio/format-place";
@@ -47,6 +48,7 @@ import {
   playRadio,
   radioIsLive,
   rememberTunedStation,
+  stopRadioForSpotifyPlayback,
   stopRadioPlayback,
   useRadioPlayer,
 } from "@/lib/radio/use-radio-player";
@@ -85,6 +87,7 @@ function stationTown(cityLabel: string | null | undefined): string {
 }
 
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
+  const router = useRouter();
   const {
     visible,
     loaded,
@@ -342,6 +345,11 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     unlockStaticCrackle();
     retuneFx();
     playStaticCrackle();
+  };
+
+  const onSpotify = () => {
+    stopRadioForSpotifyPlayback();
+    router.push("/music?source=spotify");
   };
 
   const onBand = (band: RadioFaceBand) => {
@@ -658,6 +666,15 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     ) : null}
                   </button>
                 ))}
+                {publicMode ? null : (
+                  <button
+                    type="button"
+                    className="radio-bandflag radio-bandflag-go"
+                    onClick={onSpotify}
+                  >
+                    SPOTIFY
+                  </button>
+                )}
               </div>
               <div className={`radio-onair ${playing ? "is-lit" : ""}`}>
                 <span className="lamp" aria-hidden />

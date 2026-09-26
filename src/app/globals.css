@@ -409,6 +409,35 @@ body {
   color: rgba(90, 70, 48, 0.88);
 }
 
+.radio-to-dial {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: rgba(90, 70, 48, 0.7);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.radio-to-dial span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.radio-to-dial:hover,
+.radio-to-dial:focus,
+.radio-to-dial:focus-visible {
+  outline: none;
+  color: rgba(90, 70, 48, 0.92);
+}
+
 .radio-ring {
   width: 14px;
   height: 14px;
