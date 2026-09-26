@@ -69,6 +69,9 @@ type Props = {
 };
 
 const FINISHES: PortraitFinish[] = ["color", "sepia", "tintype"];
+
+/** Scrapbook link stays built; flip this when the page is ready to show again. */
+const SHOW_SCRAPBOOK_A_PAGE = false;
 const COSTUME_SHELF = costumesFromManifest();
 const FACE_SHELF = facesFromManifest();
 const PROP_SHELF = ranchPropsFromManifest();
@@ -712,16 +715,10 @@ export function PhotoBooth({ hasProperty }: Props) {
         <div className="relative mx-auto max-w-md rounded-[20px] bg-[#FFF8EA] px-6 py-10 text-center shadow-md">
           <p className="text-base text-[#3E2A1E]">{cameraError}</p>
           <div className="mt-6 flex flex-col gap-3">
-            <Link
-              href="/hive/slideshow"
-              className="inline-flex min-h-[52px] items-center justify-center rounded-[18px] bg-[#F4B400] px-5 text-base font-semibold text-[#3E2A1E]"
-            >
-              See the wall
-            </Link>
             <button
               type="button"
               onClick={() => void startCamera()}
-              className="text-sm font-medium text-[#5C4430] underline-offset-2 hover:underline"
+              className="inline-flex min-h-[52px] items-center justify-center rounded-[18px] bg-[#F4B400] px-5 text-base font-semibold text-[#3E2A1E]"
             >
               Try the camera again
             </button>
@@ -833,6 +830,53 @@ export function PhotoBooth({ hasProperty }: Props) {
               : "Dress up. Pick a scene. Hold real still."}
         </p>
       </header>
+
+      {/* Scene is the first choice — above costume, camera, and props. */}
+      <div
+        className={`relative mx-auto mb-1 w-full max-w-[1200px] transition-opacity ${
+          scenesActive ? "opacity-100" : "pointer-events-none opacity-40"
+        }`}
+      >
+        <p className="-rotate-1 text-center font-[family-name:var(--font-marker)] text-[13px] text-[#3E2A1E]">
+          Pick your scene:
+        </p>
+        <div className="mt-1.5 flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1">
+          <SceneCard
+            active={!selectedSceneId}
+            tilt="-1.5deg"
+            name="AS-IS"
+            onClick={() => selectScene(null)}
+          >
+            <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-[10px] font-extrabold text-[#3E2A1E]">
+              AS-IS
+            </span>
+          </SceneCard>
+          {PARLOR_SCENES.map((sc, i) => {
+            const tilts = ["1deg", "-1deg", "1.5deg"];
+            return (
+              <SceneCard
+                key={sc.id}
+                active={selectedSceneId === sc.id}
+                tilt={tilts[i % tilts.length]!}
+                name={sc.name}
+                onClick={() => selectScene(sc.id)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={sc.url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </SceneCard>
+            );
+          })}
+        </div>
+        {selectedSceneId && !liveBackdropOk && step === "live" && (
+          <p className="mt-1 text-center text-[11px] text-[#5C4430]/80">
+            Scene will land when you strike the pose
+          </p>
+        )}
+      </div>
 
       <div className="relative mx-auto flex w-full max-w-[1200px] flex-col items-center gap-3 lg:flex-row lg:items-start lg:justify-center lg:gap-3">
         {/* Costume rack */}
@@ -1085,53 +1129,6 @@ export function PhotoBooth({ hasProperty }: Props) {
             </div>
           )}
 
-          {/* Scene cards — compact single row */}
-          <div
-            className={`mt-3 transition-opacity ${
-              scenesActive ? "opacity-100" : "pointer-events-none opacity-40"
-            }`}
-          >
-            <p className="-rotate-1 font-[family-name:var(--font-marker)] text-[13px] text-[#3E2A1E]">
-              Pick your scene:
-            </p>
-            <div className="mt-1.5 flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1">
-              <SceneCard
-                active={!selectedSceneId}
-                tilt="-1.5deg"
-                name="AS-IS"
-                onClick={() => selectScene(null)}
-              >
-                <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-[10px] font-extrabold text-[#3E2A1E]">
-                  AS-IS
-                </span>
-              </SceneCard>
-              {PARLOR_SCENES.map((sc, i) => {
-                const tilts = ["1deg", "-1deg", "1.5deg"];
-                return (
-                  <SceneCard
-                    key={sc.id}
-                    active={selectedSceneId === sc.id}
-                    tilt={tilts[i % tilts.length]!}
-                    name={sc.name}
-                    onClick={() => selectScene(sc.id)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sc.url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </SceneCard>
-                );
-              })}
-            </div>
-            {selectedSceneId && !liveBackdropOk && step === "live" && (
-              <p className="mt-1 text-center text-[11px] text-[#5C4430]/80">
-                Scene will land when you strike the pose
-              </p>
-            )}
-          </div>
-
           {isPosed && (
             <label className="mt-4 block">
               <span className="mb-1 block text-sm font-medium text-[#3E2A1E]">
@@ -1154,19 +1151,13 @@ export function PhotoBooth({ hasProperty }: Props) {
             <p className="mt-2 text-center text-sm text-[#B3402A]">{saveError}</p>
           )}
 
-          {step === "live" && (
+          {step === "live" && SHOW_SCRAPBOOK_A_PAGE && (
             <div className="mt-4 flex flex-col items-center gap-2">
               <Link
                 href="/hive/scrapbook"
                 className="relative -rotate-[1.4deg] rounded-md border-2 border-dashed border-[#B3402A] bg-[#FFF8EA] px-6 py-2.5 text-sm font-extrabold text-[#B3402A] transition hover:rotate-0 hover:scale-[1.04]"
               >
                 Scrapbook a page
-              </Link>
-              <Link
-                href="/hive/slideshow"
-                className="text-sm font-semibold text-[#3E2A1E]/75 transition hover:text-[#B3402A]"
-              >
-                See the wall →
               </Link>
             </div>
           )}
