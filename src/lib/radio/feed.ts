@@ -29,6 +29,7 @@ function enclosureUrl(block: string): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
+    if (parsed.protocol === "http:") parsed.protocol = "https:";
     if (parsed.protocol !== "https:") return null;
     return parsed.href;
   } catch {

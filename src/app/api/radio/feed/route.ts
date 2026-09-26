@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveArchiveEpisodes } from "@/lib/radio/archive-audio";
 import { isHttpsStreamUrl } from "@/lib/radio/types";
 import { parseRssFeed } from "@/lib/radio/feed";
 
@@ -38,7 +39,8 @@ export async function GET(request: Request) {
     }
     const xml = await response.text();
     // Full feed — no episode cap. Shuffle happens on the client.
-    const episodes = parseRssFeed(xml);
+    const parsed = parseRssFeed(xml);
+    const episodes = await resolveArchiveEpisodes(parsed);
     cache.set(feedUrl, { at: Date.now(), episodes });
     return NextResponse.json({ episodes });
   } catch {

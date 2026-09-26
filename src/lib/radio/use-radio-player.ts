@@ -53,6 +53,8 @@ const FAIL_MS = 12000;
 const STALL_MS = 8000;
 const RECONNECT_GAP_MS = 5000;
 const RECONNECT_MAX = 3;
+/** One dead archive file must not look like the whole station is down. */
+const FEED_SKIP_MAX = 5;
 const ANALYSER_TICK_MS = 400;
 // ~5s of real audio before calling the graph tainted. Short windows read a
 // still-buffering MP3 as silence and tear down a gain path that works.
@@ -79,6 +81,8 @@ let feedUrls: string[] = [];
 let feedTitles: string[] = [];
 let feedDates: string[] = [];
 let feedIndex = 0;
+let feedSkipCount = 0;
+let feedHeardCurrent = false;
 let usingCors = false;
 let corsFallbackUsed = false;
 let mutePaused = false;
@@ -349,6 +353,7 @@ function startElement(
       if (generation !== gen) return;
       attachInFlight = false;
       if (maybeFallbackFromCors(gen, url)) return;
+      if (feedRss && !feedHeardCurrent && skipToNextFeedEpisode()) return;
       if (onFail === "reconnect") {
         startReconnect();
         return;
@@ -428,6 +433,8 @@ function getAudio(): HTMLAudioElement {
       clearStallTimer();
       attachInFlight = false;
       lastTimeUpdate = Date.now();
+      feedSkipCount = 0;
+      feedHeardCurrent = true;
       if (snapshot.status === "stopped") return;
       patch({ status: "playing", reconnectAttempt: 0 });
     });
@@ -478,6 +485,7 @@ function getAudio(): HTMLAudioElement {
       attachInFlight = false;
       const url = currentPlayUrl();
       if (url && maybeFallbackFromCors(generation, url)) return;
+      if (feedRss && !feedHeardCurrent && skipToNextFeedEpisode()) return;
       if (snapshot.reconnectAttempt > 0) {
         startReconnect();
         return;
@@ -501,6 +509,7 @@ function armFailTimer(gen: number) {
     if (snapshot.status === "buffering") {
       attachInFlight = false;
       audio?.pause();
+      if (feedRss && skipToNextFeedEpisode()) return;
       patch({ status: "failed" });
     }
   }, FAIL_MS);
@@ -541,6 +550,7 @@ function startReconnect() {
     clearStallTimer();
     clearWatchdog();
     if (audio) detachSource(audio);
+    if (feedRss && skipToNextFeedEpisode()) return;
     patch({ status: "failed", reconnectAttempt: 0 });
     return;
   }
@@ -594,6 +604,8 @@ function stopInternal() {
   feedTitles = [];
   feedDates = [];
   feedIndex = 0;
+  feedSkipCount = 0;
+  feedHeardCurrent = false;
   patchRadioVolume({ muted: false });
   patch({ status: "stopped", reconnectAttempt: 0 });
 }
@@ -624,6 +636,32 @@ function loadFeed(
   feedIndex = pickFeedEpisodeIndex(stationId, episodes, currentUrl);
 }
 
+function skipToNextFeedEpisode(): boolean {
+  if (!feedRss || !tuned || feedEpisodes.length < 2) return false;
+  if (feedSkipCount >= FEED_SKIP_MAX) return false;
+  const prev = currentPlayUrl();
+  loadFeed(tuned.id, feedEpisodes, prev);
+  const next = feedUrls[feedIndex];
+  if (!next || next === prev) return false;
+  feedSkipCount += 1;
+  feedHeardCurrent = false;
+  clearFailTimer();
+  clearStallTimer();
+  clearReconnectTimer();
+  const gen = ++generation;
+  attachInFlight = true;
+  patch({
+    status: "buffering",
+    streamUrl: next,
+    reconnectAttempt: 0,
+  });
+  const tryGain = readGainSupport(tuned.id) !== false;
+  beginPlayback(next, gen, tryGain, "failed");
+  armFailTimer(gen);
+  armWatchdog(gen);
+  return true;
+}
+
 /**
  * Start (or retune) the house stream. Must be called from a tap handler with
  * no awaits before this function — iOS Safari requires play() in the gesture.
@@ -639,6 +677,8 @@ export function playRadio(station: PlayableStation) {
   writeTunedStationId(station.id);
 
   const isFeed = station.station_type === "feed";
+  feedSkipCount = 0;
+  feedHeardCurrent = false;
   if (isFeed) {
     feedRss = station.stream_url.trim();
     const cached = peekFeedEpisodes(feedRss) ?? [];
