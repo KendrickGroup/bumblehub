@@ -18,6 +18,7 @@ import {
   type BannerProduct,
 } from "@/lib/radio/banner";
 import { noteBuy } from "@/lib/radio/banner-log";
+import { retinaPixels } from "@/lib/images/retina";
 import { shopifyImageUrl } from "@/lib/shopify/image";
 
 type Props = {
@@ -65,6 +66,10 @@ export function BannerProductCard({
 
   const price = card.showPrice ? money(product.price, product.currency) : "";
   const href = bannerProductHref(product.url, product.handle);
+  const photoPx = retinaPixels(
+    Math.min(960, window.innerWidth),
+    window.devicePixelRatio || 1,
+  );
 
   return createPortal(
     <div className="radio-chart-lb">
@@ -91,7 +96,7 @@ export function BannerProductCard({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={shopifyImageUrl(product.image, 1200)}
+          src={shopifyImageUrl(product.image, photoPx)}
           alt={product.name}
           className="radio-prod-photo"
           draggable={false}

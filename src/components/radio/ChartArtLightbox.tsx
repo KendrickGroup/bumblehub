@@ -155,8 +155,8 @@ export function ChartArtLightbox({ src, title, footline, onClose }: Props) {
           <Image
             src={src}
             alt=""
-            width={1200}
-            height={800}
+            width={3072}
+            height={2048}
             sizes="100vw"
             draggable={false}
             className="radio-chart-lb-art"

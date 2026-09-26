@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { countRecipesForProperty } from "@/lib/recipes/queries";
 import type { Property, Scene, SceneAction } from "@/lib/types";
@@ -38,11 +39,12 @@ async function HomeCabin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
   const { data: settings } = await supabase
     .from("user_settings")
     .select("default_property_id")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   let property: Property | null = null;

@@ -62,7 +62,7 @@ export function LandingPage() {
                 alt="BumbleHub"
                 width={1024}
                 height={512}
-                sizes="(max-width: 800px) 80vw, 660px"
+                sizes="(max-width: 880px) 92vw, min(660px, 46vw)"
                 className="hero-logo"
                 style={{ width: "100%", height: "auto" }}
               />

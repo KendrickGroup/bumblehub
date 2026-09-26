@@ -94,7 +94,7 @@ export function GuestbookCard({
             alt={photo.caption ?? "Photo Booth memory"}
             fill
             className="rounded-t-[16px] object-cover"
-            sizes="(max-width: 640px) 100vw, 320px"
+            sizes="(max-width: 700px) 100vw, (max-width: 1200px) 50vw, 400px"
           />
           <span className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/45 text-white opacity-90 transition group-hover:bg-stone-900/65 group-hover:opacity-100">
             <Pencil className="h-4 w-4" strokeWidth={2.25} />
@@ -152,7 +152,7 @@ export function GuestbookCard({
                 alt={photo.caption ?? "Photo Booth memory"}
                 fill
                 className="object-cover"
-                sizes="512px"
+                sizes="(max-width: 768px) 92vw, 640px"
               />
             </div>
 

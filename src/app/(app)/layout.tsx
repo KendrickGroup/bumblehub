@@ -27,26 +27,40 @@ const elite = Special_Elite({
   variable: "--font-elite",
 });
 
-export default async function AppLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+function ShellSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 pt-2" aria-hidden>
+      <div className="h-16 w-52 rounded-2xl bg-[#EFE6D6]" />
+      <div className="mt-3 h-6 w-24 rounded-full bg-[#EFE6D6]" />
+      <div className="h-24 rounded-[20px] bg-[#EFE6D6]" />
+    </div>
+  );
+}
+
+async function SessionGate({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  return children;
+}
 
-  if (!user) {
-    redirect("/login");
-  }
-
+export default function AppLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <div
       className={`${fraunces.variable} ${bricolage.variable} ${rye.variable} ${elite.variable} min-h-full font-[family-name:var(--font-bricolage)]`}
     >
       <Suspense fallback={null}>
-        <AppShell>{children}</AppShell>
+        <AppShell>
+          <Suspense fallback={<ShellSkeleton />}>
+            <SessionGate>{children}</SessionGate>
+          </Suspense>
+        </AppShell>
       </Suspense>
     </div>
   );

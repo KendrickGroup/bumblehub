@@ -554,8 +554,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     <Image
                       src={mapArtUrl}
                       alt=""
-                      width={800}
-                      height={500}
+                      width={2400}
+                      height={1500}
                       sizes="(max-width: 1100px) 90vw, 480px"
                       className="radio-chart-art"
                     />

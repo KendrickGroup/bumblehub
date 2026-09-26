@@ -130,9 +130,35 @@ function handleRadioHost(request: NextRequest): NextResponse | null {
   return NextResponse.redirect(dest, 308);
 }
 
+function hasAuthCookie(request: NextRequest): boolean {
+  return request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.includes("-auth-token"));
+}
+
 export async function updateSession(request: NextRequest) {
   const radio = handleRadioHost(request);
   if (radio) return radio;
+
+  const pathname = request.nextUrl.pathname;
+  const isPublic = isPublicPath(pathname);
+  const isApi = pathname.startsWith("/api/");
+
+  // Pages paint before any auth round trip. A missing cookie is a local
+  // check, so the sign-in page is not stuck behind getUser().
+  if (!isApi) {
+    if (!isPublic && !hasAuthCookie(request)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
+      const redirect = NextResponse.redirect(url);
+      applyFrameHeaders(request, redirect);
+      return redirect;
+    }
+    const response = NextResponse.next({ request });
+    applyFrameHeaders(request, response);
+    return response;
+  }
 
   let response = NextResponse.next({ request });
 
@@ -165,19 +191,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-  const isPublic = isPublicPath(pathname);
-
-  if (user && pathname === "/login") {
-    const redirect = NextResponse.redirect(new URL("/home", request.url));
-    applyFrameHeaders(request, redirect);
-    return redirect;
-  }
-
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.searchParams.set("next", pathname);
     const redirect = NextResponse.redirect(url);
     applyFrameHeaders(request, redirect);
     return redirect;

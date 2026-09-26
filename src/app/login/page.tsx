@@ -1,23 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { BeeMark } from "@/components/brand/AppBrandLockup";
 import { LoginForm } from "./LoginForm";
-import { createClient } from "@/lib/supabase/server";
+import { LoginSessionRedirect } from "./LoginSessionRedirect";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/home");
-  }
-
   const { next = "/home" } = await searchParams;
   const configured =
     !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -25,6 +15,7 @@ export default async function LoginPage({
 
   return (
     <div className="relative flex min-h-full flex-col bg-[#FAF8F3] px-6 py-12">
+      <LoginSessionRedirect />
       <div className="absolute top-5 left-5 z-10 sm:top-6 sm:left-6">
         <Link
           href="/"

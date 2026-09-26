@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { BUILD_SHA, BUILD_TIME_ISO } from "@/lib/build-info";
 import { DEFAULT_SITE_URL, getSiteUrl } from "@/lib/site";
+import { PerfReadout } from "@/components/shell/PerfReadout";
 import "./globals.css";
 
 const inter = Inter({
@@ -50,7 +51,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
-      <body className="min-h-full font-sans antialiased">{children}</body>
+      <body className="min-h-full font-sans antialiased">
+        {children}
+        <PerfReadout />
+      </body>
     </html>
   );
 }

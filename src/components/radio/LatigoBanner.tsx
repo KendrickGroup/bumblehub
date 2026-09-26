@@ -23,6 +23,7 @@ import {
 import { frameImageStyle } from "@/lib/radio/banner-frame";
 import { noteExpand } from "@/lib/radio/banner-log";
 import { useBannerImpression } from "@/lib/radio/use-banner-impression";
+import { retinaPixels } from "@/lib/images/retina";
 import { shopifyImageUrl } from "@/lib/shopify/image";
 import { BannerProductCard } from "@/components/radio/BannerProductCard";
 
@@ -49,7 +50,12 @@ function pickLine(last: string, lines: string[]): string {
 
 function BannerShot({ product }: { product: BannerProduct | null }) {
   const [failed, setFailed] = useState(false);
+  const [dpr, setDpr] = useState(2);
   const src = product?.image ?? null;
+
+  useEffect(() => {
+    setDpr(window.devicePixelRatio || 1);
+  }, []);
 
   useEffect(() => {
     setFailed(false);
@@ -64,10 +70,10 @@ function BannerShot({ product }: { product: BannerProduct | null }) {
   }
 
   const frame = product?.frame ?? null;
-  // A framed window blows the photo up, so ask the CDN for room to do it.
-  const requested = frame
-    ? Math.min(640, Math.ceil(216 / Math.max(frame.w, 0.15)))
-    : 216;
+  // The well is about 216 CSS pixels. Retina needs 2x or 3x that, and a
+  // framed crop is blown up inside the well so the source has to match.
+  const cssPx = frame ? Math.ceil(216 / Math.max(frame.w, 0.15)) : 216;
+  const requested = retinaPixels(cssPx, dpr);
 
   return (
     <span className="radio-banner-shot">
