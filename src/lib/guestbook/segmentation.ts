@@ -127,6 +127,37 @@ function ensurePersonHighAlpha(mask: ImageData): ImageData {
 }
 
 /**
+ * Reject a cutout that would ship a missing person, a halo, or no real
+ * background. Callers fall back to the framed photo instead.
+ */
+export function maskIsUsable(mask: ImageData): boolean {
+  const { width, height, data } = mask;
+  const n = width * height;
+  if (n < 64) return false;
+
+  let solid = 0;
+  let background = 0;
+  let uncertain = 0;
+
+  for (let i = 3; i < data.length; i += 4) {
+    const a = data[i]!;
+    if (a >= 200) solid += 1;
+    else if (a <= 40) background += 1;
+    else uncertain += 1;
+  }
+
+  const solidR = solid / n;
+  const backgroundR = background / n;
+  const uncertainR = uncertain / n;
+  // Nobody in the frame, or the mask never opened a background.
+  if (solidR < 0.05 || solidR > 0.92) return false;
+  if (backgroundR < 0.05) return false;
+  // A wide uncertain band feathers into a halo instead of a cut.
+  if (uncertainR > 0.45) return false;
+  return true;
+}
+
+/**
  * Run selfie segmentation once. Returns an ImageData mask (person=255 alpha)
  * matching the source dimensions, or null on failure.
  */
@@ -331,97 +362,6 @@ export async function compositeWithBackdrop(
     });
   } catch {
     return null;
-  }
-}
-
-/**
- * Draw a mirrored, downscaled video frame onto a canvas for live segmentation.
- */
-export function drawMirroredVideoFrame(
-  video: HTMLVideoElement,
-  maxEdge = 320,
-): HTMLCanvasElement | null {
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  if (!vw || !vh) return null;
-  const scale = Math.min(1, maxEdge / Math.max(vw, vh));
-  const w = Math.max(1, Math.round(vw * scale));
-  const h = Math.max(1, Math.round(vh * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.translate(w, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, w, h);
-  return canvas;
-}
-
-/**
- * Composite a person frame + mask over a backdrop onto an output canvas
- * (live preview). Returns false on failure.
- */
-export function compositeOntoCanvas(
-  output: HTMLCanvasElement,
-  personSource: HTMLCanvasElement | HTMLImageElement,
-  mask: ImageData,
-  backdrop: HTMLImageElement,
-): boolean {
-  const width = output.width;
-  const height = output.height;
-  const ctx = output.getContext("2d");
-  if (!ctx || !width || !height) return false;
-
-  try {
-    const softMask = featherMaskAlpha(mask, 1);
-    ctx.clearRect(0, 0, width, height);
-
-    const br = backdrop.naturalWidth / backdrop.naturalHeight;
-    const cr = width / height;
-    let sx = 0;
-    let sy = 0;
-    let sw = backdrop.naturalWidth;
-    let sh = backdrop.naturalHeight;
-    if (br > cr) {
-      sw = backdrop.naturalHeight * cr;
-      sx = (backdrop.naturalWidth - sw) / 2;
-    } else {
-      sh = backdrop.naturalWidth / cr;
-      sy = (backdrop.naturalHeight - sh) / 2;
-    }
-    ctx.drawImage(backdrop, sx, sy, sw, sh, 0, 0, width, height);
-
-    const personCanvas = document.createElement("canvas");
-    personCanvas.width = width;
-    personCanvas.height = height;
-    const pctx = personCanvas.getContext("2d");
-    if (!pctx) return false;
-    pctx.drawImage(personSource, 0, 0, width, height);
-
-    const maskCanvas = document.createElement("canvas");
-    maskCanvas.width = width;
-    maskCanvas.height = height;
-    const mctx = maskCanvas.getContext("2d");
-    if (!mctx) return false;
-    if (softMask.width !== width || softMask.height !== height) {
-      const tmp = document.createElement("canvas");
-      tmp.width = softMask.width;
-      tmp.height = softMask.height;
-      const tctx = tmp.getContext("2d");
-      if (!tctx) return false;
-      tctx.putImageData(softMask, 0, 0);
-      mctx.drawImage(tmp, 0, 0, width, height);
-    } else {
-      mctx.putImageData(softMask, 0, 0);
-    }
-
-    pctx.globalCompositeOperation = "destination-in";
-    pctx.drawImage(maskCanvas, 0, 0);
-    ctx.drawImage(personCanvas, 0, 0);
-    return true;
-  } catch {
-    return false;
   }
 }
 

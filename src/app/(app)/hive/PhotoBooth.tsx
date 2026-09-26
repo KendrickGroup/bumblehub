@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import QRCode from "qrcode";
 import { useIdleGate } from "@/lib/idle/gates";
 import { renderCabinetCard } from "@/lib/guestbook/cabinet-card";
@@ -46,10 +47,9 @@ import {
 import {
   blobToImage,
   captureMirroredJpeg,
-  compositeOntoCanvas,
   compositeWithBackdrop,
-  drawMirroredVideoFrame,
   loadSelfieSegmenter,
+  maskIsUsable,
   segmentPersonMask,
 } from "@/lib/guestbook/segmentation";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
@@ -60,6 +60,7 @@ type Step =
   | "live"
   | "camera-error"
   | "countdown"
+  | "developing"
   | "posed"
   | "saving"
   | "done";
@@ -72,6 +73,8 @@ const FINISHES: PortraitFinish[] = ["color", "sepia", "tintype"];
 
 /** Scrapbook link stays built; flip this when the page is ready to show again. */
 const SHOW_SCRAPBOOK_A_PAGE = false;
+const SCENE_FALLBACK =
+  "Kept the framed shot. Retake if you want the backdrop.";
 const COSTUME_SHELF = costumesFromManifest();
 const FACE_SHELF = facesFromManifest();
 const PROP_SHELF = ranchPropsFromManifest();
@@ -148,12 +151,7 @@ function cloneMask(mask: ImageData): ImageData {
 
 export function PhotoBooth({ hasProperty }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const backdropImgRef = useRef<HTMLImageElement | null>(null);
-  const liveLoopRef = useRef(0);
-  const slowFramesRef = useRef(0);
-  const liveEnabledRef = useRef(true);
   const selectedSceneUrlRef = useRef<string | null>(null);
   const cleanBlobRef = useRef<Blob | null>(null);
   const rawPersonBlobRef = useRef<Blob | null>(null);
@@ -168,9 +166,8 @@ export function PhotoBooth({ hasProperty }: Props) {
   const [selectedSceneId, setSelectedSceneId] = useState<ParlorSceneId | null>(
     null,
   );
-  const [liveBackdropOk, setLiveBackdropOk] = useState(false);
-  const [showLiveCanvas, setShowLiveCanvas] = useState(false);
   const [finish, setFinish] = useState<PortraitFinish>("color");
+  const [sceneNote, setSceneNote] = useState<string | null>(null);
   const [cleanUrl, setCleanUrl] = useState<string | null>(null);
   const [whoName, setWhoName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -252,6 +249,7 @@ export function PhotoBooth({ hasProperty }: Props) {
     setCabinetPreview(null);
     setWhoName("");
     setSaveError(null);
+    setSceneNote(null);
     setSharePath(null);
     setQrDataUrl(null);
     stopCamera();
@@ -264,7 +262,11 @@ export function PhotoBooth({ hasProperty }: Props) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: {
+          facingMode: "user",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -282,99 +284,18 @@ export function PhotoBooth({ hasProperty }: Props) {
   useEffect(() => {
     if (!hasProperty) return;
     void startCamera();
+    // Warm the segmenter once so the snap is not waiting on a download.
+    // Inference runs on the captured still only — never on the live feed.
     void loadSelfieSegmenter();
     return () => {
       stopCamera();
-      cancelAnimationFrame(liveLoopRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasProperty]);
 
   useEffect(() => {
     selectedSceneUrlRef.current = selectedScene?.url ?? null;
-    backdropImgRef.current = null;
-    setLiveBackdropOk(false);
-    setShowLiveCanvas(false);
-    liveEnabledRef.current = true;
-    slowFramesRef.current = 0;
-
-    if (!selectedScene?.url) return;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      backdropImgRef.current = img;
-    };
-    img.onerror = () => {
-      backdropImgRef.current = null;
-    };
-    img.src = selectedScene.url;
   }, [selectedScene?.url]);
-
-  useEffect(() => {
-    if (step !== "live" || !selectedSceneId) {
-      setShowLiveCanvas(false);
-      return;
-    }
-
-    let cancelled = false;
-    let lastTs = 0;
-    let busy = false;
-    const TARGET_MS = 1000 / 12;
-
-    const tick = (now: number) => {
-      if (cancelled) return;
-      liveLoopRef.current = requestAnimationFrame(tick);
-      if (!liveEnabledRef.current) {
-        setShowLiveCanvas(false);
-        return;
-      }
-      if (busy || now - lastTs < TARGET_MS) return;
-      lastTs = now;
-
-      const video = videoRef.current;
-      const out = previewCanvasRef.current;
-      const backdrop = backdropImgRef.current;
-      if (!video || !out || !backdrop || video.readyState < 2) return;
-
-      const frame = drawMirroredVideoFrame(video, 288);
-      if (!frame) return;
-
-      busy = true;
-      const t0 = performance.now();
-      void segmentPersonMask(frame)
-        .then((mask) => {
-          if (!mask || cancelled || !liveEnabledRef.current) return;
-          out.width = frame.width;
-          out.height = frame.height;
-          const ok = compositeOntoCanvas(out, frame, mask, backdrop);
-          const elapsed = performance.now() - t0;
-          if (ok) {
-            setShowLiveCanvas(true);
-            setLiveBackdropOk(true);
-          }
-          if (elapsed > 90) {
-            slowFramesRef.current += 1;
-            if (slowFramesRef.current >= 4) {
-              liveEnabledRef.current = false;
-              setShowLiveCanvas(false);
-              setLiveBackdropOk(false);
-            }
-          } else {
-            slowFramesRef.current = Math.max(0, slowFramesRef.current - 1);
-          }
-        })
-        .catch(() => {})
-        .finally(() => {
-          busy = false;
-        });
-    };
-
-    liveLoopRef.current = requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(liveLoopRef.current);
-    };
-  }, [step, selectedSceneId]);
 
   useEffect(() => {
     return () => {
@@ -515,11 +436,17 @@ export function PhotoBooth({ hasProperty }: Props) {
   };
 
   const ensureMask = async (raw: Blob): Promise<ImageData | null> => {
-    if (personMaskRef.current) return personMaskRef.current;
+    if (personMaskRef.current && maskIsUsable(personMaskRef.current)) {
+      return personMaskRef.current;
+    }
     const img = await blobToImage(raw);
     const mask = await segmentPersonMask(img);
-    if (mask) personMaskRef.current = cloneMask(mask);
-    return personMaskRef.current;
+    if (mask && maskIsUsable(mask)) {
+      personMaskRef.current = cloneMask(mask);
+      return personMaskRef.current;
+    }
+    personMaskRef.current = null;
+    return null;
   };
 
   const rebuildComposite = async (sceneId: ParlorSceneId | null) => {
@@ -529,6 +456,7 @@ export function PhotoBooth({ hasProperty }: Props) {
     if (!sceneId) {
       cleanBlobRef.current = raw;
       setCleanPreview(raw);
+      setSceneNote(null);
       return;
     }
 
@@ -540,18 +468,22 @@ export function PhotoBooth({ hasProperty }: Props) {
     try {
       const img = await blobToImage(raw);
       const mask = await ensureMask(raw);
-      if (!mask) {
-        setSaveError("Couldn't cut you out for that scene. Try again.");
+      const composited = mask
+        ? await compositeWithBackdrop(img, mask, scene.url)
+        : null;
+      if (!composited) {
+        cleanBlobRef.current = raw;
+        setCleanPreview(raw);
+        setSceneNote(SCENE_FALLBACK);
         return;
       }
-      const composited = await compositeWithBackdrop(img, mask, scene.url);
-      if (composited) {
-        cleanBlobRef.current = composited;
-        setCleanPreview(composited);
-        setSaveError(null);
-      }
+      cleanBlobRef.current = composited;
+      setCleanPreview(composited);
+      setSceneNote(null);
     } catch {
-        setSaveError("Couldn't switch scenes. Try again.");
+      cleanBlobRef.current = raw;
+      setCleanPreview(raw);
+      setSceneNote(SCENE_FALLBACK);
     } finally {
       sceneBusyRef.current = false;
       setSceneBusy(false);
@@ -589,29 +521,45 @@ export function PhotoBooth({ hasProperty }: Props) {
 
     rawPersonBlobRef.current = raw;
     personMaskRef.current = null;
-
-    let clean: Blob = raw;
-    const sceneUrl = selectedSceneUrlRef.current;
-    if (sceneUrl) {
-      try {
-        const img = await blobToImage(raw);
-        const mask = await segmentPersonMask(img);
-        if (mask) {
-          personMaskRef.current = cloneMask(mask);
-          const composited = await compositeWithBackdrop(img, mask, sceneUrl);
-          if (composited) clean = composited;
-        }
-      } catch {
-        // keep raw
-      }
-    }
-
-    cleanBlobRef.current = clean;
-    setCleanPreview(clean);
+    cleanBlobRef.current = raw;
+    setCleanPreview(raw);
     clearOverlays();
     setWhoName("");
     setSaveError(null);
+    setSceneNote(null);
+
+    const sceneUrl = selectedSceneUrlRef.current;
+    if (!sceneUrl) {
+      stopCamera();
+      setStep("posed");
+      return;
+    }
+
+    flushSync(() => setStep("developing"));
     stopCamera();
+    // Paint the developing plate before inference, which can block the thread.
+    await sleep(80);
+    const started = performance.now();
+    try {
+      const img = await blobToImage(raw);
+      const mask = await segmentPersonMask(img);
+      const usable = !!mask && maskIsUsable(mask);
+      if (usable && mask) personMaskRef.current = cloneMask(mask);
+      const composited =
+        usable && mask
+          ? await compositeWithBackdrop(img, mask, sceneUrl)
+          : null;
+      if (composited) {
+        cleanBlobRef.current = composited;
+        setCleanPreview(composited);
+      } else {
+        setSceneNote(SCENE_FALLBACK);
+      }
+    } catch {
+      setSceneNote(SCENE_FALLBACK);
+    }
+    const hold = 450 - (performance.now() - started);
+    if (hold > 0) await sleep(hold);
     setStep("posed");
   };
 
@@ -831,57 +779,10 @@ export function PhotoBooth({ hasProperty }: Props) {
         </p>
       </header>
 
-      {/* Scene is the first choice — above costume, camera, and props. */}
-      <div
-        className={`relative mx-auto mb-1 w-full max-w-[1200px] transition-opacity ${
-          scenesActive ? "opacity-100" : "pointer-events-none opacity-40"
-        }`}
-      >
-        <p className="-rotate-1 text-center font-[family-name:var(--font-marker)] text-[13px] text-[#3E2A1E]">
-          Pick your scene:
-        </p>
-        <div className="mt-1.5 flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1">
-          <SceneCard
-            active={!selectedSceneId}
-            tilt="-1.5deg"
-            name="AS-IS"
-            onClick={() => selectScene(null)}
-          >
-            <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-[10px] font-extrabold text-[#3E2A1E]">
-              AS-IS
-            </span>
-          </SceneCard>
-          {PARLOR_SCENES.map((sc, i) => {
-            const tilts = ["1deg", "-1deg", "1.5deg"];
-            return (
-              <SceneCard
-                key={sc.id}
-                active={selectedSceneId === sc.id}
-                tilt={tilts[i % tilts.length]!}
-                name={sc.name}
-                onClick={() => selectScene(sc.id)}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={sc.url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              </SceneCard>
-            );
-          })}
-        </div>
-        {selectedSceneId && !liveBackdropOk && step === "live" && (
-          <p className="mt-1 text-center text-[11px] text-[#5C4430]/80">
-            Scene will land when you strike the pose
-          </p>
-        )}
-      </div>
-
       <div className="relative mx-auto flex w-full max-w-[1200px] flex-col items-center gap-3 lg:flex-row lg:items-start lg:justify-center lg:gap-3">
         {/* Costume rack */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
+          className={`flex w-full max-lg:order-2 flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
@@ -913,33 +814,23 @@ export function PhotoBooth({ hasProperty }: Props) {
         </aside>
 
         {/* Marquee column */}
-        <div className="relative w-full max-w-[640px] shrink-0">
+        <div className="relative w-full max-w-[640px] shrink-0 max-lg:order-1">
           <div className="relative rounded-[22px] bg-gradient-to-b from-[#4A3323] to-[#3E2A1E] p-[18px] shadow-[0_10px_0_#2C1D14,0_22px_40px_rgba(44,29,20,.35)] sm:rounded-[26px] sm:p-[22px]">
             <MarqueeBulbs />
             <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] bg-[#201A14] sm:rounded-[14px]">
               <div className="absolute inset-0" style={finishFilterStyle}>
                 {isLiveish && (
-                  <>
-                    <video
-                      ref={videoRef}
-                      playsInline
-                      muted
-                      autoPlay
-                      className={`absolute inset-0 h-full w-full object-cover ${
-                        showLiveCanvas ? "opacity-0" : "opacity-100"
-                      }`}
-                      style={{ transform: "scaleX(-1)" }}
-                    />
-                    <canvas
-                      ref={previewCanvasRef}
-                      className={`absolute inset-0 h-full w-full object-cover ${
-                        showLiveCanvas ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                  </>
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    autoPlay
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{ transform: "scaleX(-1)" }}
+                  />
                 )}
 
-                {cleanUrl && (isPosed || isHung) && (
+                {cleanUrl && (step === "developing" || isPosed || isHung) && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={cleanUrl}
@@ -994,6 +885,13 @@ export function PhotoBooth({ hasProperty }: Props) {
                   Warming up the box…
                 </div>
               )}
+              {step === "developing" && (
+                <div className="absolute inset-0 z-[6] flex items-center justify-center bg-[#201A14]/55">
+                  <p className="font-[family-name:var(--font-rye)] text-3xl tracking-wide text-[#F4B400] sm:text-4xl">
+                    Developing…
+                  </p>
+                </div>
+              )}
               {sceneBusy && (
                 <div className="absolute inset-0 z-[6] flex items-center justify-center bg-[#201A14]/35 text-sm text-[#FAF3E3]">
                   Changing scene…
@@ -1002,7 +900,58 @@ export function PhotoBooth({ hasProperty }: Props) {
             </div>
           </div>
 
-          {/* Primary action — directly under marquee */}
+          <div
+            className={`mt-3 transition-opacity ${
+              scenesActive ? "opacity-100" : "pointer-events-none opacity-40"
+            }`}
+          >
+            <p className="-rotate-1 text-center font-[family-name:var(--font-marker)] text-[13px] text-[#3E2A1E]">
+              Pick your scene:
+            </p>
+            <div className="mt-1.5 flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1">
+              <SceneCard
+                active={!selectedSceneId}
+                tilt="-1.5deg"
+                name="AS-IS"
+                onClick={() => selectScene(null)}
+              >
+                <span className="flex h-full items-center justify-center bg-[#EEE3CC] text-[10px] font-extrabold text-[#3E2A1E]">
+                  AS-IS
+                </span>
+              </SceneCard>
+              {PARLOR_SCENES.map((sc, i) => {
+                const tilts = ["1deg", "-1deg", "1.5deg"];
+                return (
+                  <SceneCard
+                    key={sc.id}
+                    active={selectedSceneId === sc.id}
+                    tilt={tilts[i % tilts.length]!}
+                    name={sc.name}
+                    onClick={() => selectScene(sc.id)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={sc.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </SceneCard>
+                );
+              })}
+            </div>
+            {selectedSceneId && step === "live" && (
+              <p className="mt-1 text-center text-[11px] text-[#5C4430]/80">
+                Scene will land when you strike the pose
+              </p>
+            )}
+            {sceneNote && (isPosed || isHung) && (
+              <p className="mt-1 text-center text-sm text-[#5C4430]">
+                {sceneNote}
+              </p>
+            )}
+          </div>
+
+          {/* Primary action — directly under the scene row */}
           {step === "live" && (
             <div className="mt-4 flex justify-center">
               <div className="flex h-[150px] w-[150px] items-center justify-center rounded-full bg-[radial-gradient(circle_at_40%_30%,#F7E19A,#F4B400_60%,#B8860B)] shadow-[0_6px_14px_rgba(44,29,20,.3),inset_0_2px_4px_rgba(255,255,255,.5)] sm:h-[170px] sm:w-[170px]">
@@ -1043,7 +992,7 @@ export function PhotoBooth({ hasProperty }: Props) {
           )}
 
           {/* Finish + text tools */}
-          {(isLiveish || isPosed) && (
+          {(isLiveish || step === "developing" || isPosed) && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
               <span className="-rotate-1 font-[family-name:var(--font-marker)] text-sm text-[#3E2A1E]">
                 Finish:
@@ -1052,7 +1001,11 @@ export function PhotoBooth({ hasProperty }: Props) {
                 <button
                   key={f}
                   type="button"
-                  disabled={step === "saving" || step === "countdown"}
+                  disabled={
+                    step === "saving" ||
+                    step === "countdown" ||
+                    step === "developing"
+                  }
                   onClick={() => setFinish(f)}
                   className={`inline-flex items-center gap-2 rounded-full border-2 bg-[#FFF8EA] py-1.5 pr-3.5 pl-2 text-[13px] font-semibold text-[#3E2A1E] transition ${
                     finish === f
@@ -1165,7 +1118,7 @@ export function PhotoBooth({ hasProperty }: Props) {
 
         {/* Ranch props */}
         <aside
-          className={`flex w-full flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
+          className={`flex w-full max-lg:order-3 flex-row flex-wrap items-center justify-center gap-2 transition-opacity lg:max-h-[min(72vh,760px)] lg:w-[88px] lg:flex-col lg:overflow-y-auto lg:pt-2 ${
             shelvesActive ? "opacity-100" : "opacity-40"
           } ${shelvesActive ? "" : "pointer-events-none"}`}
         >
