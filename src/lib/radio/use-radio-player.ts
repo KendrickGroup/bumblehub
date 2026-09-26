@@ -17,6 +17,7 @@ import {
   fallbackOutput,
   getRadioVolumeState,
   hydrateRadioVolume,
+  isAppleTouchDevice,
   patchRadioVolume,
   readGainSupport,
   showAirPlayPicker,
@@ -56,8 +57,9 @@ const RECONNECT_MAX = 3;
 /** One dead archive file must not look like the whole station is down. */
 const FEED_SKIP_MAX = 5;
 const ANALYSER_TICK_MS = 400;
-// ~5s of real audio before calling the graph tainted. Short windows read a
-// still-buffering MP3 as silence and tear down a gain path that works.
+// Desktop only. A run of zeros used to recycle the element about six seconds
+// in (1.5s of media time, then twelve 400ms ticks). That read is a false
+// silence on iOS, so it must never pause, reload, or replace the element.
 const ANALYSER_TICKS = 12;
 const ANALYSER_MIN_PLAYED_SEC = 1.5;
 
@@ -217,8 +219,21 @@ function getAudioContextCtor(): (typeof AudioContext) | null {
 function resumeAudioContext(): void {
   const Ctor = getAudioContextCtor();
   if (!Ctor) return;
-  if (!audioCtx) audioCtx = new Ctor();
+  if (!audioCtx) {
+    audioCtx = new Ctor();
+    audioCtx.addEventListener("statechange", () => {
+      // iOS suspends the context in the background. Resume only — never
+      // play(), pause(), or replace the element from here.
+      if (audioCtx?.state === "suspended") void audioCtx.resume();
+    });
+  }
   if (audioCtx.state === "suspended") void audioCtx.resume();
+}
+
+/** iOS plays through the media element. The gain graph's silence probe was cutting it off. */
+function useGainGraph(stationId: string): boolean {
+  if (isAppleTouchDevice()) return false;
+  return readGainSupport(stationId) !== false;
 }
 
 function teardownGraph(): void {
@@ -294,6 +309,7 @@ function analyserHasSignal(): boolean {
 
 function armAnalyserProbe(stationId: string, gen: number): void {
   clearAnalyserTimer();
+  if (isAppleTouchDevice()) return;
   if (getRadioVolumeState().output !== "gain" || !analyserNode) return;
   if (readGainSupport(stationId) === true) return;
   let ticks = 0;
@@ -312,8 +328,8 @@ function armAnalyserProbe(stationId: string, gen: number): void {
     }
     if (ticks >= ANALYSER_TICKS) {
       clearAnalyserTimer();
+      // Next tune can skip the graph. This one keeps playing.
       writeGainSupport(stationId, false);
-      fallbackFromTaint(gen);
     }
   }, ANALYSER_TICK_MS);
 }
@@ -373,18 +389,6 @@ function maybeFallbackFromCors(gen: number, url: string): boolean {
   const el = recycleAudioForPolicy(false);
   startElement(el, url, gen, "failed");
   return true;
-}
-
-function fallbackFromTaint(gen: number): void {
-  if (generation !== gen || !tuned) return;
-  const url = currentPlayUrl();
-  if (!url) return;
-  usingCors = false;
-  corsFallbackUsed = true;
-  patchRadioVolume({ output: fallbackOutput() });
-  const el = recycleAudioForPolicy(false);
-  patch({ status: "buffering" });
-  startElement(el, url, gen, "failed");
 }
 
 function beginPlayback(
@@ -577,7 +581,7 @@ function reattach(station: PlayableStation) {
     status: "buffering",
     streamUrl: raw,
   });
-  const tryGain = readGainSupport(station.id) !== false;
+  const tryGain = useGainGraph(station.id);
   beginPlayback(raw, gen, tryGain, "reconnect");
   armFailTimer(gen);
   armWatchdog(gen);
@@ -655,7 +659,7 @@ function skipToNextFeedEpisode(): boolean {
     streamUrl: next,
     reconnectAttempt: 0,
   });
-  const tryGain = readGainSupport(tuned.id) !== false;
+  const tryGain = useGainGraph(tuned.id);
   beginPlayback(next, gen, tryGain, "failed");
   armFailTimer(gen);
   armWatchdog(gen);
@@ -732,7 +736,7 @@ export function playRadio(station: PlayableStation) {
     reconnectAttempt: 0,
   });
 
-  const tryGain = readGainSupport(station.id) !== false;
+  const tryGain = useGainGraph(station.id);
 
   if (isFeed && !url) {
     const el = recycleAudioForPolicy(false);
