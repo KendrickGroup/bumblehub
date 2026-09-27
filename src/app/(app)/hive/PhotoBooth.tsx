@@ -40,18 +40,10 @@ import {
   ranchPropsFromManifest,
 } from "@/lib/guestbook/parlor-props";
 import {
-  getParlorScene,
   PARLOR_SCENES,
   type ParlorSceneId,
 } from "@/lib/guestbook/parlor-scenes";
-import {
-  blobToImage,
-  captureMirroredJpeg,
-  compositeWithBackdrop,
-  loadSelfieSegmenter,
-  maskIsUsable,
-  segmentPersonMask,
-} from "@/lib/guestbook/segmentation";
+import { blobToImage, captureMirroredJpeg } from "@/lib/guestbook/capture";
 import { saveGuestbookPhoto } from "@/app/(app)/guestbook/actions";
 import { PortraitOverlayCanvas } from "./PortraitOverlayCanvas";
 
@@ -141,21 +133,43 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function cloneMask(mask: ImageData): ImageData {
-  return new ImageData(
-    new Uint8ClampedArray(mask.data),
-    mask.width,
-    mask.height,
-  );
+const PORTRAIT_TIMEOUT_MS = 12_000;
+
+async function requestPortrait(
+  raw: Blob,
+  sceneId: ParlorSceneId,
+  finish: PortraitFinish,
+): Promise<Blob | null> {
+  const body = new FormData();
+  body.set("image", raw, "still.jpg");
+  body.set("scene", sceneId);
+  body.set("finish", finish);
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), PORTRAIT_TIMEOUT_MS);
+  try {
+    const response = await fetch("/api/hive/portrait", {
+      method: "POST",
+      body,
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    if (!blob.size) return null;
+    return blob;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export function PhotoBooth({ hasProperty }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const selectedSceneUrlRef = useRef<string | null>(null);
+  const selectedSceneIdRef = useRef<ParlorSceneId | null>(null);
   const cleanBlobRef = useRef<Blob | null>(null);
   const rawPersonBlobRef = useRef<Blob | null>(null);
-  const personMaskRef = useRef<ImageData | null>(null);
+  const plateFinishedRef = useRef(false);
   const nextZRef = useRef(1);
   const sceneBusyRef = useRef(false);
 
@@ -177,6 +191,7 @@ export function PhotoBooth({ hasProperty }: Props) {
     null,
   );
   const [sceneBusy, setSceneBusy] = useState(false);
+  const [plateFinished, setPlateFinished] = useState(false);
 
   const [overlays, setOverlays] = useState<PortraitOverlayObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -185,8 +200,6 @@ export function PhotoBooth({ hasProperty }: Props) {
   >(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [textDraft, setTextDraft] = useState("");
-
-  const selectedScene = getParlorScene(selectedSceneId);
 
   const isLiveish =
     step === "live" || step === "camera-loading" || step === "countdown";
@@ -244,7 +257,8 @@ export function PhotoBooth({ hasProperty }: Props) {
     clearOverlays();
     cleanBlobRef.current = null;
     rawPersonBlobRef.current = null;
-    personMaskRef.current = null;
+    plateFinishedRef.current = false;
+    setPlateFinished(false);
     setCleanPreview(null);
     setCabinetPreview(null);
     setWhoName("");
@@ -284,9 +298,6 @@ export function PhotoBooth({ hasProperty }: Props) {
   useEffect(() => {
     if (!hasProperty) return;
     void startCamera();
-    // Warm the segmenter once so the snap is not waiting on a download.
-    // Inference runs on the captured still only — never on the live feed.
-    void loadSelfieSegmenter();
     return () => {
       stopCamera();
     };
@@ -294,8 +305,8 @@ export function PhotoBooth({ hasProperty }: Props) {
   }, [hasProperty]);
 
   useEffect(() => {
-    selectedSceneUrlRef.current = selectedScene?.url ?? null;
-  }, [selectedScene?.url]);
+    selectedSceneIdRef.current = selectedSceneId;
+  }, [selectedSceneId]);
 
   useEffect(() => {
     return () => {
@@ -435,55 +446,53 @@ export function PhotoBooth({ hasProperty }: Props) {
     setEditingTextId(id);
   };
 
-  const ensureMask = async (raw: Blob): Promise<ImageData | null> => {
-    if (personMaskRef.current && maskIsUsable(personMaskRef.current)) {
-      return personMaskRef.current;
-    }
-    const img = await blobToImage(raw);
-    const mask = await segmentPersonMask(img);
-    if (mask && maskIsUsable(mask)) {
-      personMaskRef.current = cloneMask(mask);
-      return personMaskRef.current;
-    }
-    personMaskRef.current = null;
-    return null;
+  const markPlate = (finished: boolean) => {
+    plateFinishedRef.current = finished;
+    setPlateFinished(finished);
   };
 
-  const rebuildComposite = async (sceneId: ParlorSceneId | null) => {
+  const keepFramed = (raw: Blob) => {
+    cleanBlobRef.current = raw;
+    setCleanPreview(raw);
+    markPlate(false);
+    setSceneNote(SCENE_FALLBACK);
+  };
+
+  const revealComposite = async (
+    raw: Blob,
+    sceneId: ParlorSceneId,
+    nextFinish: PortraitFinish,
+  ) => {
+    const composited = await requestPortrait(raw, sceneId, nextFinish);
+    if (!composited) {
+      keepFramed(raw);
+      return;
+    }
+    cleanBlobRef.current = composited;
+    setCleanPreview(composited);
+    markPlate(true);
+    setSceneNote(null);
+  };
+
+  const rebuildComposite = async (
+    sceneId: ParlorSceneId | null,
+    nextFinish: PortraitFinish,
+  ) => {
     const raw = rawPersonBlobRef.current;
-    if (!raw) return;
+    if (!raw || sceneBusyRef.current) return;
 
     if (!sceneId) {
       cleanBlobRef.current = raw;
       setCleanPreview(raw);
+      markPlate(false);
       setSceneNote(null);
       return;
     }
 
-    const scene = getParlorScene(sceneId);
-    if (!scene) return;
-
     setSceneBusy(true);
     sceneBusyRef.current = true;
     try {
-      const img = await blobToImage(raw);
-      const mask = await ensureMask(raw);
-      const composited = mask
-        ? await compositeWithBackdrop(img, mask, scene.url)
-        : null;
-      if (!composited) {
-        cleanBlobRef.current = raw;
-        setCleanPreview(raw);
-        setSceneNote(SCENE_FALLBACK);
-        return;
-      }
-      cleanBlobRef.current = composited;
-      setCleanPreview(composited);
-      setSceneNote(null);
-    } catch {
-      cleanBlobRef.current = raw;
-      setCleanPreview(raw);
-      setSceneNote(SCENE_FALLBACK);
+      await revealComposite(raw, sceneId, nextFinish);
     } finally {
       sceneBusyRef.current = false;
       setSceneBusy(false);
@@ -494,8 +503,23 @@ export function PhotoBooth({ hasProperty }: Props) {
     if (!scenesActive || step === "saving" || sceneBusyRef.current) return;
     setSelectedSceneId(sceneId);
     if (isPosed) {
-      void rebuildComposite(sceneId);
+      void rebuildComposite(sceneId, finish);
     }
+  };
+
+  const chooseFinish = (next: PortraitFinish) => {
+    if (
+      step === "saving" ||
+      step === "countdown" ||
+      step === "developing" ||
+      sceneBusyRef.current
+    ) {
+      return;
+    }
+    setFinish(next);
+    if (!isPosed || !selectedSceneId) return;
+    if (next === finish) return;
+    void rebuildComposite(selectedSceneId, next);
   };
 
   const flashAndShutter = async () => {
@@ -520,16 +544,16 @@ export function PhotoBooth({ hasProperty }: Props) {
     }
 
     rawPersonBlobRef.current = raw;
-    personMaskRef.current = null;
     cleanBlobRef.current = raw;
+    markPlate(false);
     setCleanPreview(raw);
     clearOverlays();
     setWhoName("");
     setSaveError(null);
     setSceneNote(null);
 
-    const sceneUrl = selectedSceneUrlRef.current;
-    if (!sceneUrl) {
+    const sceneId = selectedSceneIdRef.current;
+    if (!sceneId) {
       stopCamera();
       setStep("posed");
       return;
@@ -537,29 +561,9 @@ export function PhotoBooth({ hasProperty }: Props) {
 
     flushSync(() => setStep("developing"));
     stopCamera();
-    // Paint the developing plate before inference, which can block the thread.
+    // Let the developing plate paint before the request leaves.
     await sleep(80);
-    const started = performance.now();
-    try {
-      const img = await blobToImage(raw);
-      const mask = await segmentPersonMask(img);
-      const usable = !!mask && maskIsUsable(mask);
-      if (usable && mask) personMaskRef.current = cloneMask(mask);
-      const composited =
-        usable && mask
-          ? await compositeWithBackdrop(img, mask, sceneUrl)
-          : null;
-      if (composited) {
-        cleanBlobRef.current = composited;
-        setCleanPreview(composited);
-      } else {
-        setSceneNote(SCENE_FALLBACK);
-      }
-    } catch {
-      setSceneNote(SCENE_FALLBACK);
-    }
-    const hold = 450 - (performance.now() - started);
-    if (hold > 0) await sleep(hold);
+    await revealComposite(raw, sceneId, finish);
     setStep("posed");
   };
 
@@ -592,7 +596,9 @@ export function PhotoBooth({ hasProperty }: Props) {
     setEditingTextId(null);
     try {
       const flattened =
-        (await flattenPortraitWithProps(clean, overlays, finish)) ?? clean;
+        (await flattenPortraitWithProps(clean, overlays, finish, 0.92, {
+          plateAlreadyFinished: plateFinishedRef.current,
+        })) ?? clean;
       const finishedImg = await blobToImage(flattened);
       const cabinet = await renderCabinetCard(finishedImg);
 
@@ -818,16 +824,18 @@ export function PhotoBooth({ hasProperty }: Props) {
           <div className="relative rounded-[22px] bg-gradient-to-b from-[#4A3323] to-[#3E2A1E] p-[18px] shadow-[0_10px_0_#2C1D14,0_22px_40px_rgba(44,29,20,.35)] sm:rounded-[26px] sm:p-[22px]">
             <MarqueeBulbs />
             <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] bg-[#201A14] sm:rounded-[14px]">
-              <div className="absolute inset-0" style={finishFilterStyle}>
+              <div className="absolute inset-0">
                 {isLiveish && (
-                  <video
-                    ref={videoRef}
-                    playsInline
-                    muted
-                    autoPlay
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{ transform: "scaleX(-1)" }}
-                  />
+                  <div className="absolute inset-0" style={finishFilterStyle}>
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      muted
+                      autoPlay
+                      className="absolute inset-0 h-full w-full object-cover"
+                      style={{ transform: "scaleX(-1)" }}
+                    />
+                  </div>
                 )}
 
                 {cleanUrl && (step === "developing" || isPosed || isHung) && (
@@ -836,29 +844,32 @@ export function PhotoBooth({ hasProperty }: Props) {
                     src={cleanUrl}
                     alt="Your portrait"
                     className="absolute inset-0 h-full w-full object-cover"
+                    style={plateFinished ? undefined : finishFilterStyle}
                     draggable={false}
                   />
                 )}
 
                 {(isPosed || isHung) && (
-                  <PortraitOverlayCanvas
-                    objects={overlays}
-                    selectedId={selectedId}
-                    onSelect={(id) => {
-                      setSelectedId(id);
-                      if (id !== editingTextId) setEditingTextId(null);
-                    }}
-                    onChangeObject={updateObject}
-                    onBringToFront={bringFront}
-                    onDelete={deleteObject}
-                    onCommitGesture={commitGesture}
-                    onGestureStart={snapshotBefore}
-                    onEditText={onEditText}
-                    editingTextId={editingTextId}
-                    textDraft={textDraft}
-                    onTextDraftChange={setTextDraft}
-                    enabled={step === "posed"}
-                  />
+                  <div className="absolute inset-0" style={finishFilterStyle}>
+                    <PortraitOverlayCanvas
+                      objects={overlays}
+                      selectedId={selectedId}
+                      onSelect={(id) => {
+                        setSelectedId(id);
+                        if (id !== editingTextId) setEditingTextId(null);
+                      }}
+                      onChangeObject={updateObject}
+                      onBringToFront={bringFront}
+                      onDelete={deleteObject}
+                      onCommitGesture={commitGesture}
+                      onGestureStart={snapshotBefore}
+                      onEditText={onEditText}
+                      editingTextId={editingTextId}
+                      textDraft={textDraft}
+                      onTextDraftChange={setTextDraft}
+                      enabled={step === "posed"}
+                    />
+                  </div>
                 )}
               </div>
 
@@ -893,8 +904,10 @@ export function PhotoBooth({ hasProperty }: Props) {
                 </div>
               )}
               {sceneBusy && (
-                <div className="absolute inset-0 z-[6] flex items-center justify-center bg-[#201A14]/35 text-sm text-[#FAF3E3]">
-                  Changing scene…
+                <div className="absolute inset-0 z-[6] flex items-center justify-center bg-[#201A14]/45">
+                  <p className="font-[family-name:var(--font-rye)] text-3xl tracking-wide text-[#F4B400] sm:text-4xl">
+                    Developing…
+                  </p>
                 </div>
               )}
             </div>
@@ -1004,9 +1017,10 @@ export function PhotoBooth({ hasProperty }: Props) {
                   disabled={
                     step === "saving" ||
                     step === "countdown" ||
-                    step === "developing"
+                    step === "developing" ||
+                    sceneBusy
                   }
-                  onClick={() => setFinish(f)}
+                  onClick={() => chooseFinish(f)}
                   className={`inline-flex items-center gap-2 rounded-full border-2 bg-[#FFF8EA] py-1.5 pr-3.5 pl-2 text-[13px] font-semibold text-[#3E2A1E] transition ${
                     finish === f
                       ? "border-[#F4B400] shadow-[0_0_0_3px_rgba(244,180,0,.3)]"

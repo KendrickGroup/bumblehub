@@ -10,6 +10,22 @@ const RADIO_FRAME_ANCESTORS =
   "frame-ancestors 'self' https://latigocowboy.com https://www.latigocowboy.com https://*.myshopify.com";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["onnxruntime-web", "sharp"],
+  outputFileTracingIncludes: {
+    "/api/hive/portrait": [
+      "./models/selfie-segmentation-fp16.onnx",
+      "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm",
+      "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs",
+    ],
+  },
+  outputFileTracingExcludes: {
+    "/api/hive/portrait": [
+      "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm",
+      "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jspi.wasm",
+      "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.wasm",
+      "./node_modules/@mediapipe/**",
+    ],
+  },
   env: {
     NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "dev",
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
