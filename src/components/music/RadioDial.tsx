@@ -380,7 +380,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   };
 
   const onLasso = async () => {
-    if (!song || lassoBusy) return;
+    // Same door as the Home mark: the public radio never ropes a song.
+    if (publicMode || !song || lassoBusy) return;
     setLassoBusy(true);
     try {
       const response = await fetch("/api/radio/lasso", {
@@ -824,7 +825,23 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   <p className="t">{spinTitle}</p>
                   <p className="a">{spinArtist}</p>
                 </div>
-                {showPrivateLasso ? (
+                {/* SIGNED-IN ONLY. Same gate as the Home mark above: publicMode
+                    nulls this whole branch, so LASSO cannot render on
+                    radio.latigocowboy.com at any width. The public plaque
+                    keeps Roundup. */}
+                {publicMode ? (
+                  showPublicRoundup ? (
+                    <button
+                      type="button"
+                      className="radio-lasso-key"
+                      onClick={onRoundup}
+                      aria-label="Roundup"
+                    >
+                      <RoundupRopeMark size={18} />
+                      ROUNDUP
+                    </button>
+                  ) : null
+                ) : showPrivateLasso ? (
                   <button
                     type="button"
                     className="radio-lasso-key"
@@ -835,28 +852,20 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     <RoundupRopeMark size={18} />
                     LASSO
                   </button>
-                ) : showPublicRoundup ? (
-                  <button
-                    type="button"
-                    className="radio-lasso-key"
-                    onClick={onRoundup}
-                    aria-label="Roundup"
-                  >
-                    <RoundupRopeMark size={18} />
-                    ROUNDUP
-                  </button>
                 ) : null}
               </div>
-              {lassoNote ? (
+              {publicMode ? (
+                roundupHint ? (
+                  <p className="radio-lasso-line" role="status">
+                    Follow The Latigo Roundup — the ranch keeps it fresh.
+                  </p>
+                ) : null
+              ) : lassoNote ? (
                 <p className="radio-lasso-line" role="status">
                   {lassoNote.includes("Roped") ? (
                     <span className="radio-lasso-check">✓ </span>
                   ) : null}
                   {lassoNote}
-                </p>
-              ) : roundupHint ? (
-                <p className="radio-lasso-line" role="status">
-                  Follow The Latigo Roundup — the ranch keeps it fresh.
                 </p>
               ) : null}
             </div>
