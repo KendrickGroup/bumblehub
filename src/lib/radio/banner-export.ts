@@ -13,7 +13,9 @@ export const BANNER_EXPORT_PX = 1080;
 const JPEG_QUALITY = 85;
 const FETCH_MS = 12_000;
 const MAX_IMAGE_BYTES = 20_000_000;
-const RENDER_CONCURRENCY = 4;
+/** A few photos in flight, written out as each one finishes, so the whole
+ *  catalog is not held in memory at once. */
+const RENDER_CONCURRENCY = 3;
 
 export type BannerExportRow = {
   title: string;
@@ -190,12 +192,12 @@ async function loadShopImage(url: string): Promise<Buffer | null> {
   }
 }
 
-async function mapPool<T, R>(
+async function mapPool<T>(
   items: T[],
   limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
+  fn: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
   let cursor = 0;
   const workers = Array.from(
     { length: Math.min(limit, items.length) },
@@ -203,12 +205,11 @@ async function mapPool<T, R>(
       while (cursor < items.length) {
         const index = cursor;
         cursor += 1;
-        out[index] = await fn(items[index]!);
+        await fn(items[index]!, index);
       }
     },
   );
   await Promise.all(workers);
-  return out;
 }
 
 type ZipEntry = { name: string; data: Buffer };
@@ -227,15 +228,25 @@ function dosStamp(date: Date): { time: number; date: number } {
   };
 }
 
-/** Stored (uncompressed) zip. The jpegs are already compressed. */
-export function zipStored(entries: ZipEntry[], at = new Date()): Buffer {
+type CentralEntry = {
+  name: Buffer;
+  crc: number;
+  size: number;
+  offset: number;
+};
+
+/**
+ * Stored (uncompressed) zip written one file at a time. JPEGs are already
+ * compressed, and each file leaves memory once its local header is emitted.
+ */
+export function createZipWriter(at = new Date()) {
   const stamp = dosStamp(at);
-  const locals: Buffer[] = [];
-  const centrals: Buffer[] = [];
+  const centrals: CentralEntry[] = [];
   let offset = 0;
-  for (const entry of entries) {
-    const name = Buffer.from(entry.name, "utf8");
-    const crc = crc32(entry.data) >>> 0;
+
+  const push = (name: string, data: Buffer): Buffer => {
+    const nameBuf = Buffer.from(name, "utf8");
+    const crc = crc32(data) >>> 0;
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
@@ -244,55 +255,120 @@ export function zipStored(entries: ZipEntry[], at = new Date()): Buffer {
     local.writeUInt16LE(stamp.time, 10);
     local.writeUInt16LE(stamp.date, 12);
     local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(entry.data.length, 18);
-    local.writeUInt32LE(entry.data.length, 22);
-    local.writeUInt16LE(name.length, 26);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
     local.writeUInt16LE(0, 28);
-    locals.push(local, name, entry.data);
+    centrals.push({ name: nameBuf, crc, size: data.length, offset });
+    offset += local.length + nameBuf.length + data.length;
+    return Buffer.concat([local, nameBuf, data]);
+  };
 
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(0, 8);
-    central.writeUInt16LE(0, 10);
-    central.writeUInt16LE(stamp.time, 12);
-    central.writeUInt16LE(stamp.date, 14);
-    central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(entry.data.length, 20);
-    central.writeUInt32LE(entry.data.length, 24);
-    central.writeUInt16LE(name.length, 28);
-    central.writeUInt16LE(0, 30);
-    central.writeUInt16LE(0, 32);
-    central.writeUInt16LE(0, 34);
-    central.writeUInt16LE(0, 36);
-    central.writeUInt32LE(0, 38);
-    central.writeUInt32LE(offset, 42);
-    centrals.push(central, name);
-    offset += local.length + name.length + entry.data.length;
+  const finish = (): Buffer => {
+    const parts: Buffer[] = [];
+    const centralStart = offset;
+    for (const entry of centrals) {
+      const central = Buffer.alloc(46);
+      central.writeUInt32LE(0x02014b50, 0);
+      central.writeUInt16LE(20, 4);
+      central.writeUInt16LE(20, 6);
+      central.writeUInt16LE(0, 8);
+      central.writeUInt16LE(0, 10);
+      central.writeUInt16LE(stamp.time, 12);
+      central.writeUInt16LE(stamp.date, 14);
+      central.writeUInt32LE(entry.crc, 16);
+      central.writeUInt32LE(entry.size, 20);
+      central.writeUInt32LE(entry.size, 24);
+      central.writeUInt16LE(entry.name.length, 28);
+      central.writeUInt16LE(0, 30);
+      central.writeUInt16LE(0, 32);
+      central.writeUInt16LE(0, 34);
+      central.writeUInt16LE(0, 36);
+      central.writeUInt32LE(0, 38);
+      central.writeUInt32LE(entry.offset, 42);
+      parts.push(central, entry.name);
+      offset += central.length + entry.name.length;
+    }
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(0, 4);
+    end.writeUInt16LE(0, 6);
+    end.writeUInt16LE(centrals.length, 8);
+    end.writeUInt16LE(centrals.length, 10);
+    end.writeUInt32LE(offset - centralStart, 12);
+    end.writeUInt32LE(centralStart, 16);
+    end.writeUInt16LE(0, 20);
+    parts.push(end);
+    return Buffer.concat(parts);
+  };
+
+  return { push, finish };
+}
+
+/** Stored (uncompressed) zip. The jpegs are already compressed. */
+export function zipStored(entries: ZipEntry[], at = new Date()): Buffer {
+  const writer = createZipWriter(at);
+  const parts = entries.map((entry) => writer.push(entry.name, entry.data));
+  parts.push(writer.finish());
+  return Buffer.concat(parts);
+}
+
+type ExportJob = {
+  product: BannerProduct;
+  handle: string;
+  stem: string;
+};
+
+async function renderJob(
+  job: ExportJob,
+  loadImage: (url: string) => Promise<Buffer | null>,
+): Promise<{ row: BannerExportRow; jpeg: Buffer | null }> {
+  const row: BannerExportRow = {
+    title: job.product.name ?? "",
+    handle: job.handle,
+    product_url: cleanProductUrl(job.product.url ?? ""),
+    pitch: job.product.pitch ?? "",
+    image_file: "",
+    original_image_url: job.product.image ?? "",
+    note: "",
+  };
+  if (!job.product.frame) {
+    row.note = "no saved frame";
+    return { row, jpeg: null };
   }
-  const centralBuf = Buffer.concat(centrals);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(0, 4);
-  end.writeUInt16LE(0, 6);
-  end.writeUInt16LE(entries.length, 8);
-  end.writeUInt16LE(entries.length, 10);
-  end.writeUInt32LE(centralBuf.length, 12);
-  end.writeUInt32LE(offset, 16);
-  end.writeUInt16LE(0, 20);
-  return Buffer.concat([...locals, centralBuf, end]);
+  const source = (job.product.image ?? "").trim();
+  if (!source || !isShopImageUrl(source)) {
+    row.note = "could not read the photo";
+    return { row, jpeg: null };
+  }
+  const bytes = await loadImage(source);
+  if (!bytes) {
+    row.note = "could not read the photo";
+    return { row, jpeg: null };
+  }
+  try {
+    const jpeg = await renderBannerSquare(bytes, job.product.frame);
+    row.image_file = `${job.stem}.jpg`;
+    return { row, jpeg };
+  } catch {
+    row.note = "could not apply the frame";
+    return { row, jpeg: null };
+  }
 }
 
 /**
  * One row per pick. A saved frame becomes a 1080 JPEG named for the handle.
  * No saved frame, or a photo we cannot read, stays in the CSV with a note
  * and no file so one bad product does not fail the download.
+ *
+ * Files are handed to `emit` as each square finishes. The caller writes them
+ * into the zip and can drop the bytes. manifest.csv is emitted last.
  */
-export async function buildBannerExport(
+export async function runBannerExport(
   products: BannerProduct[],
+  emit: (name: string, data: Buffer) => void,
   loadImage: (url: string) => Promise<Buffer | null> = loadShopImage,
-): Promise<{ zip: Buffer; rows: BannerExportRow[] }> {
+): Promise<BannerExportRow[]> {
   const used = new Set<string>();
   const planned = products.map((product, index) => {
     const handle = (product.handle ?? "").trim() || `product-${index + 1}`;
@@ -300,50 +376,63 @@ export async function buildBannerExport(
     return { product, handle, stem };
   });
 
-  const rows = await mapPool(planned, RENDER_CONCURRENCY, async (job) => {
-    const row: BannerExportRow = {
-      title: job.product.name ?? "",
-      handle: job.handle,
-      product_url: cleanProductUrl(job.product.url ?? ""),
-      pitch: job.product.pitch ?? "",
-      image_file: "",
-      original_image_url: job.product.image ?? "",
-      note: "",
-    };
-    if (!job.product.frame) {
-      row.note = "no saved frame";
-      return { row, jpeg: null as Buffer | null };
-    }
-    const source = (job.product.image ?? "").trim();
-    if (!source || !isShopImageUrl(source)) {
-      row.note = "could not read the photo";
-      return { row, jpeg: null };
-    }
-    const bytes = await loadImage(source);
-    if (!bytes) {
-      row.note = "could not read the photo";
-      return { row, jpeg: null };
-    }
-    try {
-      const jpeg = await renderBannerSquare(bytes, job.product.frame);
-      row.image_file = `${job.stem}.jpg`;
-      return { row, jpeg };
-    } catch {
-      row.note = "could not apply the frame";
-      return { row, jpeg: null };
+  const rows = new Array<BannerExportRow>(planned.length);
+  let writeChain = Promise.resolve();
+  const emitSerial = (name: string, data: Buffer) => {
+    writeChain = writeChain.then(() => {
+      emit(name, data);
+    });
+  };
+
+  await mapPool(planned, RENDER_CONCURRENCY, async (job, index) => {
+    const rendered = await renderJob(job, loadImage);
+    rows[index] = rendered.row;
+    if (rendered.jpeg && rendered.row.image_file) {
+      emitSerial(rendered.row.image_file, rendered.jpeg);
     }
   });
+  await writeChain;
+  emit(
+    "manifest.csv",
+    Buffer.from(bannerExportCsv(rows), "utf8"),
+  );
+  return rows;
+}
 
-  const files: ZipEntry[] = [
-    {
-      name: "manifest.csv",
-      data: Buffer.from(bannerExportCsv(rows.map((item) => item.row)), "utf8"),
+export async function buildBannerExport(
+  products: BannerProduct[],
+  loadImage: (url: string) => Promise<Buffer | null> = loadShopImage,
+): Promise<{ zip: Buffer; rows: BannerExportRow[] }> {
+  const writer = createZipWriter();
+  const parts: Buffer[] = [];
+  const rows = await runBannerExport(
+    products,
+    (name, data) => {
+      parts.push(writer.push(name, data));
     },
-  ];
-  for (const item of rows) {
-    if (item.jpeg && item.row.image_file) {
-      files.push({ name: item.row.image_file, data: item.jpeg });
-    }
-  }
-  return { zip: zipStored(files), rows: rows.map((item) => item.row) };
+    loadImage,
+  );
+  parts.push(writer.finish());
+  return { zip: Buffer.concat(parts), rows };
+}
+
+/** Streams the zip as each square finishes, instead of buffering the catalog. */
+export function openBannerExport(
+  products: BannerProduct[],
+  loadImage: (url: string) => Promise<Buffer | null> = loadShopImage,
+): ReadableStream<Uint8Array> {
+  const writer = createZipWriter();
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        await runBannerExport(products, (name, data) => {
+          controller.enqueue(new Uint8Array(writer.push(name, data)));
+        }, loadImage);
+        controller.enqueue(new Uint8Array(writer.finish()));
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+  });
 }

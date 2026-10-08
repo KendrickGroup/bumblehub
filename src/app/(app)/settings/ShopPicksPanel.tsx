@@ -291,7 +291,28 @@ export function ShopPicksPanel({
       });
       const type = response.headers.get("content-type") ?? "";
       if (!response.ok || !type.includes("zip")) {
-        setExportNote("Could not build the download.");
+        let detail = `Could not build the download (${response.status}).`;
+        const text = await response.text();
+        try {
+          const body = JSON.parse(text) as {
+            error?: string;
+            succeeded?: number;
+            skipped?: number;
+          };
+          if (body.error) {
+            detail = body.error;
+            if (typeof body.succeeded === "number") {
+              const ready = body.succeeded;
+              const skipped = body.skipped ?? 0;
+              detail += ` ${ready} image${ready === 1 ? "" : "s"} ready, ${skipped} skipped.`;
+            }
+          }
+        } catch {
+          if (text && !text.trimStart().startsWith("<")) {
+            detail = text.slice(0, 240);
+          }
+        }
+        setExportNote(detail);
         return;
       }
       const blob = await response.blob();

@@ -12,10 +12,18 @@ const RADIO_FRAME_ANCESTORS =
 const nextConfig: NextConfig = {
   serverExternalPackages: ["onnxruntime-web", "sharp"],
   outputFileTracingIncludes: {
+    // sharp's .node file loads, then dlopen fails unless libvips sits beside
+    // it. The tracer follows the .node and drops the shared library.
+    "/api/settings/shop/export": [
+      "./node_modules/@img/sharp-linux-x64/**/*",
+      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
+    ],
     "/api/hive/portrait": [
       "./models/selfie-segmentation-fp16.onnx",
       "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm",
       "./node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs",
+      "./node_modules/@img/sharp-linux-x64/**/*",
+      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
     ],
   },
   outputFileTracingExcludes: {
