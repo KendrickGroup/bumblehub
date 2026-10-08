@@ -4,7 +4,6 @@ import { parseBannerFrame, type BannerFrame } from "./banner-frame";
 
 export const BANNER_ART_BUCKET = "banner-art";
 export const BANNER_MAX_IMAGES = 24;
-export const BANNER_MAX_PICKS = 24;
 export const BANNER_LINE_MAX = 200;
 export const BANNER_NAME_MAX = 80;
 export const BANNER_PITCH_MAX = 140;
@@ -280,7 +279,6 @@ export function parseBannerPicks(dashboardLayout: unknown): BannerProduct[] {
     if (!pick || seen.has(pick.handle!)) continue;
     seen.add(pick.handle!);
     out.push(pick);
-    if (out.length >= BANNER_MAX_PICKS) break;
   }
   return out;
 }
@@ -456,7 +454,7 @@ export async function saveBannerLayout(
     layout.banner_images = patch.products.map((item) => item.image);
   }
   if (patch.picks) {
-    layout.banner_picks = patch.picks.slice(0, BANNER_MAX_PICKS);
+    layout.banner_picks = patch.picks;
   }
   if (patch.lines) layout.banner_lines = patch.lines;
   if (

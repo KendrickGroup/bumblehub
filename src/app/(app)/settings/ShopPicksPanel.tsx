@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import {
   BANNER_LINE_MAX,
-  BANNER_MAX_PICKS,
   BANNER_PITCH_MAX,
   BANNER_DEFAULT_LINE,
   type BannerProduct,
@@ -278,7 +277,6 @@ export function ShopPicksPanel({
   };
 
   const pickedHandles = new Set(picks.map((item) => item.handle));
-  const full = picks.length >= BANNER_MAX_PICKS;
 
   return (
     <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
@@ -452,7 +450,6 @@ export function ShopPicksPanel({
         {term.trim()
           ? "Search results"
           : "Best sellers first. Search for anything outside them."}
-        {full ? ` · the banner holds ${BANNER_MAX_PICKS}` : ""}
       </p>
 
       {loadingCatalog ? (
@@ -475,7 +472,7 @@ export function ShopPicksPanel({
                       : "border-stone-200"
                   }`}
                   aria-pressed={picked}
-                  disabled={busy || (full && !picked)}
+                  disabled={busy}
                   onClick={() => void toggle(product)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

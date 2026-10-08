@@ -8,7 +8,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultPropertyIdForUser } from "@/lib/property";
 import {
-  BANNER_MAX_PICKS,
   BANNER_NAME_MAX,
   BANNER_PITCH_MAX,
   fetchBanner,
@@ -86,12 +85,6 @@ export async function POST(request: Request) {
   };
 
   if (action === "add") {
-    if (picks.length >= BANNER_MAX_PICKS) {
-      return NextResponse.json(
-        { error: `The banner holds ${BANNER_MAX_PICKS} products.` },
-        { status: 400 },
-      );
-    }
     const product = (body.product ?? {}) as Record<string, unknown>;
     const nextHandle = String(product.handle ?? "").trim().slice(0, 120);
     const name = stripBannerEmoji(String(product.title ?? "")).slice(
