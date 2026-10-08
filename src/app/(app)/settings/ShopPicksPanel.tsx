@@ -126,6 +126,8 @@ export function ShopPicksPanel({
   const [busy, setBusy] = useState(false);
   const [framing, setFraming] = useState<BannerProduct | null>(null);
   const [lines, setLines] = useState(initialLines.join("\n"));
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pitchTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,6 +280,59 @@ export function ShopPicksPanel({
 
   const pickedHandles = new Set(picks.map((item) => item.handle));
 
+  const downloadAll = async () => {
+    if (exporting || picks.length === 0) return;
+    setExporting(true);
+    setExportNote("Preparing your download…");
+    setError(null);
+    try {
+      const response = await fetch("/api/settings/shop/export", {
+        cache: "no-store",
+      });
+      const type = response.headers.get("content-type") ?? "";
+      if (!response.ok || !type.includes("zip")) {
+        setExportNote("Could not build the download.");
+        return;
+      }
+      const blob = await response.blob();
+      const filename = "latigo-banner-products.zip";
+      const file = new File([blob], filename, { type: "application/zip" });
+      const ipad =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      if (
+        ipad &&
+        typeof navigator.share === "function" &&
+        navigator.canShare?.({ files: [file] })
+      ) {
+        try {
+          await navigator.share({ files: [file], title: "Latigo banner products" });
+          setExportNote("Choose Save to Files if the sheet asks where to keep it.");
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            setExportNote(null);
+            return;
+          }
+          throw err;
+        }
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setExportNote("Download started.");
+    } catch {
+      setExportNote("Could not build the download.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="mt-5 rounded-[16px] border border-stone-100 bg-[#FAF8F3] px-4 py-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -287,6 +342,24 @@ export function ShopPicksPanel({
         <span className="text-xs font-semibold text-stone-700">
           {picks.length} in rotation
         </span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center rounded-full border border-[#C9B98F] bg-[#F6EFDC] px-4 text-sm font-semibold text-[#3E2F20] disabled:opacity-50"
+          disabled={!hasProperty || exporting || picks.length === 0}
+          aria-busy={exporting}
+          onClick={() => void downloadAll()}
+        >
+          {exporting
+            ? "Preparing your download…"
+            : "Download all (images + CSV)"}
+        </button>
+        {exportNote ? (
+          <p className="text-sm text-stone-600" role="status">
+            {exportNote}
+          </p>
+        ) : null}
       </div>
       <p className="mt-1 text-sm text-stone-600">
         {source === "picks"
