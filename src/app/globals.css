@@ -1491,6 +1491,12 @@ body {
   min-width: 0;
   flex: 1;
 }
+.radio-plaque-keys {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
 .radio-plaque-song .t {
   margin-top: 3px;
   display: -webkit-box;

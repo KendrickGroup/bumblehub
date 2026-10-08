@@ -13,7 +13,6 @@ import {
   BANNER_ROTATE_DEFAULT_SEC,
   DEFAULT_BANNER_CARD,
 } from "@/lib/radio/banner";
-import { fetchRoundupPlaylist } from "@/lib/radio/roundup-playlist";
 
 export async function GET() {
   try {
@@ -64,7 +63,6 @@ export async function GET() {
     const wx_stream_url = await ensureWxStreamUrl(service, propertyId);
     const chart_art = await fetchChartArt(service, propertyId);
     const banner = await ensureBannerLines(service, propertyId);
-    const roundup_playlist_url = await fetchRoundupPlaylist(service, propertyId);
     return NextResponse.json({
       stations,
       wx_stream_url,
@@ -75,7 +73,7 @@ export async function GET() {
       banner_rotate_seconds: banner.rotateSeconds,
       banner_show_price: banner.card.showPrice,
       banner_buy_label: banner.card.buyLabel,
-      roundup_playlist_url,
+      roundup_playlist_url: "",
     });
   } catch {
     return NextResponse.json({

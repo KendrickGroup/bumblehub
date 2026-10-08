@@ -54,9 +54,10 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
   const [bannerCard, setBannerCard] = useState<BannerCardSettings>(
     DEFAULT_BANNER_CARD,
   );
-  // Settings wins, the env var is the fallback, empty hides the ROUNDUP key.
+  // The public radio never holds the playlist. On the cabin, Settings wins,
+  // the env var is the fallback, and empty hides the ROUNDUP key.
   const [roundupPlaylist, setRoundupPlaylist] = useState(
-    roundupPlaylistUrl(null),
+    publicMode ? "" : roundupPlaylistUrl(null),
   );
   const [loaded, setLoaded] = useState(false);
   const [hasProperty, setHasProperty] = useState(true);
@@ -79,14 +80,16 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
       setBannerLines(Array.isArray(body.banner_lines) ? body.banner_lines.filter((u): u is string => typeof u === "string") : []);
       setBannerRotateSeconds(parseBannerRotateSeconds(body.banner_rotate_seconds));
       setBannerCard(cardFrom(body));
-      setRoundupPlaylist(roundupPlaylistUrl(body.roundup_playlist_url));
+      setRoundupPlaylist(
+        publicMode ? "" : roundupPlaylistUrl(body.roundup_playlist_url),
+      );
       setHasProperty(body.hasProperty !== false);
     } catch {
       // Keep last known list.
     } finally {
       setLoaded(true);
     }
-  }, [path]);
+  }, [path, publicMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +116,9 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
           parseBannerRotateSeconds(body.banner_rotate_seconds),
         );
         setBannerCard(cardFrom(body));
-        setRoundupPlaylist(roundupPlaylistUrl(body.roundup_playlist_url));
+        setRoundupPlaylist(
+          publicMode ? "" : roundupPlaylistUrl(body.roundup_playlist_url),
+        );
         setHasProperty(body.hasProperty !== false);
       } catch {
         // Keep last known list.
@@ -124,7 +129,7 @@ export function useRadioStations(opts?: { all?: boolean; publicMode?: boolean })
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, publicMode]);
 
   useEffect(() => {
     const onChange = () => {

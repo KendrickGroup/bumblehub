@@ -100,8 +100,6 @@ const RadioHandleModal = dynamic(
 const NEEDLE_EASE = "left 550ms cubic-bezier(0.4, 0.1, 0.2, 1)";
 const FM_NUMS = ["88", "92", "96", "100", "104", "108"];
 const AM_NUMS = ["540", "700", "900", "1100", "1400", "1700"];
-const ROUNDUP_HINT_KEY = "latigo-roundup-hint";
-
 function stationTown(cityLabel: string | null | undefined): string {
   if (!cityLabel) return "";
   return cityLabel.split(",")[0]?.trim() || cityLabel.trim();
@@ -134,7 +132,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [stationWx, setStationWx] = useState<StationWx | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
   const [lassoNote, setLassoNote] = useState<string | null>(null);
-  const [roundupHint, setRoundupHint] = useState(false);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
 
   // Tags every play and banner event with the radio it came from.
@@ -313,17 +310,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const showPrivateLasso = Boolean(
     !publicMode && !wxFace && !isFeed && song?.title,
   );
-  const showPublicRoundup = Boolean(publicMode && roundupPlaylist && !wxFace);
-
-  useEffect(() => {
-    if (!showPublicRoundup) return;
-    try {
-      if (window.sessionStorage.getItem(ROUNDUP_HINT_KEY)) return;
-    } catch {
-      // private mode / blocked storage still shows the first-paint hint
-    }
-    setRoundupHint(true);
-  }, [showPublicRoundup]);
+  const showCabinRoundup = Boolean(!publicMode && roundupPlaylist && !wxFace);
 
   const retuneFx = useCallback(() => {
     setCrackle(false);
@@ -413,14 +400,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   };
 
   const onRoundup = () => {
-    if (!roundupPlaylist) return;
+    if (publicMode || !roundupPlaylist) return;
     window.open(roundupPlaylist, "_blank", "noopener,noreferrer");
-    setRoundupHint(false);
-    try {
-      window.sessionStorage.setItem(ROUNDUP_HINT_KEY, "1");
-    } catch {
-      // ignore
-    }
   };
 
   const miles =
@@ -825,49 +806,45 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   <p className="t">{spinTitle}</p>
                   <p className="a">{spinArtist}</p>
                 </div>
-                {/* SIGNED-IN ONLY. Same gate as the Home mark above: publicMode
-                    nulls this whole branch, so LASSO cannot render on
-                    radio.latigocowboy.com at any width. The public plaque
-                    keeps Roundup. */}
-                {publicMode ? (
-                  showPublicRoundup ? (
-                    <button
-                      type="button"
-                      className="radio-lasso-key"
-                      onClick={onRoundup}
-                      aria-label="Roundup"
-                    >
-                      <RoundupRopeMark size={18} />
-                      ROUNDUP
-                    </button>
-                  ) : null
-                ) : showPrivateLasso ? (
-                  <button
-                    type="button"
-                    className="radio-lasso-key"
-                    disabled={lassoBusy}
-                    onClick={() => void onLasso()}
-                    aria-label="Lasso"
-                  >
-                    <RoundupRopeMark size={18} />
-                    LASSO
-                  </button>
-                ) : null}
+                {/* SIGNED-IN ONLY. Same gate as the Home mark: the public plaque
+                    has no Roundup key and no follow line, so guests are not
+                    pointed at the playlist. */}
+                {publicMode || (!showCabinRoundup && !showPrivateLasso) ? null : (
+                  <div className="radio-plaque-keys">
+                    {showCabinRoundup ? (
+                      <button
+                        type="button"
+                        className="radio-lasso-key"
+                        onClick={onRoundup}
+                        aria-label="Roundup"
+                      >
+                        <RoundupRopeMark size={18} />
+                        ROUNDUP
+                      </button>
+                    ) : null}
+                    {showPrivateLasso ? (
+                      <button
+                        type="button"
+                        className="radio-lasso-key"
+                        disabled={lassoBusy}
+                        onClick={() => void onLasso()}
+                        aria-label="Lasso"
+                      >
+                        <RoundupRopeMark size={18} />
+                        LASSO
+                      </button>
+                    ) : null}
+                  </div>
+                )}
               </div>
-              {publicMode ? (
-                roundupHint ? (
-                  <p className="radio-lasso-line" role="status">
-                    Follow The Latigo Roundup — the ranch keeps it fresh.
-                  </p>
-                ) : null
-              ) : lassoNote ? (
+              {publicMode || !lassoNote ? null : (
                 <p className="radio-lasso-line" role="status">
                   {lassoNote.includes("Roped") ? (
                     <span className="radio-lasso-check">✓ </span>
                   ) : null}
                   {lassoNote}
                 </p>
-              ) : null}
+              )}
             </div>
           </div>
 
