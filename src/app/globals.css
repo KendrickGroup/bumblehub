@@ -1855,21 +1855,6 @@ body {
   color: #EFE3C8;
 }
 
-.radio-public-foot {
-  flex-shrink: 0;
-  margin-top: 16px;
-  padding: 0 8px;
-  text-align: center;
-  font-family: var(--font-elite), "Special Elite", cursive;
-  font-size: 11px;
-  line-height: 1.45;
-  color: #5a4632;
-}
-.radio-public-foot a {
-  color: inherit;
-  text-decoration: none;
-}
-
 .radio-handle-modal {
   position: fixed;
   inset: 0;
@@ -2451,9 +2436,6 @@ body {
   .radio-play-honey svg {
     width: 1.35rem;
     height: 1.35rem;
-  }
-  .radio-public-foot {
-    display: none;
   }
   /* In-app handle stays off phones; public /radio keeps it. */
   .radio-world.app-radio .radio-carry {

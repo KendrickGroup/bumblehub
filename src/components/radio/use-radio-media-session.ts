@@ -22,6 +22,7 @@ export function useRadioMediaSession(
   station: RadioStation | null,
   track: RadioNowPlayingTrack | null,
   feedTitle: string | null,
+  publicMode = false,
 ) {
   const player = useRadioPlayer();
   const wx = isWxBroadcast(player.stationId) || isWxBroadcast(station?.id);
@@ -49,7 +50,9 @@ export function useRadioMediaSession(
           ? `${face.readoutPrimary}${face.readoutFreq ? " " + face.readoutFreq : ""}`
           : RADIO_APP_NAME);
     const artist = wx
-      ? WX_NOW_PLAYING_CONTEXT
+      ? publicMode
+        ? "NOAA Weather Radio"
+        : WX_NOW_PLAYING_CONTEXT
       : track?.artist || RADIO_APP_NAME;
     const wxArt = wx ? wxBadgeArtworkDataUrl() : "";
     const artwork = wx
@@ -91,5 +94,5 @@ export function useRadioMediaSession(
         // ignore
       }
     };
-  }, [station, track, feedTitle, player.status, wx]);
+  }, [station, track, feedTitle, player.status, wx, publicMode]);
 }

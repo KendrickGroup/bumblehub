@@ -38,8 +38,8 @@ function shuffle<T>(items: T[]): T[] {
   return out;
 }
 
-function pickLine(last: string, lines: string[]): string {
-  const pool = lines.length > 0 ? lines : [BANNER_DEFAULT_LINE];
+function pickLine(last: string, lines: string[], fallback: string): string {
+  const pool = lines.length > 0 ? lines : [fallback];
   if (pool.length === 1) return pool[0]!;
   let next = pool[0]!;
   do {
@@ -97,12 +97,15 @@ export function LatigoBanner({
   lines,
   rotateSeconds = BANNER_ROTATE_DEFAULT_SEC,
   card = DEFAULT_BANNER_CARD,
+  fallbackLine = BANNER_DEFAULT_LINE,
   children,
 }: {
   products: BannerProduct[];
   lines: string[];
   rotateSeconds?: number;
   card?: BannerCardSettings;
+  /** Shown until real lines arrive. The cabin keeps the ranch default. */
+  fallbackLine?: string;
   children: ReactNode;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -110,9 +113,11 @@ export function LatigoBanner({
     shuffle(products.map((item) => item.image)),
   );
   const [index, setIndex] = useState(0);
-  const [line, setLine] = useState(BANNER_DEFAULT_LINE);
+  const [line, setLine] = useState(fallbackLine);
   const [fading, setFading] = useState(false);
-  const lineRef = useRef(BANNER_DEFAULT_LINE);
+  const lineRef = useRef(fallbackLine);
+  const fallbackRef = useRef(fallbackLine);
+  fallbackRef.current = fallbackLine;
   const indexRef = useRef(0);
   const orderRef = useRef(order);
   const linesRef = useRef(lines);
@@ -145,8 +150,14 @@ export function LatigoBanner({
   useEffect(() => {
     if (lines.length === 0) return;
     setLine((current) => {
-      if (current && current !== BANNER_DEFAULT_LINE) return current;
-      const next = pickLine(current, lines);
+      if (
+        current &&
+        current !== fallbackRef.current &&
+        current !== BANNER_DEFAULT_LINE
+      ) {
+        return current;
+      }
+      const next = pickLine(current, lines, fallbackRef.current);
       lineRef.current = next;
       return next;
     });
@@ -159,7 +170,11 @@ export function LatigoBanner({
       fadingLock.current = true;
       setFading(true);
       fadeTimer = window.setTimeout(() => {
-        const nextLine = pickLine(lineRef.current, linesRef.current);
+        const nextLine = pickLine(
+          lineRef.current,
+          linesRef.current,
+          fallbackRef.current,
+        );
         const list = orderRef.current;
         const nextIndex =
           list.length > 0 ? (indexRef.current + 1) % list.length : 0;

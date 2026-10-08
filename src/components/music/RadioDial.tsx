@@ -212,6 +212,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     playingStation ?? displayStation,
     song,
     wxPlaying ? null : (feedNow?.title ?? null),
+    publicMode,
   );
 
   useEffect(() => {
@@ -300,7 +301,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           : RADIO_APP_NAME);
   const feedAir = isFeed ? formatFeedAirDate(feedNow?.pubDate ?? null) : null;
   const spinArtist = wxFace
-    ? WX_NOW_PLAYING_CONTEXT
+    ? publicMode
+      ? "NOAA Weather Radio"
+      : WX_NOW_PLAYING_CONTEXT
     : isFeed
       ? [displayStation?.station_name || "From the Archive", feedAir]
           .filter(Boolean)
@@ -434,7 +437,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       ? "CLASSIC"
       : face?.readoutFreq;
   const glassPlace = wxFace
-    ? "Ranch House Weather Bureau — Sutter Creek, Calif."
+    ? publicMode
+      ? "Ranch House Weather Bureau"
+      : "Ranch House Weather Bureau — Sutter Creek, Calif."
     : archiveFace
       ? "From the Archive"
       : null;
@@ -552,7 +557,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     lon={displayStation?.longitude ?? null}
                     lat={displayStation?.latitude ?? null}
                     cityLabel={wxFace ? "The Ranch" : displayStation?.city_label.split(",")[0] ?? ""}
-                    citySub={wxFace ? "Sutter Creek" : null}
+                    citySub={wxFace && !publicMode ? "Sutter Creek" : null}
                   />
                 )}
               </div>
@@ -563,7 +568,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                       {weather ? `${weather.temperature}° ${weather.label}` : "Ranch House Weather"}
                     </p>
                     <p className="radio-words-city">
-                      Latigo Ranch House — Sutter Creek, California
+                      {publicMode
+                        ? "Latigo Ranch House"
+                        : "Latigo Ranch House — Sutter Creek, California"}
                     </p>
                     <div className="radio-readings">
                       <div>
@@ -856,7 +863,14 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
           <LatigoBanner
             products={bannerProducts}
-            lines={bannerLines}
+            lines={
+              publicMode
+                ? bannerLines.filter((line) => !/sutter creek/i.test(line))
+                : bannerLines
+            }
+            fallbackLine={
+              publicMode ? "This ain't fashion. It's heritage." : undefined
+            }
             rotateSeconds={bannerRotateSeconds}
             card={bannerCard}
           >
@@ -904,14 +918,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           </LatigoBanner>
         </div>
       </div>
-
-      {publicMode ? (
-        <p className="radio-public-foot">
-          <a href="https://latigocowboy.com" target="_blank" rel="noreferrer">
-            Latigo Radio · Latigo Ranch House · Sutter Creek, California
-          </a>
-        </p>
-      ) : null}
 
       <RadioHandleModal
         open={handleOpen}

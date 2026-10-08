@@ -136,7 +136,7 @@ export function StationChart({
         ? { lon, lat }
         : null;
   const label = mode === "wx" ? "The Ranch" : cityLabel;
-  const sub = mode === "wx" ? citySub || "Sutter Creek" : citySub;
+  const sub = citySub || null;
 
   if (!pts) {
     return (
