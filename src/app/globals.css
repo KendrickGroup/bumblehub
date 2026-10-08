@@ -1228,6 +1228,15 @@ body {
   background: linear-gradient(180deg, #201D18, var(--dial) 55%, #0E0C0A);
   box-shadow: inset 0 0 0 2px #000, inset 0 0 20px rgba(0,0,0,.7), 0 0 0 2px #55595D, 0 0 0 3px #33363A;
 }
+.radio-guide {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #c9b98f;
+}
 .radio-toprow {
   display: flex;
   align-items: center;
@@ -1409,6 +1418,13 @@ body {
   gap: 8px;
   margin-top: 10px;
 }
+.radio-presetwell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
 .radio-grillepad,
 .radio-grilleband {
   border-radius: 6px;
@@ -1429,8 +1445,7 @@ body {
   align-self: stretch;
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: none;
   height: auto;
   margin-top: 8px;
   padding: 8px 12px;
@@ -2341,6 +2356,11 @@ body {
     flex-shrink: 0;
     padding: 6px 8px 8px;
   }
+  .radio-guide {
+    margin-bottom: 3px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
   .radio-toprow {
     margin-bottom: 4px;
   }
@@ -2372,6 +2392,9 @@ body {
     flex-shrink: 0;
     margin-top: 6px;
   }
+  .radio-presetwell {
+    gap: 3px;
+  }
   .radio-presets {
     gap: 6px;
   }
@@ -2380,8 +2403,7 @@ body {
     padding: 6px 3px;
   }
   .radio-grilleband {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: none;
     height: auto;
     margin-top: 6px;
     padding: 6px 8px;
@@ -2483,6 +2505,12 @@ body {
   .radio-callsign {
     font-size: 24px;
   }
+  .radio-guide {
+    margin-bottom: 2px;
+  }
+  .radio-presetwell {
+    gap: 2px;
+  }
   .radio-preset {
     min-height: 40px;
     padding: 4px 2px;
@@ -2530,8 +2558,9 @@ body {
     border-radius: 8px;
   }
   .radio-maplid {
+    flex-shrink: 1;
     margin-bottom: 12px;
-    min-height: 264px;
+    min-height: 0;
     padding: 54px 14px 10px;
     box-shadow: inset 0 0 0 1px #C9B98F, inset 0 2px 8px rgba(62,42,30,.28), 0 2px 6px rgba(0,0,0,.4);
   }
@@ -2640,8 +2669,35 @@ body {
     font-size: 14px;
   }
   .radio-lower {
-    gap: 14px;
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr) 90px;
+    column-gap: 14px;
+    row-gap: 6px;
+    align-items: stretch;
     margin-top: 14px;
+  }
+  .radio-presetwell {
+    display: contents;
+  }
+  .radio-guide-stations {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .radio-presets {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .radio-lower > .radio-grillepad:first-child {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .radio-lower > .radio-grillepad:last-child {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .radio-guide {
+    font-size: 10px;
+    letter-spacing: 2.5px;
   }
   .radio-presets {
     grid-template-columns: repeat(4, 1fr);
@@ -2669,6 +2725,9 @@ body {
   }
   .radio-grillepad {
     display: block;
+  }
+  .radio-grilleband {
+    flex: none;
   }
 }
 

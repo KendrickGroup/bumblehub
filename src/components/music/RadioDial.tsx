@@ -657,6 +657,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
           </div>
 
           <div className="radio-glass">
+            <p className="radio-guide">Choose a band</p>
             <div className="radio-toprow">
               <div className="radio-bandflags">
                 {RADIO_BANDS.map((band) => (
@@ -766,7 +767,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
 
           <div className="radio-lower">
             <div className="radio-grillepad" aria-hidden />
-            <div className="radio-presets">
+            <div className="radio-presetwell">
+              <p className="radio-guide radio-guide-stations">Pick a station</p>
+              <div className="radio-presets">
               {presets.map((station) => {
                 const preset = stationFace(station);
                 const active =
@@ -790,6 +793,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                   </button>
                 );
               })}
+              </div>
             </div>
             <div className="radio-grillepad" aria-hidden />
           </div>
