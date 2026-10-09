@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Copy, Trash2, Upload } from "lucide-react";
 import {
   CHART_ART_SPORTS,
+  CHART_ART_WX,
   chartArtSlots,
   type ChartArtMap,
+  type ChartArtSlot,
 } from "@/lib/radio/chart-art";
 import { notifyRadioStationsChanged, type RadioStation } from "@/lib/radio/types";
 import { prepareChartArtUpload } from "@/lib/images/prepare-chart-art";
@@ -63,8 +65,24 @@ export function ChartArtSettingsPanel({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const slots = chartArtSlots(stations);
+  const slots = useMemo(() => chartArtSlots(), []);
+  const specials = slots.filter(
+    (slot) => slot.key === CHART_ART_WX || slot.key === CHART_ART_SPORTS,
+  );
+  const states = slots.filter(
+    (slot) => slot.key !== CHART_ART_WX && slot.key !== CHART_ART_SPORTS,
+  );
+  const needle = query.trim().toLowerCase();
+  const matches = (slot: ChartArtSlot) =>
+    !needle ||
+    slot.label.toLowerCase().includes(needle) ||
+    slot.key.toLowerCase().includes(needle);
+  const visibleSpecials = specials.filter(matches);
+  const visibleStates = states.filter(matches);
+  const withArt = slots.filter((slot) => Boolean(art[slot.key])).length;
+  const letters = [...new Set(states.map((slot) => slot.label[0]!.toUpperCase()))];
 
   useEffect(() => {
     return () => {
@@ -100,36 +118,88 @@ export function ChartArtSettingsPanel({
         Chart Art
       </h3>
       <p className="mt-1 text-sm text-stone-600">
-        Pictorial maps for the chart panel. One image per state on the dial,
-        plus California weather and the baseball diamond. PNG uploads keep
-        transparency and are stored as PNG. Leave a slot empty to keep the
-        drawn outline. Drag an image onto a tile to set it.
+        Pictorial maps for the chart panel. Every state and D.C. has a slot,
+        whether or not a station is there yet, plus California weather and the
+        baseball diamond. PNG uploads keep transparency and are stored as PNG.
+        Leave a slot empty to keep the drawn outline. Drag an image onto a tile
+        to set it.
+      </p>
+      <label className="mt-3 block">
+        <span className="sr-only">Find a state</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Find a state"
+          className="w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-[#F4B400]"
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap gap-1">
+        {letters.map((letter) => (
+          <button
+            key={letter}
+            type="button"
+            onClick={() => {
+              const jump = () => {
+                document
+                  .getElementById(`chart-art-${letter}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              };
+              if (query) {
+                setQuery("");
+                window.setTimeout(jump, 40);
+              } else {
+                jump();
+              }
+            }}
+            className="h-7 min-w-7 rounded-full bg-white px-1.5 text-xs font-semibold text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50"
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs font-medium text-stone-500">
+        {withArt} with art · {slots.length - withArt} empty
       </p>
       {error ? (
         <p className="mt-2 text-sm font-medium text-red-700">{error}</p>
       ) : null}
       <ul className="mt-4 space-y-3">
-        {slots.map((slot) => (
-          <ChartArtSlotRow
-            key={slot.key}
-            slotKey={slot.key}
-            label={slot.label}
-            url={art[slot.key] ?? null}
-            stations={stations}
-            busy={busyKey === slot.key}
-            onBusy={setBusyKey}
-            onError={setError}
-            onToast={showToast}
-            onUploaded={onUploaded}
-            onCopied={onCopied}
-          />
-        ))}
+        {[...visibleSpecials, ...visibleStates].map((slot, index, list) => {
+          const letter = slot.label[0]?.toUpperCase() ?? "";
+          const prev = list[index - 1];
+          const isState = slot.key !== CHART_ART_WX && slot.key !== CHART_ART_SPORTS;
+          const anchor =
+            isState && prev?.label[0]?.toUpperCase() !== letter
+              ? `chart-art-${letter}`
+              : undefined;
+          return (
+            <ChartArtSlotRow
+              key={slot.key}
+              anchorId={anchor}
+              slotKey={slot.key}
+              label={slot.label}
+              url={art[slot.key] ?? null}
+              stations={stations}
+              busy={busyKey === slot.key}
+              onBusy={setBusyKey}
+              onError={setError}
+              onToast={showToast}
+              onUploaded={onUploaded}
+              onCopied={onCopied}
+            />
+          );
+        })}
       </ul>
+      {visibleSpecials.length + visibleStates.length === 0 ? (
+        <p className="mt-3 text-sm text-stone-500">No states match.</p>
+      ) : null}
     </div>
   );
 }
 
 function ChartArtSlotRow({
+  anchorId,
   slotKey,
   label,
   url,
@@ -141,6 +211,7 @@ function ChartArtSlotRow({
   onUploaded,
   onCopied,
 }: {
+  anchorId?: string;
   slotKey: string;
   label: string;
   url: string | null;
@@ -259,6 +330,7 @@ function ChartArtSlotRow({
 
   return (
     <li
+      id={anchorId}
       className={`relative flex items-center gap-3 rounded-[12px] bg-white px-3 py-2.5 ${
         dragOver ? "shadow-[inset_0_0_0_2px_#F4B400] ring-0" : ""
       }`}
@@ -288,6 +360,8 @@ function ChartArtSlotRow({
         <p className="truncate text-sm font-semibold text-stone-900">{label}</p>
         <p className="font-[family-name:var(--font-elite)] text-xs text-stone-500">
           {slotKey}
+          <span className="mx-1.5 text-stone-300">·</span>
+          {url ? "Has art" : "Empty"}
         </p>
       </div>
       <input

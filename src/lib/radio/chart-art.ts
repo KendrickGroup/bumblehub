@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { US_STATE_NAMES } from "./ranch";
-import type { RadioStation } from "./types";
 
 export const CHART_ART_BUCKET = "chart-art";
 export const CHART_ART_WX = "WX";
@@ -45,22 +44,15 @@ export function parseChartArt(dashboardLayout: unknown): ChartArtMap {
   return out;
 }
 
-export function chartArtSlots(stations: RadioStation[]): ChartArtSlot[] {
-  const codes = new Set<string>();
-  for (const station of stations) {
-    if (!station.is_visible) continue;
-    const code = station.state_code?.trim().toUpperCase() ?? "";
-    if (/^[A-Z]{2}$/.test(code)) codes.add(code);
-  }
-  const slots: ChartArtSlot[] = [...codes]
-    .sort()
-    .map((key) => ({
-      key,
-      label: US_STATE_NAMES[key] ?? key,
-    }));
-  slots.push({ key: CHART_ART_WX, label: "California (WX)" });
-  slots.push({ key: CHART_ART_SPORTS, label: "Sports" });
-  return slots;
+export function chartArtSlots(): ChartArtSlot[] {
+  const states = Object.entries(US_STATE_NAMES)
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "en"));
+  return [
+    ...states,
+    { key: CHART_ART_WX, label: "California (WX)" },
+    { key: CHART_ART_SPORTS, label: "Sports" },
+  ];
 }
 
 export function chartArtUrlFor(
