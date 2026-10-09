@@ -2478,13 +2478,13 @@ body {
   }
   .radio-chartwrap {
     min-height: 0;
-    max-height: 46vh;
+    max-height: 100%;
   }
   .radio-chart-svg {
-    max-height: 46vh;
+    max-height: 100%;
   }
   .radio-chart-art {
-    max-height: 46vh;
+    max-height: 100%;
   }
   .radio-plaque-art {
     width: 64px;
@@ -2512,8 +2512,21 @@ body {
     gap: 2px;
   }
   .radio-preset {
-    min-height: 40px;
-    padding: 4px 2px;
+    min-height: 34px;
+    padding: 3px 2px;
+  }
+  .radio-preset-call {
+    font-size: 10px;
+  }
+  .radio-banner-stage {
+    height: 84px;
+  }
+  .radio-banner-stage .radio-banner-shot {
+    width: 84px;
+    height: 84px;
+  }
+  .radio-play {
+    height: 84px;
   }
   .radio-grilleband {
     min-height: 0;
@@ -2522,10 +2535,6 @@ body {
   }
   .radio-plaque {
     padding: 7px 10px 9px;
-  }
-  .radio-banner-shot {
-    width: 108px;
-    height: 108px;
   }
 }
 

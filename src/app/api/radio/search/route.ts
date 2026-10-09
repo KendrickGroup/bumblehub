@@ -52,7 +52,10 @@ export async function GET(request: Request) {
     }
 
     const results = await searchRadioBrowser(q);
-    return NextResponse.json({ results }, { headers: NO_STORE });
+    return NextResponse.json(
+      { results },
+      { headers: { "Cache-Control": "private, max-age=60" } },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Search failed";

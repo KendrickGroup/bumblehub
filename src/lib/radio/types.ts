@@ -35,10 +35,12 @@ export type RadioSearchResult = {
   countrycode: string;
   state: string;
   bitrate: number;
+  codec: string;
   votes: number;
   clickcount: number;
   tags: string[];
   streamUrl: string;
+  favicon: string;
   latitude: number | null;
   longitude: number | null;
 };
@@ -46,7 +48,7 @@ export type RadioSearchResult = {
 export const RADIO_STATION_COLUMNS =
   "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency, band, station_type, latitude, longitude, state_code, timezone";
 
-/** AM still holds 10. Each FM page holds four — see visibleCapForBand. */
+/** AM still holds 10. Each FM page holds eight — see visibleCapForBand. */
 export const MAX_VISIBLE_STATIONS = 10;
 
 export const RADIO_STATIONS_EVENT = "bumblehub:radio-stations";

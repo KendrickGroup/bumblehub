@@ -15,6 +15,13 @@ const FALLBACK_MIRRORS = [
 
 const USER_AGENT = "BumbleHub/1.0 (https://bumblehub.dev)";
 const SEARCH_LIMIT = 40;
+const FINDER_LIMIT = 30;
+const FINDER_CACHE_MS = 120_000;
+
+const finderCache = new Map<
+  string,
+  { at: number; results: RadioSearchResult[] }
+>();
 
 let cachedMirrors: string[] | null = null;
 
@@ -49,11 +56,13 @@ type BrowserStation = {
   countrycode?: unknown;
   state?: unknown;
   bitrate?: unknown;
+  codec?: unknown;
   votes?: unknown;
   clickcount?: unknown;
   tags?: unknown;
   url?: unknown;
   url_resolved?: unknown;
+  favicon?: unknown;
   geo_lat?: unknown;
   geo_long?: unknown;
 };
@@ -96,6 +105,7 @@ export function mapStation(raw: BrowserStation): RadioSearchResult | null {
   const tags = parseTags(raw.tags);
   const lat = asNumber(raw.geo_lat);
   const lon = asNumber(raw.geo_long);
+  const faviconRaw = asString(raw.favicon);
   return {
     stationuuid,
     name,
@@ -103,10 +113,12 @@ export function mapStation(raw: BrowserStation): RadioSearchResult | null {
     countrycode: asString(raw.countrycode).toUpperCase(),
     state: asString(raw.state),
     bitrate: asNumber(raw.bitrate),
+    codec: asString(raw.codec).slice(0, 16),
     votes: asNumber(raw.votes),
     clickcount: asNumber(raw.clickcount),
     tags: tags.slice(0, 8),
     streamUrl,
+    favicon: isHttpsStreamUrl(faviconRaw) ? faviconRaw : "",
     latitude: lat !== 0 ? lat : null,
     longitude: lon !== 0 ? lon : null,
   };
@@ -228,8 +240,31 @@ export async function searchRadioBrowser(
 ): Promise<RadioSearchResult[]> {
   const name = query.trim().slice(0, 80);
   if (name.length < 2) return [];
-  const rows = await fetchStations({ name });
-  return mergeResults([rows]);
+  const key = name.toLowerCase();
+  const hit = finderCache.get(key);
+  if (hit && Date.now() - hit.at < FINDER_CACHE_MS) return hit.results;
+
+  const rows = await fetchStations({
+    name,
+    countrycode: "US",
+    order: "clickcount",
+    limit: FINDER_LIMIT,
+  });
+  const seen = new Set<string>();
+  const results: RadioSearchResult[] = [];
+  for (const row of rows) {
+    if (seen.has(row.stationuuid) || seen.has(row.streamUrl)) continue;
+    seen.add(row.stationuuid);
+    seen.add(row.streamUrl);
+    results.push(row);
+    if (results.length >= FINDER_LIMIT) break;
+  }
+  finderCache.set(key, { at: Date.now(), results });
+  if (finderCache.size > 40) {
+    const oldest = finderCache.keys().next().value;
+    if (oldest) finderCache.delete(oldest);
+  }
+  return results;
 }
 
 export async function browseRadioGenre(

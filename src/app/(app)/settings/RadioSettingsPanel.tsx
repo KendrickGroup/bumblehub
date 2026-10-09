@@ -20,7 +20,10 @@ import {
   X,
 } from "lucide-react";
 import { StationTestButton } from "@/components/radio/StationTestButton";
-import { stopStationTest } from "@/lib/radio/use-station-test-player";
+import {
+  stopStationTest,
+  useStationTestPlayer,
+} from "@/lib/radio/use-station-test-player";
 import {
   notifyRadioStationsChanged,
   type RadioStation,
@@ -240,7 +243,7 @@ export function RadioSettingsPanel({
 
       {anyBandAtCap ? (
         <p className="mt-4 rounded-[14px] bg-[#FBF0D0] px-4 py-3 text-sm font-medium text-stone-800">
-          FM1 and FM2 hold 4 visible stations each. AM holds 10. Hide one to add
+          FM1 and FM2 hold 8 visible stations each. AM holds 10. Hide one to add
           another on that band.
         </p>
       ) : null}
@@ -818,7 +821,12 @@ function AddStationPanel({
   const [state, setState] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const testKey = `manual:${url.trim()}`;
+  const test = useStationTestPlayer(testKey);
+  const streamBlocked = test.status === "failed" || test.status === "loading";
+
   const save = async () => {
+    if (streamBlocked) return;
     setSaving(true);
     const result = await onAdd({
       city_label: city,
@@ -847,8 +855,9 @@ function AddStationPanel({
     <div className="mt-8 border-t border-stone-100 pt-8">
       <h3 className="text-base font-semibold text-stone-900">Paste a stream</h3>
       <p className="mt-1 text-sm text-stone-600">
-        City label, station name, and an https stream URL. Call sign and
-        frequency are optional — the dial can parse them from the name.
+        Advanced, when the finder does not have it. City label, station name,
+        and an https stream URL. Call sign and frequency are optional — the
+        dial can parse them from the name.
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <input
@@ -920,10 +929,20 @@ function AddStationPanel({
         />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <StationTestButton testKey="manual" url={url} />
+        <StationTestButton
+          testKey={testKey}
+          url={url}
+          failLabel="won't play here"
+        />
         <button
           type="button"
-          disabled={saving || !city.trim() || !name.trim() || !url.trim()}
+          disabled={
+            saving ||
+            streamBlocked ||
+            !city.trim() ||
+            !name.trim() ||
+            !url.trim()
+          }
           onClick={() => void save()}
           className="inline-flex min-h-[48px] items-center gap-2 rounded-[14px] bg-[#F4B400] px-5 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
         >
@@ -932,7 +951,7 @@ function AddStationPanel({
         </button>
       </div>
       <p className="mt-2 text-xs text-stone-500">
-        FM1 and FM2 hold 4 visible stations each. AM holds 10. Extra stations
+        FM1 and FM2 hold 8 visible stations each. AM holds 10. Extra stations
         stay hidden until you free a slot on that band.
       </p>
     </div>

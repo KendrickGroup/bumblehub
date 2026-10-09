@@ -1,16 +1,34 @@
 "use client";
 
 import { LoaderCircle, Play, Square } from "lucide-react";
-import { useStationTestPlayer } from "@/lib/radio/use-station-test-player";
+import { useEffect, useRef } from "react";
+import {
+  useStationTestPlayer,
+  type TestPlayerStatus,
+} from "@/lib/radio/use-station-test-player";
 
 type Props = {
   testKey: string;
   url: string;
   compact?: boolean;
+  failLabel?: string;
+  onStatus?: (status: TestPlayerStatus) => void;
 };
 
-export function StationTestButton({ testKey, url, compact = false }: Props) {
+export function StationTestButton({
+  testKey,
+  url,
+  compact = false,
+  failLabel = "Failed to load",
+  onStatus,
+}: Props) {
   const { status, isActive, play, stop } = useStationTestPlayer(testKey);
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
+
+  useEffect(() => {
+    onStatusRef.current?.(status);
+  }, [status]);
   const playing = isActive && status === "playing";
   const loading = isActive && status === "loading";
   const failed = isActive && status === "failed";
@@ -50,7 +68,7 @@ export function StationTestButton({ testKey, url, compact = false }: Props) {
           }`}
         >
           {failed
-            ? "Failed to load"
+            ? failLabel
             : playing
               ? "Playing fine"
               : "Connecting…"}

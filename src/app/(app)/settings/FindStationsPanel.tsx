@@ -16,7 +16,9 @@ import {
   type RanchSuggestion,
 } from "@/lib/radio/browser";
 import type { RadioSearchResult, RadioStation } from "@/lib/radio/types";
+import type { TestPlayerStatus } from "@/lib/radio/use-station-test-player";
 import {
+  firstOpenFmBand,
   timezoneFromStateCode,
   visibleCapForBand,
   type RadioBand,
@@ -55,7 +57,10 @@ type PendingAdd = {
   result: RadioSearchResult;
   city: string;
   state: string;
+  band: RadioBand;
 };
+
+type Heard = "loading" | "playing" | "failed";
 
 export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
   const [open, setOpen] = useState(false);
@@ -66,6 +71,8 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingAdd | null>(null);
+  const [heard, setHeard] = useState<Record<string, Heard>>({});
+  const [bandChoice, setBandChoice] = useState<Record<string, RadioBand>>({});
   const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>(
     {},
   );
@@ -167,23 +174,53 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
     }
   };
 
+  const noteHeard = (key: string, status: TestPlayerStatus) => {
+    if (status !== "loading" && status !== "playing" && status !== "failed") {
+      return;
+    }
+    setHeard((prev) => (prev[key] === status ? prev : { ...prev, [key]: status }));
+  };
+
+  const bandFor = (key: string) => bandChoice[key] ?? firstOpenFmBand(stations);
+
+  const blocked = (key: string) => heard[key] === "failed" || heard[key] === "loading";
+
   const beginAdd = (
     key: string,
     result: RadioSearchResult,
     cityFallback?: string,
   ) => {
-    if (resultAlreadyOnDial(result, stations)) return;
+    if (blocked(key) || resultAlreadyOnDial(result, stations)) return;
     const extras = extrasFromSearchResult(result);
     setPending({
       key,
       result,
       city: cityFallback || cityLabelFromResult(result),
       state: extras.state_code ?? "",
+      band: bandFor(key),
     });
   };
 
+  const addFound = async (result: RadioSearchResult) => {
+    const key = result.stationuuid;
+    if (blocked(key) || resultAlreadyOnDial(result, stations)) return;
+    setAddingKey(key);
+    const extras = extrasFromSearchResult(result);
+    const state_code = extras.state_code;
+    await onAdd({
+      city_label: cityLabelFromResult(result),
+      station_name: result.name.slice(0, 80),
+      stream_url: result.streamUrl,
+      ...extras,
+      band: bandFor(key),
+      state_code,
+      timezone: timezoneFromStateCode(state_code) ?? extras.timezone,
+    });
+    setAddingKey(null);
+  };
+
   const confirmAdd = async () => {
-    if (!pending) return;
+    if (!pending || blocked(pending.key)) return;
     if (resultAlreadyOnDial(pending.result, stations)) {
       setPending(null);
       return;
@@ -196,6 +233,7 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
       station_name: pending.result.name.slice(0, 80),
       stream_url: pending.result.streamUrl,
       ...extras,
+      band: pending.band,
       state_code,
       timezone: timezoneFromStateCode(state_code) ?? extras.timezone,
     });
@@ -207,14 +245,72 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
     query.trim().length >= 2 || genre !== null;
 
   return (
-    <div className="mt-5">
+    <div className="mt-5 space-y-5">
+      <div>
+        <label
+          htmlFor="find-station"
+          className="mb-2 block text-xs font-medium uppercase tracking-wide text-stone-500"
+        >
+          Find a station
+        </label>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-stone-400"
+            strokeWidth={2}
+          />
+          <input
+            id="find-station"
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Name, call sign, or town"
+            className="min-h-[52px] w-full rounded-[14px] border border-stone-200 bg-[#FAF8F3] py-3 pr-4 pl-10 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#C9B98F] focus:outline-none focus:ring-2 focus:ring-[#C9B98F]/40"
+          />
+        </div>
+      </div>
+
+      {searching ? (
+        <p className="text-sm text-stone-500">Searching…</p>
+      ) : null}
+      {searchError ? (
+        <p className="text-sm font-medium text-red-700">{searchError}</p>
+      ) : null}
+
+      {results.length > 0 ? (
+        <ul className="max-h-96 space-y-2 overflow-y-auto">
+          {results.map((result) => (
+            <FoundStation
+              key={result.stationuuid}
+              result={result}
+              stations={stations}
+              band={bandFor(result.stationuuid)}
+              busy={addingKey === result.stationuuid}
+              dead={heard[result.stationuuid] === "failed"}
+              probing={heard[result.stationuuid] === "loading"}
+              onBand={(band) =>
+                setBandChoice((prev) => ({
+                  ...prev,
+                  [result.stationuuid]: band,
+                }))
+              }
+              onStatus={(status) => noteHeard(result.stationuuid, status)}
+              onAdd={() => void addFound(result)}
+            />
+          ))}
+        </ul>
+      ) : showingResults && !searching && !searchError ? (
+        <p className="text-sm text-stone-500">
+          No US streams found. Try another name, or paste a URL below.
+        </p>
+      ) : null}
+
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[14px] border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-800 transition hover:border-[#F4B400]/50 sm:w-auto sm:px-5"
+        className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-stone-600"
       >
-        Find stations
+        Ranch picks
         <ChevronDown
           className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`}
           strokeWidth={2.25}
@@ -222,7 +318,7 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
       </button>
 
       {open ? (
-        <div className="mt-5 space-y-6">
+        <div className="space-y-6">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">
               Suggested for the ranch
@@ -278,6 +374,12 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
                               prev ? { ...prev, state: next } : prev,
                             )
                           }
+                          onBand={(band) =>
+                            setPending((prev) =>
+                              prev ? { ...prev, band } : prev,
+                            )
+                          }
+                          blocked={blocked(suggestion.id)}
                           onCancel={() => setPending(null)}
                           onConfirm={() => void confirmAdd()}
                         />
@@ -286,19 +388,19 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
                         <StationTestButton
                           testKey={`suggest:${suggestion.id}`}
                           url={state.result.streamUrl}
+                          failLabel="won't play here"
+                          onStatus={(status) =>
+                            noteHeard(suggestion.id, status)
+                          }
                         />
                         <AddToDialButton
                           busy={addingKey === suggestion.id}
+                          blocked={blocked(suggestion.id)}
                           atVisibleCap={
                             stations.filter(
                               (s) =>
-                                s.is_visible &&
-                                s.band ===
-                                  extrasFromSearchResult(state.result!).band,
-                            ).length >=
-                            visibleCapForBand(
-                              extrasFromSearchResult(state.result!).band,
-                            )
+                                s.is_visible && s.band === bandFor(suggestion.id),
+                            ).length >= visibleCapForBand(bandFor(suggestion.id))
                           }
                           onClick={() =>
                             beginAdd(
@@ -346,123 +448,134 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
             </div>
           </div>
 
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">
-              Search
-            </p>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-stone-400"
-                strokeWidth={2}
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => onQueryChange(e.target.value)}
-                placeholder="Station name"
-                className="min-h-[52px] w-full rounded-[14px] border border-stone-200 bg-[#FAF8F3] py-3 pr-4 pl-10 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
-              />
-            </div>
-          </div>
-
-          {searching ? (
-            <p className="text-sm text-stone-500">Searching…</p>
-          ) : null}
-          {searchError ? (
-            <p className="text-sm font-medium text-red-700">{searchError}</p>
-          ) : null}
-
-          {results.length > 0 ? (
-            <ul className="max-h-80 space-y-2 overflow-y-auto">
-              {results.map((result) => {
-                const onDial = resultAlreadyOnDial(result, stations);
-                const place = resultPlace(result);
-                const tags = displayTags(result);
-                return (
-                  <li
-                    key={result.stationuuid}
-                    className="flex flex-wrap items-center gap-2 rounded-[14px] border border-stone-100 bg-[#FAF8F3] px-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-stone-900">
-                        {result.name}
-                      </p>
-                      <p className="truncate text-xs text-stone-500">
-                        {place || "Unknown location"}
-                        {result.bitrate ? ` · ${result.bitrate} kbps` : ""}
-                      </p>
-                      {tags.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-stone-600 ring-1 ring-stone-200"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                    {onDial ? (
-                      <span className="text-xs font-medium text-stone-500">
-                        Already on your dial
-                      </span>
-                    ) : pending?.key === result.stationuuid ? (
-                      <AddIdentityDraft
-                        pending={pending}
-                        stations={stations}
-                        chartArt={chartArt}
-                        busy={addingKey === result.stationuuid}
-                        onCity={(city) =>
-                          setPending((prev) =>
-                            prev ? { ...prev, city } : prev,
-                          )
-                        }
-                        onState={(next) =>
-                          setPending((prev) =>
-                            prev ? { ...prev, state: next } : prev,
-                          )
-                        }
-                        onCancel={() => setPending(null)}
-                        onConfirm={() => void confirmAdd()}
-                      />
-                    ) : (
-                      <>
-                        <StationTestButton
-                          testKey={`find:${result.stationuuid}`}
-                          url={result.streamUrl}
-                        />
-                        <AddToDialButton
-                          busy={addingKey === result.stationuuid}
-                          atVisibleCap={
-                            stations.filter(
-                              (s) =>
-                                s.is_visible &&
-                                s.band === extrasFromSearchResult(result).band,
-                            ).length >=
-                            visibleCapForBand(
-                              extrasFromSearchResult(result).band,
-                            )
-                          }
-                          onClick={() =>
-                            beginAdd(result.stationuuid, result)
-                          }
-                        />
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : showingResults && !searching && !searchError ? (
-            <p className="text-sm text-stone-500">
-              No https streams found. Try another name or genre.
-            </p>
-          ) : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FoundStation({
+  result,
+  stations,
+  band,
+  busy,
+  dead,
+  probing,
+  onBand,
+  onStatus,
+  onAdd,
+}: {
+  result: RadioSearchResult;
+  stations: RadioStation[];
+  band: RadioBand;
+  busy: boolean;
+  dead: boolean;
+  probing: boolean;
+  onBand: (band: RadioBand) => void;
+  onStatus: (status: TestPlayerStatus) => void;
+  onAdd: () => void;
+}) {
+  const onDial = resultAlreadyOnDial(result, stations);
+  const place = resultPlace(result);
+  const quality = [
+    result.bitrate > 0 ? `${result.bitrate} kbps` : "",
+    result.codec,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const full =
+    stations.filter((station) => station.is_visible && station.band === band)
+      .length >= visibleCapForBand(band);
+
+  return (
+    <li className="flex gap-3 rounded-[14px] border border-stone-100 bg-[#FAF8F3] px-3 py-2.5">
+      <StationMark src={result.favicon} name={result.name} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-stone-900">
+          {result.name}
+        </p>
+        <p className="truncate text-xs text-stone-500">
+          {[place || "Unknown location", quality].filter(Boolean).join(" · ")}
+        </p>
+        {displayTags(result).length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {displayTags(result).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-stone-600 ring-1 ring-stone-200"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {onDial ? (
+          <p className="mt-2 text-xs font-medium text-stone-500">
+            Already on your dial
+          </p>
+        ) : (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <StationTestButton
+              testKey={`find:${result.stationuuid}`}
+              url={result.streamUrl}
+              failLabel="won't play here"
+              onStatus={onStatus}
+            />
+            <select
+              aria-label={`Band for ${result.name}`}
+              value={band}
+              onChange={(event) => onBand(event.target.value as RadioBand)}
+              className="min-h-[44px] rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-800"
+            >
+              <option value="fm1">FM1</option>
+              <option value="fm2">FM2</option>
+              <option value="am">AM</option>
+            </select>
+            <AddToDialButton
+              busy={busy}
+              blocked={dead || probing}
+              atVisibleCap={full}
+              onClick={onAdd}
+            />
+            {dead ? (
+              <span className="text-xs font-semibold text-red-700">
+                won't play here
+              </span>
+            ) : full ? (
+              <span className="text-xs text-stone-500">
+                That band is full. This one stays hidden until a slot frees.
+              </span>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function StationMark({ src, name }: { src: string; name: string }) {
+  const [hidden, setHidden] = useState(false);
+  if (!src || hidden) {
+    return (
+      <span
+        aria-hidden
+        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-200 text-xs font-semibold text-stone-600"
+      >
+        {name.slice(0, 1).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    // Directory favicons are remote and often missing.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      width={40}
+      height={40}
+      className="mt-0.5 h-10 w-10 shrink-0 rounded-lg bg-white object-contain"
+      onError={() => setHidden(true)}
+    />
   );
 }
 
@@ -473,6 +586,8 @@ function AddIdentityDraft({
   busy,
   onCity,
   onState,
+  onBand,
+  blocked = false,
   onCancel,
   onConfirm,
 }: {
@@ -482,6 +597,8 @@ function AddIdentityDraft({
   busy: boolean;
   onCity: (city: string) => void;
   onState: (code: string) => void;
+  onBand: (band: RadioBand) => void;
+  blocked?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -499,17 +616,27 @@ function AddIdentityDraft({
         city={pending.city}
         stations={stations}
         chartArt={chartArt}
-        className="min-h-[44px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        className="min-h-[44px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:border-[#C9B98F] focus:outline-none focus:ring-2 focus:ring-[#C9B98F]/40"
         onChange={onState}
       />
+      <select
+        aria-label="Band"
+        value={pending.band}
+        onChange={(event) => onBand(event.target.value as RadioBand)}
+        className="min-h-[44px] w-full rounded-[12px] border border-stone-200 bg-white px-3 text-sm text-stone-800"
+      >
+        <option value="fm1">FM1</option>
+        <option value="fm2">FM2</option>
+        <option value="am">AM</option>
+      </select>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || blocked}
           onClick={onConfirm}
           className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4B400] px-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
         >
-          {busy ? "Adding…" : "Add to dial"}
+          {busy ? "Adding…" : "Add"}
         </button>
         <button
           type="button"
@@ -526,26 +653,30 @@ function AddIdentityDraft({
 
 function AddToDialButton({
   busy,
+  blocked,
   atVisibleCap,
   onClick,
 }: {
   busy: boolean;
+  blocked?: boolean;
   atVisibleCap: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={busy}
+      disabled={busy || blocked}
       onClick={onClick}
       title={
-        atVisibleCap
-          ? "This band is full — hide one to add another."
-          : undefined
+        blocked
+          ? "This stream won't play here."
+          : atVisibleCap
+            ? "This band is full — it will stay hidden until a slot frees."
+            : undefined
       }
       className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4B400] px-3 text-sm font-semibold text-stone-900 transition hover:bg-[#e0a800] disabled:opacity-50"
     >
-      {busy ? "Adding…" : "Add to dial"}
+      {busy ? "Adding…" : "Add"}
       {atVisibleCap ? (
         <span className="sr-only">
           This band is full. The station will be hidden until you free a slot.

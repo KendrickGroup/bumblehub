@@ -60,9 +60,22 @@ export function bandFlagKind(band: RadioFaceBand): "fm" | "am" | "wx" {
   return "fm";
 }
 
-/** Four presets on each FM page; AM is unchanged. */
+/** Eight presets on each FM page, two rows of four. AM is unchanged. */
 export function visibleCapForBand(band: RadioBand): number {
-  return band === "am" ? 10 : 4;
+  return band === "am" ? 10 : 8;
+}
+
+/** First FM page that still has a free visible slot. FM1 when both are full. */
+export function firstOpenFmBand(
+  stations: Array<{ band: RadioBand; is_visible: boolean }>,
+): RadioBand {
+  for (const band of ["fm1", "fm2"] as const) {
+    const visible = stations.filter(
+      (station) => station.is_visible && station.band === band,
+    ).length;
+    if (visible < visibleCapForBand(band)) return band;
+  }
+  return "fm1";
 }
 
 export function presetsForBand<T extends { band: RadioBand }>(
