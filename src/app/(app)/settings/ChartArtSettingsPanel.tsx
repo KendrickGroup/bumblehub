@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Copy, Trash2, Upload } from "lucide-react";
 import {
+  CHART_ART_BUCKET,
+  CHART_ART_MAX_BYTES,
   CHART_ART_SPORTS,
   CHART_ART_WX,
   chartArtSlots,
@@ -12,6 +14,7 @@ import {
 import { notifyRadioStationsChanged, type RadioStation } from "@/lib/radio/types";
 import { prepareChartArtUpload } from "@/lib/images/prepare-chart-art";
 import { buildChartArtPrompt } from "@/lib/statePrompts";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   stations: RadioStation[];
@@ -20,6 +23,31 @@ type Props = {
 };
 
 const COPY_TOAST = "Prompt copied — paste into your image generator";
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  const text = await response.text();
+  if (!text) {
+    if (response.status === 413) return "That image is too large to send.";
+    return fallback;
+  }
+  try {
+    const body = JSON.parse(text) as { error?: string };
+    if (body.error) return body.error;
+  } catch {
+    if (response.status === 413 || /PAYLOAD_TOO_LARGE|Entity Too Large/i.test(text)) {
+      return "That image is too large to send.";
+    }
+    const trimmed = text.replace(/\s+/g, " ").trim();
+    if (trimmed) return trimmed.slice(0, 180);
+  }
+  return fallback;
+}
+
+function formatMegabytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  const rounded = mb >= 10 ? mb.toFixed(0) : mb.toFixed(1).replace(/\.0$/, "");
+  return `${rounded} MB`;
+}
 
 function useFinePointerDrag() {
   const [fine, setFine] = useState(false);
@@ -247,24 +275,65 @@ function ChartArtSlotRow({
     onBusy(slotKey);
     try {
       const prepared = await prepareChartArtUpload(file);
-      const form = new FormData();
-      form.append("key", slotKey);
-      form.append("photo", prepared.blob, `${slotKey}.${prepared.ext}`);
-      const response = await fetch("/api/settings/radio-chart-art", {
-        method: "POST",
-        body: form,
-      });
-      const body = (await response.json()) as {
-        chart_art?: ChartArtMap;
-        error?: string;
-      };
-      if (!response.ok) {
-        onError(body.error ?? "Could not upload chart art.");
+      if (prepared.blob.size > CHART_ART_MAX_BYTES) {
+        onError(
+          `That image is ${formatMegabytes(prepared.blob.size)}. Chart art has to be under ${formatMegabytes(CHART_ART_MAX_BYTES)}.`,
+        );
         return;
       }
-      if (body.chart_art) onUploaded(body.chart_art);
-    } catch {
-      onError("Could not upload chart art.");
+      const typed =
+        prepared.blob.type === prepared.contentType
+          ? prepared.blob
+          : new Blob([await prepared.blob.arrayBuffer()], {
+              type: prepared.contentType,
+            });
+      const signResponse = await fetch("/api/settings/radio-chart-art", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sign",
+          key: slotKey,
+          contentType: prepared.contentType,
+          size: typed.size,
+        }),
+      });
+      if (!signResponse.ok) {
+        onError(await readApiError(signResponse, "Could not start the upload."));
+        return;
+      }
+      const signed = (await signResponse.json()) as { path?: string; token?: string };
+      if (!signed.path || !signed.token) {
+        onError("Could not start the upload.");
+        return;
+      }
+      const supabase = createClient();
+      const uploaded = await supabase.storage
+        .from(CHART_ART_BUCKET)
+        .uploadToSignedUrl(signed.path, signed.token, typed, {
+          contentType: prepared.contentType,
+          upsert: true,
+        });
+      if (uploaded.error) {
+        onError(uploaded.error.message || "Storage rejected the image.");
+        return;
+      }
+      const commitResponse = await fetch("/api/settings/radio-chart-art", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "commit",
+          key: slotKey,
+          ext: prepared.ext,
+        }),
+      });
+      if (!commitResponse.ok) {
+        onError(await readApiError(commitResponse, "Could not save the chart art."));
+        return;
+      }
+      const saved = (await commitResponse.json()) as { chart_art?: ChartArtMap };
+      if (saved.chart_art) onUploaded(saved.chart_art);
+    } catch (err) {
+      onError(err instanceof Error && err.message ? err.message : "Could not upload chart art.");
     } finally {
       onBusy(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -280,17 +349,14 @@ function ChartArtSlotRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "remove", key: slotKey }),
       });
-      const body = (await response.json()) as {
-        chart_art?: ChartArtMap;
-        error?: string;
-      };
       if (!response.ok) {
-        onError(body.error ?? "Could not remove chart art.");
+        onError(await readApiError(response, "Could not remove chart art."));
         return;
       }
+      const body = (await response.json()) as { chart_art?: ChartArtMap };
       if (body.chart_art) onUploaded(body.chart_art);
-    } catch {
-      onError("Could not remove chart art.");
+    } catch (err) {
+      onError(err instanceof Error && err.message ? err.message : "Could not remove chart art.");
     } finally {
       onBusy(null);
     }

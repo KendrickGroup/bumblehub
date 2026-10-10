@@ -5,6 +5,8 @@ export const CHART_ART_BUCKET = "chart-art";
 export const CHART_ART_WX = "WX";
 export const CHART_ART_SPORTS = "SPORTS";
 export const CHART_ART_MAX_WIDTH = 2400;
+/** Storage cap. The image never passes through the Vercel function body. */
+export const CHART_ART_MAX_BYTES = 16 * 1024 * 1024;
 
 export type ChartArtContentType = "image/png" | "image/jpeg" | "image/webp";
 export type ChartArtExt = "png" | "jpg" | "webp";
@@ -101,6 +103,13 @@ export function sniffChartArtType(
     return { contentType: "image/jpeg", ext: "jpg" };
   }
   if (declared === "image/webp") return { contentType: "image/webp", ext: "webp" };
+  return null;
+}
+
+export function chartArtExtForType(contentType: string): ChartArtExt | null {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/jpeg") return "jpg";
+  if (contentType === "image/webp") return "webp";
   return null;
 }
 
