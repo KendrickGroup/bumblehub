@@ -669,7 +669,7 @@ const StationEditFields = memo(function StationEditFields({
         <input
           type="text"
           value={call}
-          maxLength={12}
+          maxLength={32}
           placeholder="KUZZ"
           onChange={onField(setCall)}
           onBlur={flush}
@@ -891,7 +891,7 @@ function AddStationPanel({
         <input
           type="text"
           value={call}
-          maxLength={12}
+          maxLength={32}
           placeholder="Call sign (optional)"
           onChange={(e) => setCall(e.target.value)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"

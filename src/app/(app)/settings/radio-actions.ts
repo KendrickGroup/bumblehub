@@ -99,7 +99,7 @@ export async function createRadioStation(input: {
 
   const parsed = parseCallAndFreq(station_name);
   const call_sign =
-    emptyToNull(input.call_sign, 12) ?? parsed.callSign;
+    emptyToNull(input.call_sign, 32) ?? parsed.callSign;
   const frequency =
     emptyToNull(input.frequency, 12) ?? parsed.frequency;
   const band: RadioBand =
@@ -195,7 +195,7 @@ export async function updateRadioStation(input: {
     patch.stream_url = stream_url;
   }
   if (typeof input.call_sign === "string") {
-    patch.call_sign = emptyToNull(input.call_sign, 12);
+    patch.call_sign = emptyToNull(input.call_sign, 32);
   }
   if (typeof input.frequency === "string") {
     patch.frequency = emptyToNull(input.frequency, 12);
