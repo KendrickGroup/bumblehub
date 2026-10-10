@@ -8,7 +8,9 @@ export const RADIO_ORIGIN = `https://${RADIO_HOST}`;
 export const BUMBLEHUB_ORIGIN = "https://bumblehub.dev";
 
 export const RADIO_OG_DESCRIPTION =
-  "Country stations pulled in from across the country — live from Latigo Ranch House.";
+  "Country from across the country. Free online radio from latigocowboy.com.";
+export const RADIO_OG_IMAGE = `${RADIO_ORIGIN}/og-image.png`;
+export const RADIO_THEME_COLOR = "#3A2010";
 
 export function hostnameOf(host: string | null | undefined): string {
   const raw = (host ?? "").split(",")[0]?.trim() ?? "";

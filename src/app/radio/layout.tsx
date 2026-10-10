@@ -6,7 +6,9 @@ import { BUILD_SHA, BUILD_TIME_ISO } from "@/lib/build-info";
 import {
   isRadioHostName,
   RADIO_OG_DESCRIPTION,
+  RADIO_OG_IMAGE,
   RADIO_ORIGIN,
+  RADIO_THEME_COLOR,
 } from "@/lib/radio/host";
 
 const bricolage = Bricolage_Grotesque({
@@ -30,17 +32,27 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#6B4F36",
+  themeColor: RADIO_THEME_COLOR,
 };
 
 const RADIO_ICONS: Metadata["icons"] = {
   icon: [
-    { url: "/radio/icon-192.png", sizes: "192x192", type: "image/png" },
-    { url: "/radio/icon-512.png", sizes: "512x512", type: "image/png" },
+    { url: "/favicon.ico" },
+    { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+    { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
   ],
   apple: [
-    { url: "/radio/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
   ],
+};
+
+const RADIO_SHARE_IMAGE = {
+  url: RADIO_OG_IMAGE,
+  width: 1200,
+  height: 630,
+  alt: "Latigo Radio",
 };
 
 type AppleWebAppConfig = Exclude<
@@ -101,6 +113,21 @@ export async function generateMetadata(): Promise<Metadata> {
       startupImage: STARTUP_IMAGES,
     },
     icons: RADIO_ICONS,
+    openGraph: {
+      type: "website",
+      locale: "en_US",
+      url: RADIO_ORIGIN,
+      siteName: "Latigo Radio",
+      title: "Latigo Radio",
+      description: RADIO_OG_DESCRIPTION,
+      images: [RADIO_SHARE_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Latigo Radio",
+      description: RADIO_OG_DESCRIPTION,
+      images: [RADIO_OG_IMAGE],
+    },
     other: {
       "mobile-web-app-capable": "yes",
       // Repeated from the root layout: a nested `other` replaces it, and the
@@ -117,28 +144,6 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(RADIO_ORIGIN),
     alternates: {
       canonical: "/",
-    },
-    openGraph: {
-      type: "website",
-      locale: "en_US",
-      url: "/",
-      siteName: "Latigo Radio",
-      title: "Latigo Radio",
-      description: RADIO_OG_DESCRIPTION,
-      images: [
-        {
-          url: "/radio/og.png",
-          width: 1200,
-          height: 630,
-          alt: "Latigo Radio",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: "Latigo Radio",
-      description: RADIO_OG_DESCRIPTION,
-      images: ["/radio/og.png"],
     },
   };
 }
