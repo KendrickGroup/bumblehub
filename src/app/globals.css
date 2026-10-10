@@ -341,6 +341,49 @@ body {
   border: 1.5px dashed var(--stitch);
   opacity: .55;
 }
+.radio-listen-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0;
+  padding: 24px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(36, 26, 18, 0.78);
+  color: #F0EBDC;
+  cursor: pointer;
+}
+.radio-listen-gate-kicker,
+.radio-listen-gate-sub {
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #D9C9A8;
+}
+.radio-listen-gate-word {
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: clamp(22px, 6vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #3E2A1E;
+  background: #F4B400;
+  border: 1px solid #d4a000;
+  border-radius: 999px;
+  padding: 18px 28px;
+  box-shadow: 0 8px 0 #3E2A1E;
+}
+.radio-listen-gate:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px #F4B400;
+}
 
 .radio-carry {
   position: absolute;

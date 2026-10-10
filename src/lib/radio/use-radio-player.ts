@@ -136,6 +136,40 @@ function patch(partial: Partial<RadioPlayerState>) {
   emit({ ...snapshot, ...partial });
 }
 
+/** Whether the last play() was allowed. "blocked" means the browser refused sound without a tap. */
+export type RadioPlayGate = "unknown" | "allowed" | "blocked";
+
+let playGate: RadioPlayGate = "unknown";
+const playGateListeners = new Set<() => void>();
+
+function setPlayGate(next: RadioPlayGate) {
+  if (playGate === next) return;
+  playGate = next;
+  for (const listener of playGateListeners) listener();
+}
+
+export function useRadioPlayGate(): RadioPlayGate {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      playGateListeners.add(onStoreChange);
+      return () => {
+        playGateListeners.delete(onStoreChange);
+      };
+    },
+    () => playGate,
+    () => "unknown",
+  );
+}
+
+function isNotAllowed(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as { name?: string }).name === "NotAllowedError"
+  );
+}
+
 function clearFailTimer() {
   if (failTimer) {
     clearTimeout(failTimer);
@@ -365,17 +399,31 @@ function startElement(
   applyOutputVolume();
   const started = el.play();
   if (started !== undefined) {
-    void started.catch(() => {
-      if (generation !== gen) return;
-      attachInFlight = false;
-      if (maybeFallbackFromCors(gen, url)) return;
-      if (feedRss && !feedHeardCurrent && skipToNextFeedEpisode()) return;
-      if (onFail === "reconnect") {
-        startReconnect();
-        return;
-      }
-      patch({ status: "failed" });
-    });
+    void started.then(
+      () => {
+        if (generation !== gen) return;
+        setPlayGate("allowed");
+      },
+      (err: unknown) => {
+        if (generation !== gen) return;
+        if (isNotAllowed(err)) {
+          attachInFlight = false;
+          clearFailTimer();
+          clearWatchdog();
+          patch({ status: "stopped", reconnectAttempt: 0 });
+          setPlayGate("blocked");
+          return;
+        }
+        attachInFlight = false;
+        if (maybeFallbackFromCors(gen, url)) return;
+        if (feedRss && !feedHeardCurrent && skipToNextFeedEpisode()) return;
+        if (onFail === "reconnect") {
+          startReconnect();
+          return;
+        }
+        patch({ status: "failed" });
+      },
+    );
   }
 }
 
@@ -436,6 +484,7 @@ function getAudio(): HTMLAudioElement {
       clearFailTimer();
       clearStallTimer();
       attachInFlight = false;
+      setPlayGate("allowed");
       lastTimeUpdate = Date.now();
       feedSkipCount = 0;
       feedHeardCurrent = true;

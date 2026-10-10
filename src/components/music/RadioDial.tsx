@@ -50,6 +50,7 @@ import {
   radioIsLive,
   stopRadioForSpotifyPlayback,
   stopRadioPlayback,
+  useRadioPlayGate,
   useRadioPlayer,
 } from "@/lib/radio/use-radio-player";
 import {
@@ -105,6 +106,8 @@ function stationTown(cityLabel: string | null | undefined): string {
   return cityLabel.split(",")[0]?.trim() || cityLabel.trim();
 }
 
+let publicKokeAutoplayArmed = false;
+
 export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const router = useRouter();
   const {
@@ -132,6 +135,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [lassoBusy, setLassoBusy] = useState(false);
   const [lassoNote, setLassoNote] = useState<string | null>(null);
   const [lastRealId, setLastRealId] = useState<string | null>(null);
+  const [choseStation, setChoseStation] = useState(false);
+  const [kokeBandSet, setKokeBandSet] = useState(false);
+  const playGate = useRadioPlayGate();
 
   // Tags every play and banner event with the radio it came from.
   useEffect(() => {
@@ -151,10 +157,12 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   useEffect(() => {
     if (bandRestored) return;
     setBandRestored(true);
+    // The public dial opens on KOKE's band. A saved band is for the cabin.
+    if (publicMode) return;
     const last = readLastBand();
     if (!last) return;
     setBrowseBand(last);
-  }, [bandRestored]);
+  }, [bandRestored, publicMode]);
 
   if (tunedId && tunedId !== WX_STATION_ID && lastRealId !== tunedId) {
     setLastRealId(tunedId);
@@ -177,10 +185,25 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     player.stationId === WX_STATION_ID
       ? wxStation
       : (visible.find((s) => s.id === player.stationId) ?? null);
-  const selected =
-    visible.find((s) => s.id === tunedId) ??
-    visible.find((s) => s.id === lastRealId) ??
-    (loaded ? (visible[0] ?? null) : null);
+  const koke =
+    visible.find((station) => (station.call_sign ?? "").trim().toUpperCase() === "KOKE") ??
+    null;
+  const openingOnKoke = publicMode && !choseStation && koke != null;
+  if (openingOnKoke && koke && !kokeBandSet) {
+    setKokeBandSet(true);
+    if (browseBand !== koke.band) setBrowseBand(koke.band);
+  }
+
+  useEffect(() => {
+    if (!publicMode || !loaded || !koke || publicKokeAutoplayArmed) return;
+    publicKokeAutoplayArmed = true;
+    playRadio(koke);
+  }, [publicMode, loaded, koke]);
+  const selected = openingOnKoke
+    ? koke
+    : visible.find((s) => s.id === tunedId) ??
+      visible.find((s) => s.id === lastRealId) ??
+      (loaded ? (visible[0] ?? null) : null);
 
   const displayStation = selected;
   const playing = player.status === "playing";
@@ -328,6 +351,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     if (!alreadyLive) {
       playRadio(station);
     }
+    setChoseStation(true);
     const faceBand: RadioFaceBand =
       station.id === WX_STATION_ID ? "wx" : station.band;
     setBrowseBand(faceBand);
@@ -923,6 +947,20 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </button>
           </LatigoBanner>
         </div>
+        {publicMode && playGate === "blocked" && player.status !== "playing" ? (
+          <button
+            type="button"
+            className="radio-listen-gate"
+            onClick={() => {
+              if (!koke) return;
+              playRadio(koke);
+            }}
+          >
+            <span className="radio-listen-gate-kicker">ATX CTRY</span>
+            <span className="radio-listen-gate-word">Tap to listen</span>
+            <span className="radio-listen-gate-sub">KOKE</span>
+          </button>
+        ) : null}
       </div>
 
       <RadioHandleModal
