@@ -13,6 +13,7 @@ export type RadioStation = {
   created_at: string;
   call_sign: string | null;
   frequency: string | null;
+  dial_label: string | null;
   band: RadioBand;
   station_type: RadioStationType;
   latitude: number | null;
@@ -46,7 +47,7 @@ export type RadioSearchResult = {
 };
 
 export const RADIO_STATION_COLUMNS =
-  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency, band, station_type, latitude, longitude, state_code, timezone";
+  "id, property_id, city_label, station_name, stream_url, display_order, is_visible, created_at, call_sign, frequency, dial_label, band, station_type, latitude, longitude, state_code, timezone";
 
 /** AM still holds 10. Each FM page holds four — see visibleCapForBand. */
 export const MAX_VISIBLE_STATIONS = 10;
@@ -79,5 +80,9 @@ export function normalizeRadioStation(row: RadioStation): RadioStation {
     longitude: typeof row.longitude === "number" ? row.longitude : null,
     state_code: row.state_code ?? null,
     timezone: row.timezone ?? null,
+    dial_label:
+      typeof row.dial_label === "string" && row.dial_label.trim()
+        ? row.dial_label.trim().slice(0, 10)
+        : null,
   };
 }

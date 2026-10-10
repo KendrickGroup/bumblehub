@@ -794,9 +794,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     className={`radio-preset ${active ? "is-active" : ""}`}
                   >
                     <span className="radio-preset-call">{preset.buttonLabel}</span>
-                    {preset.buttonSub ? (
-                      <span className="radio-preset-freq">{preset.buttonSub}</span>
-                    ) : null}
                   </button>
                 );
               })}

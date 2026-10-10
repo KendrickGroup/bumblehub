@@ -112,6 +112,7 @@ export function makeWxStation(streamUrl: string): RadioStation {
     created_at: "",
     call_sign: "LATIGO",
     frequency: "WX",
+    dial_label: null,
     band: "am",
     station_type: "stream",
     latitude: RANCH_LAT,

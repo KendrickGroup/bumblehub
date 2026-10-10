@@ -1608,8 +1608,12 @@ body {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  white-space: nowrap;
+  font-size: 14px;
   font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: center;
   color: #E8E4DA;
   text-transform: uppercase;
 }
@@ -2481,6 +2485,10 @@ body {
     min-height: 46px;
     padding: 6px 3px;
   }
+  .radio-preset-call {
+    font-size: 13px;
+    letter-spacing: 0;
+  }
   .radio-grilleband {
     flex: none;
     height: auto;
@@ -2596,7 +2604,8 @@ body {
     padding: 3px 2px;
   }
   .radio-preset-call {
-    font-size: 10px;
+    font-size: 12px;
+    letter-spacing: 0;
   }
   .radio-banner-stage {
     height: 84px;
@@ -2800,8 +2809,8 @@ body {
     transform: translateY(4px);
   }
   .radio-preset-call {
-    font-size: 13px;
-    letter-spacing: .5px;
+    font-size: 16px;
+    letter-spacing: 0.04em;
   }
   .radio-preset-freq {
     font-size: 10px;

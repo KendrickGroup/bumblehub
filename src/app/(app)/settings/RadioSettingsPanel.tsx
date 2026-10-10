@@ -60,6 +60,7 @@ type StationTextFields = {
   stream_url: string;
   call_sign: string;
   frequency: string;
+  dial_label: string;
   band: RadioBand;
   station_type: RadioStationType;
   latitude: string;
@@ -74,6 +75,7 @@ type StationCreateInput = {
   stream_url: string;
   call_sign?: string;
   frequency?: string;
+  dial_label?: string;
   band?: RadioBand;
   station_type?: RadioStationType;
   latitude?: number | null;
@@ -174,6 +176,7 @@ export function RadioSettingsPanel({
         stream_url: fields.stream_url,
         call_sign: fields.call_sign,
         frequency: fields.frequency,
+        dial_label: fields.dial_label,
         band: fields.band,
         station_type: fields.station_type,
         latitude: lat === "" ? null : Number(lat),
@@ -371,6 +374,7 @@ const StationRow = memo(function StationRow({
               {[
                 faceBandLabel(station.band),
                 station.station_type === "feed" ? "feed" : null,
+                station.dial_label,
                 station.call_sign,
                 station.frequency,
               ]
@@ -426,6 +430,7 @@ const StationRow = memo(function StationRow({
           initialUrl={station.stream_url}
           initialCall={station.call_sign ?? ""}
           initialFreq={station.frequency ?? ""}
+          initialDial={station.dial_label ?? ""}
           initialBand={station.band}
           initialType={station.station_type}
           initialLat={station.latitude != null ? String(station.latitude) : ""}
@@ -482,6 +487,7 @@ function stationDraftEquals(a: StationDraft, b: StationDraft) {
     a.url === b.url &&
     a.call === b.call &&
     a.freq === b.freq &&
+    a.dial === b.dial &&
     a.band === b.band &&
     a.type === b.type &&
     a.lat === b.lat &&
@@ -497,6 +503,7 @@ type StationDraft = {
   url: string;
   call: string;
   freq: string;
+  dial: string;
   band: RadioBand;
   type: RadioStationType;
   lat: string;
@@ -512,6 +519,7 @@ function draftToFields(next: StationDraft): StationTextFields {
     stream_url: next.url,
     call_sign: next.call,
     frequency: next.freq,
+    dial_label: next.dial,
     band: next.band,
     station_type: next.type,
     latitude: next.lat,
@@ -528,6 +536,7 @@ const StationEditFields = memo(function StationEditFields({
   initialUrl,
   initialCall,
   initialFreq,
+  initialDial,
   initialBand,
   initialType,
   initialLat,
@@ -544,6 +553,7 @@ const StationEditFields = memo(function StationEditFields({
   initialUrl: string;
   initialCall: string;
   initialFreq: string;
+  initialDial: string;
   initialBand: RadioBand;
   initialType: RadioStationType;
   initialLat: string;
@@ -559,6 +569,7 @@ const StationEditFields = memo(function StationEditFields({
   const [url, setUrl] = useState(initialUrl);
   const [call, setCall] = useState(initialCall);
   const [freq, setFreq] = useState(initialFreq);
+  const [dial, setDial] = useState(initialDial);
   const [band, setBand] = useState<RadioBand>(initialBand);
   const [type, setType] = useState<RadioStationType>(initialType);
   const [lat, setLat] = useState(initialLat);
@@ -571,6 +582,7 @@ const StationEditFields = memo(function StationEditFields({
     url: initialUrl,
     call: initialCall,
     freq: initialFreq,
+    dial: initialDial,
     band: initialBand,
     type: initialType,
     lat: initialLat,
@@ -589,6 +601,7 @@ const StationEditFields = memo(function StationEditFields({
       url,
       call,
       freq,
+      dial,
       band,
       type,
       lat,
@@ -596,7 +609,7 @@ const StationEditFields = memo(function StationEditFields({
       state,
       tz,
     };
-  }, [city, name, url, call, freq, band, type, lat, lon, state, tz]);
+  }, [city, name, url, call, freq, dial, band, type, lat, lon, state, tz]);
 
   const flush = useCallback(() => {
     if (debounceRef.current) {
@@ -672,6 +685,20 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={32}
           placeholder="KUZZ"
           onChange={onField(setCall)}
+          onBlur={flush}
+          className={fieldClass}
+        />
+      </label>
+      <label className="block sm:col-span-1">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">
+          Dial label
+        </span>
+        <input
+          type="text"
+          value={dial}
+          maxLength={10}
+          placeholder="THE RANCH"
+          onChange={onField(setDial)}
           onBlur={flush}
           className={fieldClass}
         />
@@ -818,6 +845,7 @@ function AddStationPanel({
   const [url, setUrl] = useState("");
   const [call, setCall] = useState("");
   const [freq, setFreq] = useState("");
+  const [dial, setDial] = useState("");
   const [band, setBand] = useState<RadioBand>("fm1");
   const [type, setType] = useState<RadioStationType>("stream");
   const [state, setState] = useState("");
@@ -836,6 +864,7 @@ function AddStationPanel({
       stream_url: url,
       call_sign: call,
       frequency: freq,
+      dial_label: dial,
       band,
       station_type: type,
       state_code: state || null,
@@ -847,6 +876,7 @@ function AddStationPanel({
       setUrl("");
       setCall("");
       setFreq("");
+      setDial("");
       setBand("fm1");
       setType("stream");
       setState("");
@@ -894,6 +924,14 @@ function AddStationPanel({
           maxLength={32}
           placeholder="Call sign (optional)"
           onChange={(e) => setCall(e.target.value)}
+          className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
+        />
+        <input
+          type="text"
+          value={dial}
+          maxLength={10}
+          placeholder="Dial label"
+          onChange={(e) => setDial(e.target.value)}
           className="min-h-[52px] rounded-[14px] border border-stone-200 bg-[#FAF8F3] px-4 text-base text-stone-800 placeholder:text-stone-400 focus:border-[#F4B400] focus:outline-none focus:ring-2 focus:ring-[#F4B400]/30"
         />
         <input

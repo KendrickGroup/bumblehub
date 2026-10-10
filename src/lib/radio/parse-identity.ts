@@ -69,23 +69,38 @@ export function stationTagline(
   return name;
 }
 
+export const DIAL_LABEL_MAX = 10;
+
+/** Preset key text. Call sign first, otherwise the station name, clipped. */
+export function defaultDialLabel(
+  callSign: string | null | undefined,
+  name: string | null | undefined,
+): string {
+  const source = (callSign ?? "").trim() || (name ?? "").trim();
+  return source.slice(0, DIAL_LABEL_MAX);
+}
+
 export function stationFace(
   station: Pick<
     RadioStation,
     "city_label" | "station_name" | "call_sign" | "frequency"
-  >,
+  > & { dial_label?: string | null },
 ): StationFace {
   const parsed = parseCallAndFreq(station.station_name);
   const callSign = (station.call_sign ?? "").trim() || parsed.callSign;
   const frequency = (station.frequency ?? "").trim() || parsed.frequency;
   const band = bandFromFrequency(frequency);
-  const buttonLabel = callSign || station.city_label || station.station_name;
+  const buttonLabel =
+    (station.dial_label ?? "").trim() ||
+    defaultDialLabel(callSign, station.station_name) ||
+    station.city_label ||
+    station.station_name;
   return {
     callSign,
     frequency,
     band,
     buttonLabel,
-    buttonSub: frequency,
+    buttonSub: null,
     readoutPrimary: callSign || station.station_name,
     readoutFreq: frequency,
   };

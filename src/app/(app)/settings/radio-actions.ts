@@ -8,7 +8,7 @@ import {
   normalizeRadioStation,
   type RadioStation,
 } from "@/lib/radio/types";
-import { parseCallAndFreq } from "@/lib/radio/parse-identity";
+import { defaultDialLabel, parseCallAndFreq } from "@/lib/radio/parse-identity";
 import { countVisibleStations, fetchRadioStations } from "@/lib/radio/queries";
 import {
   parseRadioBand,
@@ -77,6 +77,7 @@ export async function createRadioStation(input: {
   is_visible?: boolean;
   call_sign?: string;
   frequency?: string;
+  dial_label?: string;
   band?: RadioBand;
   station_type?: RadioStationType;
   latitude?: number | null;
@@ -102,6 +103,9 @@ export async function createRadioStation(input: {
     emptyToNull(input.call_sign, 32) ?? parsed.callSign;
   const frequency =
     emptyToNull(input.frequency, 12) ?? parsed.frequency;
+  const dial_label =
+    emptyToNull(input.dial_label, 10) ??
+    defaultDialLabel(call_sign, station_name);
   const band: RadioBand =
     parseBand(input.band) ??
     (frequency && !frequency.includes(".") && Number(frequency) >= 530
@@ -141,6 +145,7 @@ export async function createRadioStation(input: {
       is_visible,
       call_sign,
       frequency,
+      dial_label,
       band,
       station_type,
       latitude: parseCoord(input.latitude) ?? null,
@@ -165,6 +170,7 @@ export async function updateRadioStation(input: {
   is_visible?: boolean;
   call_sign?: string;
   frequency?: string;
+  dial_label?: string;
   band?: RadioBand;
   station_type?: RadioStationType;
   latitude?: number | null;
@@ -199,6 +205,9 @@ export async function updateRadioStation(input: {
   }
   if (typeof input.frequency === "string") {
     patch.frequency = emptyToNull(input.frequency, 12);
+  }
+  if (typeof input.dial_label === "string") {
+    patch.dial_label = emptyToNull(input.dial_label, 10);
   }
   const nextBand = parseBand(input.band);
   if (nextBand) {

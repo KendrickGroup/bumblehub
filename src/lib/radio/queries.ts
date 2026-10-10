@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { LAUNCH_STATIONS } from "./launch-stations";
-import { parseCallAndFreq } from "./parse-identity";
+import { defaultDialLabel, parseCallAndFreq } from "./parse-identity";
 import { FOURBLE_BASEBALL_RSS } from "./ranch";
 import {
   RADIO_STATION_COLUMNS,
@@ -59,6 +59,7 @@ export async function ensureLaunchStations(
           is_visible: true,
           call_sign: parsed.callSign,
           frequency: parsed.frequency,
+          dial_label: defaultDialLabel(parsed.callSign, station.station_name),
           band: station.display_order < 4 ? ("fm1" as const) : ("fm2" as const),
           station_type: "stream" as const,
         };
@@ -79,6 +80,7 @@ export async function ensureLaunchStations(
     is_visible: true,
     call_sign: "BASEBALL",
     frequency: "CLASSIC",
+    dial_label: "BASEBALL",
     band: "am",
     station_type: "feed",
     timezone: "America/New_York",

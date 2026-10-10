@@ -48,6 +48,7 @@ export async function GET() {
         stream_url: s.stream_url,
         call_sign: s.call_sign,
         frequency: s.frequency,
+        dial_label: s.dial_label,
         band: s.band,
         station_type: s.station_type,
         latitude: s.latitude,
