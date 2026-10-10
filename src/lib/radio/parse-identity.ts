@@ -81,6 +81,7 @@ export function presetSourceLine(
 ): string {
   const name = station.station_name.trim();
   const call = (station.call_sign ?? "").trim();
+  if (/^latigo wx$/i.test(name)) return "NOAA";
   if (
     station.station_type === "feed" ||
     /^classic baseball$/i.test(name) ||

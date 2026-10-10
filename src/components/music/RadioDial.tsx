@@ -26,7 +26,6 @@ import {
   RADIO_APP_NAME,
   RADIO_APP_STRIP,
   stateCodeFromLabel,
-  type RadioBand,
   type RadioFaceBand,
   RADIO_BANDS,
   DEFAULT_FACE_BAND,
@@ -125,7 +124,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [listOpen, setListOpen] = useState(false);
   const [crackle, setCrackle] = useState(false);
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>(DEFAULT_FACE_BAND);
-  const [presetBand, setPresetBand] = useState<RadioBand>("fm1");
   const [bandRestored, setBandRestored] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
@@ -156,7 +154,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     const last = readLastBand();
     if (!last) return;
     setBrowseBand(last);
-    if (last !== "wx") setPresetBand(last);
   }, [bandRestored]);
 
   if (tunedId && tunedId !== WX_STATION_ID && lastRealId !== tunedId) {
@@ -278,10 +275,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   }, [wxFace, archiveFace, displayStation?.latitude, displayStation?.longitude]);
 
   const presets = useMemo(() => {
-    const band: RadioBand =
-      browseBand === "wx" ? presetBand : browseBand;
-    return presetsForBand(visible, band, visibleCapForBand(band));
-  }, [visible, browseBand, presetBand]);
+    if (browseBand === "wx") return wxStation ? [wxStation] : [];
+    return presetsForBand(visible, browseBand, visibleCapForBand(browseBand));
+  }, [visible, browseBand, wxStation]);
 
   const parked = !loaded;
   const face = displayStation ? stationFace(displayStation) : null;
@@ -332,9 +328,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     if (!alreadyLive) {
       playRadio(station);
     }
-    setBrowseBand(station.band);
-    setPresetBand(station.band);
-    writeLastBand(station.band);
+    const faceBand: RadioFaceBand =
+      station.id === WX_STATION_ID ? "wx" : station.band;
+    setBrowseBand(faceBand);
+    writeLastBand(faceBand);
     unlockStaticCrackle();
     if (!alreadyLive) {
       retuneFx();
@@ -369,7 +366,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const onBand = (band: RadioFaceBand) => {
     setBrowseBand(band);
     writeLastBand(band);
-    if (band !== "wx") setPresetBand(band);
   };
 
   const onLasso = async () => {
@@ -779,10 +775,12 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
               {presets.map((station) => {
                 const preset = stationFace(station);
                 const active =
-                  station.id === selected?.id &&
-                  station.band === browseBand &&
                   !parked &&
-                  !wxFace;
+                  (station.id === WX_STATION_ID
+                    ? wxFace && player.stationId === WX_STATION_ID
+                    : station.id === selected?.id &&
+                      station.band === browseBand &&
+                      !wxFace);
                 return (
                   <button
                     key={station.id}
