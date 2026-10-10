@@ -9,6 +9,7 @@ import {
   cityLabelFromResult,
   displayTags,
   extrasFromSearchResult,
+  RADIO_DIRECTORY_DOWN,
   resultAlreadyOnDial,
   resultPlace,
   suggestionAlreadyOnDial,
@@ -90,16 +91,31 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
     setSearchError(null);
     try {
       const response = await fetch(url, { cache: "no-store" });
-      const body = (await response.json()) as {
-        results?: RadioSearchResult[];
-        error?: string;
-      };
+      let body: { results?: RadioSearchResult[]; error?: string } = {};
+      try {
+        body = (await response.json()) as {
+          results?: RadioSearchResult[];
+          error?: string;
+        };
+      } catch {
+        throw new Error(RADIO_DIRECTORY_DOWN);
+      }
       if (gen !== searchGen.current) return;
-      if (!response.ok) throw new Error(body.error ?? "Search failed");
+      if (!response.ok) {
+        throw new Error(
+          response.status >= 500
+            ? RADIO_DIRECTORY_DOWN
+            : body.error || RADIO_DIRECTORY_DOWN,
+        );
+      }
       setResults(body.results ?? []);
     } catch (err) {
       if (gen !== searchGen.current) return;
-      setSearchError(err instanceof Error ? err.message : "Search failed");
+      setSearchError(
+        err instanceof Error && err.message
+          ? err.message
+          : RADIO_DIRECTORY_DOWN,
+      );
       setResults([]);
     } finally {
       if (gen === searchGen.current) setSearching(false);
@@ -300,7 +316,11 @@ export function FindStationsPanel({ stations, chartArt, onAdd }: Props) {
         </ul>
       ) : showingResults && !searching && !searchError ? (
         <p className="text-sm text-stone-500">
-          No US streams found. Try another name, or paste a URL below.
+          No stations found for{" "}
+          {query.trim() ||
+            RADIO_GENRES.find((item) => item.id === genre)?.label ||
+            "that search"}
+          .
         </p>
       ) : null}
 

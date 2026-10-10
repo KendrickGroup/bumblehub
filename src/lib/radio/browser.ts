@@ -7,13 +7,16 @@ import {
 import type { RadioSearchResult } from "./types";
 import { isHttpsStreamUrl } from "./types";
 
+const DIRECTORY_ROOT = "https://all.api.radio-browser.info";
 const FALLBACK_MIRRORS = [
   "https://de1.api.radio-browser.info",
-  "https://nl1.api.radio-browser.info",
-  "https://at1.api.radio-browser.info",
+  "https://de2.api.radio-browser.info",
 ];
 
-const USER_AGENT = "BumbleHub/1.0 (https://bumblehub.dev)";
+export const RADIO_DIRECTORY_DOWN =
+  "Couldn't reach the station directory, try again.";
+
+const USER_AGENT = "LatigoRadio/1.0 (https://bumblehub.dev)";
 const SEARCH_LIMIT = 40;
 const FINDER_LIMIT = 30;
 const FINDER_CACHE_MS = 120_000;
@@ -24,6 +27,7 @@ const finderCache = new Map<
 >();
 
 let cachedMirrors: string[] | null = null;
+let mirrorsCachedAt = 0;
 
 export const RADIO_GENRES = [
   { id: "classic-country", label: "Classic Country" },
@@ -69,6 +73,7 @@ type BrowserStation = {
 
 type FetchOpts = {
   name?: string;
+  state?: string;
   tag?: string;
   countrycode?: string;
   order?: "votes" | "clickcount";
@@ -90,14 +95,30 @@ function parseTags(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function isPlaylist(url: string): boolean {
+  return /\.(m3u8?|pls)(\?|$)/i.test(url);
+}
+
+function httpsCopy(url: string): string {
+  if (!url.startsWith("http://")) return "";
+  const upgraded = `https://${url.slice("http://".length)}`;
+  return isHttpsStreamUrl(upgraded) ? upgraded : "";
+}
+
+/** Prefer an https stream. Directory rows often list the same mount as http. */
+function listenUrl(resolved: string, fallback: string): string {
+  const httpsOnes = [resolved, fallback, httpsCopy(resolved), httpsCopy(fallback)].filter(
+    (url) => isHttpsStreamUrl(url),
+  );
+  return (
+    httpsOnes.find((url) => !isPlaylist(url)) ||
+    httpsOnes.find((url) => isPlaylist(url)) ||
+    ""
+  );
+}
+
 export function mapStation(raw: BrowserStation): RadioSearchResult | null {
-  const resolved = asString(raw.url_resolved);
-  const fallback = asString(raw.url);
-  const streamUrl = isHttpsStreamUrl(resolved)
-    ? resolved
-    : isHttpsStreamUrl(fallback)
-      ? fallback
-      : "";
+  const streamUrl = listenUrl(asString(raw.url_resolved), asString(raw.url));
   if (!streamUrl) return null;
   const name = asString(raw.name);
   const stationuuid = asString(raw.stationuuid);
@@ -149,36 +170,50 @@ function mergeResults(groups: RadioSearchResult[][]): RadioSearchResult[] {
   return out;
 }
 
+const directoryHeaders = {
+  "User-Agent": USER_AGENT,
+  Accept: "application/json",
+};
+
+async function hostsFrom(origin: string): Promise<string[]> {
+  const response = await fetch(`${origin}/json/servers`, {
+    headers: directoryHeaders,
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) return [];
+  const body = (await response.json()) as unknown;
+  if (!Array.isArray(body)) return [];
+  return [
+    ...new Set(
+      body
+        .map((row) =>
+          typeof row === "object" && row && "name" in row
+            ? asString((row as { name: unknown }).name)
+            : "",
+        )
+        .filter(Boolean)
+        .map((host) => `https://${host}`),
+    ),
+  ];
+}
+
 async function getMirrors(): Promise<string[]> {
-  if (cachedMirrors && cachedMirrors.length > 0) return cachedMirrors;
-  for (const origin of FALLBACK_MIRRORS) {
+  if (
+    cachedMirrors &&
+    cachedMirrors.length > 0 &&
+    Date.now() - mirrorsCachedAt < 10 * 60 * 1000
+  ) {
+    return cachedMirrors;
+  }
+  const seeds = [DIRECTORY_ROOT, ...FALLBACK_MIRRORS];
+  for (const origin of seeds) {
     try {
-      const response = await fetch(`${origin}/json/servers`, {
-        headers: {
-          "User-Agent": USER_AGENT,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!response.ok) continue;
-      const body = (await response.json()) as unknown;
-      if (!Array.isArray(body)) continue;
-      const hosts = [
-        ...new Set(
-          body
-            .map((row) =>
-              typeof row === "object" && row && "name" in row
-                ? asString((row as { name: unknown }).name)
-                : "",
-            )
-            .filter(Boolean),
-        ),
-      ];
-      if (hosts.length > 0) {
-        cachedMirrors = hosts.map((host) => `https://${host}`);
-        return cachedMirrors;
-      }
+      const hosts = await hostsFrom(origin);
+      if (hosts.length === 0) continue;
+      cachedMirrors = [...new Set([...hosts, ...FALLBACK_MIRRORS])];
+      mirrorsCachedAt = Date.now();
+      return cachedMirrors;
     } catch {
       // try the next known origin
     }
@@ -194,42 +229,42 @@ async function fetchFromMirrors(
   for (const origin of origins) {
     try {
       const response = await fetch(`${origin}/json/stations/search?${params}`, {
-        headers: {
-          "User-Agent": USER_AGENT,
-          Accept: "application/json",
-        },
+        headers: directoryHeaders,
         cache: "no-store",
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) {
-        lastError = new Error(`Radio Browser ${response.status}`);
+        lastError = new Error(RADIO_DIRECTORY_DOWN);
         continue;
       }
       const body = (await response.json()) as unknown;
-      if (!Array.isArray(body)) return [];
+      if (!Array.isArray(body)) {
+        lastError = new Error(RADIO_DIRECTORY_DOWN);
+        continue;
+      }
       const results: RadioSearchResult[] = [];
       for (const row of body) {
         const mapped = mapStation(row as BrowserStation);
         if (mapped) results.push(mapped);
       }
       return results;
-    } catch (err) {
-      lastError =
-        err instanceof Error ? err : new Error("Radio Browser failed");
+    } catch {
+      lastError = new Error(RADIO_DIRECTORY_DOWN);
+      cachedMirrors = null;
     }
   }
-  throw lastError ?? new Error("Radio Browser unavailable");
+  throw lastError ?? new Error(RADIO_DIRECTORY_DOWN);
 }
 
 async function fetchStations(opts: FetchOpts): Promise<RadioSearchResult[]> {
   const params = new URLSearchParams({
-    is_https: "true",
     hidebroken: "true",
     limit: String(opts.limit ?? SEARCH_LIMIT),
     order: opts.order ?? "votes",
     reverse: "true",
   });
   if (opts.name) params.set("name", opts.name.slice(0, 80));
+  if (opts.state) params.set("state", opts.state.slice(0, 80));
   if (opts.tag) params.set("tag", opts.tag.slice(0, 80));
   if (opts.countrycode) params.set("countrycode", opts.countrycode);
   return fetchFromMirrors(params);
@@ -244,12 +279,27 @@ export async function searchRadioBrowser(
   const hit = finderCache.get(key);
   if (hit && Date.now() - hit.at < FINDER_CACHE_MS) return hit.results;
 
-  const rows = await fetchStations({
-    name,
-    countrycode: "US",
-    order: "clickcount",
-    limit: FINDER_LIMIT,
-  });
+  const settled = await Promise.allSettled([
+    fetchStations({
+      name,
+      countrycode: "US",
+      order: "clickcount",
+      limit: FINDER_LIMIT,
+    }),
+    fetchStations({
+      state: name,
+      countrycode: "US",
+      order: "clickcount",
+      limit: FINDER_LIMIT,
+    }),
+  ]);
+  if (settled.every((item) => item.status === "rejected")) {
+    throw new Error(RADIO_DIRECTORY_DOWN);
+  }
+  const rows = settled.flatMap((item) =>
+    item.status === "fulfilled" ? item.value : [],
+  );
+  rows.sort((a, b) => b.clickcount - a.clickcount || b.votes - a.votes);
   const seen = new Set<string>();
   const results: RadioSearchResult[] = [];
   for (const row of rows) {
