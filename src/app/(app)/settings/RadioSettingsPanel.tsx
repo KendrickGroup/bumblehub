@@ -100,7 +100,8 @@ export function RadioSettingsPanel({
   const bandAtCap = (band: RadioBand) =>
     stations.filter((s) => s.is_visible && s.band === band).length >=
     visibleCapForBand(band);
-  const anyBandAtCap = bandAtCap("fm1") || bandAtCap("fm2") || bandAtCap("am");
+  const anyBandAtCap =
+    bandAtCap("fm1") || bandAtCap("fm2") || bandAtCap("fm3") || bandAtCap("am");
 
   const applyStation = useCallback((station: RadioStation) => {
     setStations((prev) => prev.map((s) => (s.id === station.id ? station : s)));
@@ -243,8 +244,8 @@ export function RadioSettingsPanel({
 
       {anyBandAtCap ? (
         <p className="mt-4 rounded-[14px] bg-[#FBF0D0] px-4 py-3 text-sm font-medium text-stone-800">
-          FM1 and FM2 hold 8 visible stations each. AM holds 10. Hide one to add
-          another on that band.
+          FM1, FM2, and FM3 hold 4 visible stations each. AM holds 10. Hide one
+          to add another on that band.
         </p>
       ) : null}
 
@@ -704,6 +705,7 @@ const StationEditFields = memo(function StationEditFields({
         >
           <option value="fm1">FM1</option>
           <option value="fm2">FM2</option>
+          <option value="fm3">FM3</option>
           <option value="am">AM</option>
         </select>
       </label>
@@ -909,6 +911,7 @@ function AddStationPanel({
         >
           <option value="fm1">FM1</option>
           <option value="fm2">FM2</option>
+          <option value="fm3">FM3</option>
           <option value="am">AM</option>
         </select>
         <select
@@ -951,8 +954,8 @@ function AddStationPanel({
         </button>
       </div>
       <p className="mt-2 text-xs text-stone-500">
-        FM1 and FM2 hold 8 visible stations each. AM holds 10. Extra stations
-        stay hidden until you free a slot on that band.
+        FM1, FM2, and FM3 hold 4 visible stations each. AM holds 10. Extra
+        stations stay hidden until you free a slot on that band.
       </p>
     </div>
   );

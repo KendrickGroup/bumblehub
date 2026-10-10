@@ -529,6 +529,7 @@ function FoundStation({
             >
               <option value="fm1">FM1</option>
               <option value="fm2">FM2</option>
+              <option value="fm3">FM3</option>
               <option value="am">AM</option>
             </select>
             <AddToDialButton
@@ -627,6 +628,7 @@ function AddIdentityDraft({
       >
         <option value="fm1">FM1</option>
         <option value="fm2">FM2</option>
+        <option value="fm3">FM3</option>
         <option value="am">AM</option>
       </select>
       <div className="flex flex-wrap items-center gap-2">

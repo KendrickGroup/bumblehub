@@ -18,22 +18,24 @@ export const LATIGO_COWBOY_URL = "https://latigocowboy.com";
 export const RADIO_APP_NAME = "Latigo Radio";
 export const RADIO_APP_STRIP = "LATIGO RADIO";
 
-export type RadioBand = "fm1" | "fm2" | "am";
+export type RadioBand = "fm1" | "fm2" | "fm3" | "am";
 export type RadioStationType = "stream" | "feed";
 export type RadioFaceBand = RadioBand | "wx";
 
-export const RADIO_BANDS: RadioFaceBand[] = ["fm1", "fm2", "am", "wx"];
+export const RADIO_BANDS: RadioFaceBand[] = ["fm1", "fm2", "fm3", "am", "wx"];
 export const DEFAULT_FACE_BAND: RadioFaceBand = "fm1";
 
 export function parseRadioBand(value: unknown): RadioBand | undefined {
-  if (value === "fm1" || value === "fm2" || value === "am") return value;
+  if (value === "fm1" || value === "fm2" || value === "fm3" || value === "am") {
+    return value;
+  }
   if (value === "fm") return "fm1";
   if (value === "sports") return "am";
   return undefined;
 }
 
 export function isFmBand(band: string | null | undefined): boolean {
-  return band === "fm1" || band === "fm2" || band === "fm";
+  return band === "fm1" || band === "fm2" || band === "fm3" || band === "fm";
 }
 
 /** Play rows still store fm/am/wx so Run C totals stay comparable. */
@@ -50,6 +52,7 @@ export function playLogBand(
 export function faceBandLabel(band: RadioFaceBand): string {
   if (band === "fm1") return "FM1";
   if (band === "fm2") return "FM2";
+  if (band === "fm3") return "FM3";
   if (band === "wx") return "WX";
   return "AM";
 }
@@ -60,16 +63,16 @@ export function bandFlagKind(band: RadioFaceBand): "fm" | "am" | "wx" {
   return "fm";
 }
 
-/** Eight presets on each FM page, two rows of four. AM is unchanged. */
+/** Four presets on each FM page. AM is unchanged. */
 export function visibleCapForBand(band: RadioBand): number {
-  return band === "am" ? 10 : 8;
+  return band === "am" ? 10 : 4;
 }
 
-/** First FM page that still has a free visible slot. FM1 when both are full. */
+/** First FM page that still has a free visible slot. FM1 when all three are full. */
 export function firstOpenFmBand(
   stations: Array<{ band: RadioBand; is_visible: boolean }>,
 ): RadioBand {
-  for (const band of ["fm1", "fm2"] as const) {
+  for (const band of ["fm1", "fm2", "fm3"] as const) {
     const visible = stations.filter(
       (station) => station.is_visible && station.band === band,
     ).length;
