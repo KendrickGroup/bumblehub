@@ -1621,11 +1621,23 @@ body {
   color: var(--am);
   text-shadow: 0 0 8px rgba(244,180,0,.5);
 }
+.radio-preset-sub,
 .radio-preset-freq {
+  max-width: 100%;
+  overflow: hidden;
   margin-top: 1px;
   font-family: var(--font-elite), "Special Elite", cursive;
-  font-size: 8.5px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: #A8ACB0;
+}
+.radio-preset.is-active .radio-preset-sub {
+  color: #C4B8A4;
 }
 .radio-preset.is-active::after {
   content: "";

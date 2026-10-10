@@ -9,7 +9,7 @@ export type StationFace = {
   frequency: string | null;
   band: "AM" | "FM" | null;
   buttonLabel: string;
-  buttonSub: string | null;
+  buttonSub: string;
   readoutPrimary: string;
   readoutFreq: string | null;
 };
@@ -69,7 +69,32 @@ export function stationTagline(
   return name;
 }
 
+const REAL_CALL = /^[KW][A-Z]{2,3}(?:-FM)?$/i;
+
 export const DIAL_LABEL_MAX = 10;
+
+/** Small line under a preset key: a real call sign, a network, or a source tag. */
+export function presetSourceLine(
+  station: Pick<RadioStation, "station_name" | "call_sign"> & {
+    station_type?: string | null;
+  },
+): string {
+  const name = station.station_name.trim();
+  const call = (station.call_sign ?? "").trim();
+  if (
+    station.station_type === "feed" ||
+    /^classic baseball$/i.test(name) ||
+    /^baseball$/i.test(call)
+  ) {
+    return "ARCHIVE";
+  }
+  if (REAL_CALL.test(call)) return call.toUpperCase();
+  const parsed = parseCallAndFreq(name).callSign;
+  if (parsed && REAL_CALL.test(parsed)) return parsed.toUpperCase();
+  const network = name.match(/^(\d+\.[A-Za-z]+)/);
+  if (network?.[1]) return network[1].toUpperCase();
+  return "ONLINE";
+}
 
 /** Preset key text. Call sign first, otherwise the station name, clipped. */
 export function defaultDialLabel(
@@ -84,7 +109,7 @@ export function stationFace(
   station: Pick<
     RadioStation,
     "city_label" | "station_name" | "call_sign" | "frequency"
-  > & { dial_label?: string | null },
+  > & { dial_label?: string | null; station_type?: string | null },
 ): StationFace {
   const parsed = parseCallAndFreq(station.station_name);
   const callSign = (station.call_sign ?? "").trim() || parsed.callSign;
@@ -100,7 +125,7 @@ export function stationFace(
     frequency,
     band,
     buttonLabel,
-    buttonSub: null,
+    buttonSub: presetSourceLine(station),
     readoutPrimary: callSign || station.station_name,
     readoutFreq: frequency,
   };

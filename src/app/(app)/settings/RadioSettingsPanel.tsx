@@ -12,10 +12,13 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   Eye,
   EyeOff,
   Pencil,
+  Play,
   Plus,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -51,8 +54,6 @@ type Props = {
   initialWxStreamUrl: string;
   initialChartArt: ChartArtMap;
 };
-
-const TEXT_DEBOUNCE_MS = 600;
 
 type StationTextFields = {
   city_label: string;
@@ -337,6 +338,10 @@ const StationRow = memo(function StationRow({
   stations,
   chartArt,
 }: StationRowProps) {
+  const saveRef = useRef({ save: null as (() => void) | null });
+  const test = useStationTestPlayer(`row:${station.id}`);
+  const testing =
+    test.isActive && (test.status === "playing" || test.status === "loading");
   return (
     <div
       className={`rounded-[16px] border px-3 py-3 sm:px-4 ${
@@ -383,12 +388,7 @@ const StationRow = memo(function StationRow({
             </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StationTestButton
-            testKey={`row:${station.id}`}
-            url={station.stream_url}
-            compact
-          />
+        <div className="flex flex-wrap items-end gap-1.5">
           <IconButton
             label={station.is_visible ? "Hide from dial" : "Show on dial"}
             disabled={!station.is_visible && !canShow}
@@ -400,24 +400,45 @@ const StationRow = memo(function StationRow({
               <EyeOff className="h-4 w-4" strokeWidth={2.25} />
             )}
           </IconButton>
-          <IconButton
-            label={editing ? "Done editing" : "Edit"}
+          {editing ? (
+            <LabeledControl
+              label="Save"
+              tone="primary"
+              onClick={() => saveRef.current.save?.()}
+            >
+              <Check className="h-4 w-4" strokeWidth={2.5} />
+            </LabeledControl>
+          ) : (
+            <LabeledControl
+              label={testing ? "Stop" : "Play"}
+              onClick={() =>
+                testing ? test.stop() : test.play(station.stream_url)
+              }
+            >
+              {testing ? (
+                <Square
+                  className="h-3.5 w-3.5"
+                  strokeWidth={2.25}
+                  fill="currentColor"
+                />
+              ) : (
+                <Play className="h-4 w-4" strokeWidth={2.25} fill="currentColor" />
+              )}
+            </LabeledControl>
+          )}
+          <LabeledControl
+            label={editing ? "Cancel" : "Edit"}
             onClick={onToggleEdit}
-            active={editing}
           >
             {editing ? (
               <X className="h-4 w-4" strokeWidth={2.25} />
             ) : (
               <Pencil className="h-4 w-4" strokeWidth={2.25} />
             )}
-          </IconButton>
-          <IconButton
-            label="Delete"
-            danger
-            onClick={() => onDelete(station.id)}
-          >
+          </LabeledControl>
+          <LabeledControl label="Delete" onClick={() => onDelete(station.id)}>
             <Trash2 className="h-4 w-4" strokeWidth={2.25} />
-          </IconButton>
+          </LabeledControl>
         </div>
       </div>
 
@@ -437,6 +458,7 @@ const StationRow = memo(function StationRow({
           initialLon={station.longitude != null ? String(station.longitude) : ""}
           initialState={station.state_code ?? ""}
           initialTz={station.timezone ?? ""}
+          saveRef={saveRef}
           stations={stations}
           chartArt={chartArt}
           onCommit={onCommitFields}
@@ -445,6 +467,36 @@ const StationRow = memo(function StationRow({
     </div>
   );
 });
+
+function LabeledControl({
+  label,
+  children,
+  onClick,
+  tone = "secondary",
+}: {
+  label: string;
+  children: ReactNode;
+  onClick: () => void;
+  tone?: "primary" | "secondary";
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={`flex min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-[12px] border px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B400]/50 ${
+        tone === "primary"
+          ? "border-[#d4a000] bg-[#F4B400] text-[#3E2A1E]"
+          : "border-[#e4d3c4] bg-[#FAF8F3] text-[#3E2F20]"
+      }`}
+    >
+      {children}
+      <span className="font-[family-name:var(--font-elite)] text-[9px] font-bold uppercase tracking-[0.08em]">
+        {label}
+      </span>
+    </button>
+  );
+}
 
 function IconButton({
   label,
@@ -543,6 +595,7 @@ const StationEditFields = memo(function StationEditFields({
   initialLon,
   initialState,
   initialTz,
+  saveRef,
   stations,
   chartArt,
   onCommit,
@@ -560,6 +613,7 @@ const StationEditFields = memo(function StationEditFields({
   initialLon: string;
   initialState: string;
   initialTz: string;
+  saveRef?: { current: { save: (() => void) | null } };
   stations: RadioStation[];
   chartArt: ChartArtMap;
   onCommit: (id: string, fields: StationTextFields) => void;
@@ -592,7 +646,6 @@ const StationEditFields = memo(function StationEditFields({
   };
   const latestRef = useRef(initialDraft);
   const committedRef = useRef(initialDraft);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     latestRef.current = {
@@ -612,36 +665,25 @@ const StationEditFields = memo(function StationEditFields({
   }, [city, name, url, call, freq, dial, band, type, lat, lon, state, tz]);
 
   const flush = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
     const next = latestRef.current;
     if (stationDraftEquals(next, committedRef.current)) return;
     committedRef.current = next;
     onCommit(stationId, draftToFields(next));
   }, [onCommit, stationId]);
 
-  const schedule = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(flush, TEXT_DEBOUNCE_MS);
-  }, [flush]);
-
   useEffect(() => {
+    if (!saveRef) return;
+    const bag = saveRef.current;
+    bag.save = flush;
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      const next = latestRef.current;
-      if (stationDraftEquals(next, committedRef.current)) return;
-      committedRef.current = next;
-      onCommit(stationId, draftToFields(next));
+      bag.save = null;
     };
-  }, [onCommit, stationId]);
+  }, [flush, saveRef]);
 
   const onField =
     (setter: (value: string) => void) =>
     (e: FormEvent<HTMLInputElement>) => {
       setter(e.currentTarget.value);
-      schedule();
     };
 
   const fieldClass =
@@ -658,7 +700,6 @@ const StationEditFields = memo(function StationEditFields({
           value={city}
           maxLength={40}
           onChange={onField(setCity)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -671,7 +712,6 @@ const StationEditFields = memo(function StationEditFields({
           value={name}
           maxLength={80}
           onChange={onField(setName)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -685,7 +725,6 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={32}
           placeholder="KUZZ"
           onChange={onField(setCall)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -699,7 +738,6 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={10}
           placeholder="THE RANCH"
           onChange={onField(setDial)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -713,7 +751,6 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={12}
           placeholder="107.9"
           onChange={onField(setFreq)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -723,11 +760,7 @@ const StationEditFields = memo(function StationEditFields({
         </span>
         <select
           value={band}
-          onChange={(e) => {
-            setBand(e.target.value as RadioBand);
-            schedule();
-          }}
-          onBlur={flush}
+          onChange={(e) => setBand(e.target.value as RadioBand)}
           className={fieldClass}
         >
           <option value="fm1">FM1</option>
@@ -742,11 +775,7 @@ const StationEditFields = memo(function StationEditFields({
         </span>
         <select
           value={type}
-          onChange={(e) => {
-            setType(e.target.value as RadioStationType);
-            schedule();
-          }}
-          onBlur={flush}
+          onChange={(e) => setType(e.target.value as RadioStationType)}
           className={fieldClass}
         >
           <option value="stream">Stream</option>
@@ -763,7 +792,6 @@ const StationEditFields = memo(function StationEditFields({
           value={lat}
           placeholder="38.39"
           onChange={onField(setLat)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -777,7 +805,6 @@ const StationEditFields = memo(function StationEditFields({
           value={lon}
           placeholder="-120.8"
           onChange={onField(setLon)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -791,11 +818,7 @@ const StationEditFields = memo(function StationEditFields({
           stations={stations}
           chartArt={chartArt}
           className={fieldClass}
-          onChange={(code) => {
-            setState(code);
-            schedule();
-          }}
-          onBlur={flush}
+          onChange={setState}
         />
       </label>
       <label className="block sm:col-span-1">
@@ -808,7 +831,6 @@ const StationEditFields = memo(function StationEditFields({
           maxLength={64}
           placeholder="America/Los_Angeles"
           onChange={onField(setTz)}
-          onBlur={flush}
           className={fieldClass}
         />
       </label>
@@ -821,7 +843,6 @@ const StationEditFields = memo(function StationEditFields({
           value={url}
           maxLength={500}
           onChange={onField(setUrl)}
-          onBlur={flush}
           className={`${fieldClass} font-mono text-xs`}
         />
       </label>
@@ -998,6 +1019,8 @@ function AddStationPanel({
     </div>
   );
 }
+
+const TEXT_DEBOUNCE_MS = 600;
 
 function WxStreamField({ initialUrl }: { initialUrl: string }) {
   const [url, setUrl] = useState(initialUrl);
