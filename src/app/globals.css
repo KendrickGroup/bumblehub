@@ -312,7 +312,8 @@ body {
 .radio-world .radio-play-honey:focus-visible {
   outline: none;
 }
-.radio-carry:focus-visible {
+.radio-carry-open:focus-visible,
+.radio-share:focus-visible {
   box-shadow: inset 0 0 0 1px var(--stitch);
 }
 
@@ -351,11 +352,39 @@ body {
   transform: translateX(-50%);
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  padding: 0;
+}
+.radio-carry-open {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   border: none;
   background: transparent;
   cursor: pointer;
   padding: 0;
+  color: inherit;
+}
+.radio-share {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  border: 1px dashed rgba(217, 201, 168, 0.45);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #efe7d2;
+  cursor: pointer;
+  background:
+    repeating-radial-gradient(circle at 30% 40%, #6b4f36 0 2px, #7e5f42 2px 3px),
+    #6b4f36;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 /* Etched into the leather, not pasted on: no fill, no shadow, a thin cream
    stroke. The hit area is 44px square while the glyph stays 15px, so the
@@ -1899,6 +1928,8 @@ body {
   margin: 0 0 14px;
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 20px;
+  line-height: 1.25;
+  text-wrap: balance;
   color: #3e2f20;
 }
 .radio-handle-qr {
@@ -1914,6 +1945,7 @@ body {
 .radio-handle-note,
 .radio-handle-caption,
 .radio-handle-steps,
+.radio-handle-lead,
 .radio-handle-footnote {
   font-family: var(--font-elite), "Special Elite", cursive;
   font-size: 13px;
@@ -1921,13 +1953,49 @@ body {
   line-height: 1.5;
   text-align: left;
 }
-.radio-handle-caption {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.radio-handle-caption,
+.radio-handle-lead {
+  display: block;
   margin: 0 0 14px;
   text-align: center;
+}
+.radio-handle-lead {
+  color: #3e2f20;
+}
+.radio-handle-guide {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.radio-handle-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.radio-handle-badge {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #efe7d2;
+  border: 1px solid #cbb892;
+  color: #3e2f20;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.radio-handle-badge .radio-handle-glyph {
+  width: 26px;
+  height: 26px;
+}
+.radio-handle-badge .radio-handle-appicon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 .radio-handle-steps {
   margin: 0 0 12px;
@@ -1973,6 +2041,7 @@ body {
   color: #8a6f45;
 }
 .radio-handle-install,
+.radio-handle-share,
 .radio-handle-copy,
 .radio-handle-close {
   display: flex;
@@ -1991,6 +2060,11 @@ body {
 .radio-handle-install {
   background: #f4b400;
   border-color: #d4a000;
+}
+.radio-handle-share {
+  background: #6b4f36;
+  border-color: #5a4030;
+  color: #efe7d2;
 }
 
 /* The Latigo List ask rides the To-Go shell, dressed as a screwed plaque so it
@@ -2153,6 +2227,11 @@ body {
     padding: 4px 6px;
     font-size: 6.5px;
     letter-spacing: 0.05em;
+  }
+  .radio-share {
+    padding: 4px 8px;
+    font-size: 7px;
+    letter-spacing: 0.08em;
   }
   .radio-face {
     display: flex;
@@ -2459,9 +2538,10 @@ body {
     width: 1.35rem;
     height: 1.35rem;
   }
-  /* In-app handle stays off phones; public /radio keeps it. */
+  /* Cabin phone keeps the strap, shifted clear of the close mark. */
   .radio-world.app-radio .radio-carry {
-    display: none;
+    width: min(320px, calc(100% - 52px));
+    left: calc(50% - 22px);
   }
   .radio-world.app-radio .radio-case {
     padding-top: 36px;

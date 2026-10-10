@@ -64,6 +64,8 @@ import {
   useListAskDue,
 } from "@/lib/radio/list-gate";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
+import { RadioShareButton } from "@/components/radio/RadioShareButton";
+import { bindInstallPrompt } from "@/lib/radio/install-prompt";
 import { RadioVolumeControl } from "@/components/radio/RadioVolumeControl";
 import { chartTitle, StationChart } from "@/components/radio/StationChart";
 import { StateFlagIcon } from "@/components/radio/StateFlagIcon";
@@ -138,6 +140,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   useEffect(() => {
     setAnalyticsSurface(publicMode ? "public" : "app");
   }, [publicMode]);
+
+  useEffect(() => bindInstallPrompt(), []);
 
   const wxStation = useMemo(
     () => (wxStreamUrl.trim() ? makeWxStation(wxStreamUrl.trim()) : null),
@@ -483,16 +487,19 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       <div
         className={`radio-case ${parked ? "pointer-events-none opacity-40" : ""}`}
       >
-        <button
-          type="button"
-          className={`radio-carry ${publicMode ? "" : "max-sm:hidden"}`}
-          onClick={() => setHandleOpen(true)}
-          aria-label="Get Latigo Radio on your phone"
-        >
-          <span className="radio-ring" aria-hidden />
-          <span className="radio-handle-bar">Get Latigo Radio on your phone</span>
-          <span className="radio-ring" aria-hidden />
-        </button>
+        <div className="radio-carry">
+          <button
+            type="button"
+            className="radio-carry-open"
+            onClick={() => setHandleOpen(true)}
+            aria-label="Get Latigo Radio on your phone"
+          >
+            <span className="radio-ring" aria-hidden />
+            <span className="radio-handle-bar">Get Latigo Radio on your phone</span>
+            <span className="radio-ring" aria-hidden />
+          </button>
+          <RadioShareButton className="radio-share" />
+        </div>
 
         {/* SIGNED-IN ONLY. The public radio at radio.latigocowboy.com has no
             Home to go to, so this must never render there — the strap keeps
@@ -926,7 +933,6 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
       <RadioHandleModal
         open={handleOpen}
         onClose={() => setHandleOpen(false)}
-        variant={publicMode ? "public" : "app"}
       />
       {listOpen ? (
         <LatigoListModal
