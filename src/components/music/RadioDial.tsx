@@ -49,7 +49,6 @@ import {
   getRadioPlayerState,
   playRadio,
   radioIsLive,
-  rememberTunedStation,
   stopRadioForSpotifyPlayback,
   stopRadioPlayback,
   useRadioPlayer,
@@ -327,17 +326,17 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const closeChart = useCallback(() => setChartOpen(false), []);
 
   const onPreset = (station: RadioStation) => {
+    // play() has to run in this tap, before any await, or iPad Safari drops it.
+    const alreadyLive =
+      radioIsLive() && getRadioPlayerState().stationId === station.id;
+    if (!alreadyLive) {
+      playRadio(station);
+    }
     setBrowseBand(station.band);
     setPresetBand(station.band);
     writeLastBand(station.band);
-    const switching = getRadioPlayerState().stationId !== station.id;
-    if (radioIsLive()) {
-      playRadio(station);
-    } else {
-      rememberTunedStation(station);
-    }
     unlockStaticCrackle();
-    if (switching) {
+    if (!alreadyLive) {
       retuneFx();
       playStaticCrackle();
     }
