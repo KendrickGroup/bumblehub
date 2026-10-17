@@ -63,8 +63,10 @@ import {
   useListAskDue,
 } from "@/lib/radio/list-gate";
 import {
+  markJoined,
   markOfferSeen,
   markOfferSeenQuiet,
+  useJoinedReward,
   useOfferDue,
 } from "@/lib/radio/offer-gate";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
@@ -137,6 +139,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const player = useRadioPlayer();
   const listAskDue = useListAskDue();
   const offerDue = useOfferDue();
+  const joinedReward = useJoinedReward();
   const [listOpen, setListOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [crackle, setCrackle] = useState(false);
@@ -190,7 +193,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   }
 
   // Five minutes of real playback. The banner can open the same card sooner.
-  if (offerDue && !offerOpen && !listOpen) {
+  if (offerDue && !joinedReward && !offerOpen && !listOpen) {
     markOfferSeenQuiet();
     setOfferOpen(true);
   }
@@ -927,6 +930,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             }
             rotateSeconds={bannerRotateSeconds}
             card={bannerCard}
+            offerLabel={joinedReward ? "Your 15% Code" : "Get My 15% Off"}
             onOffer={openOffer}
           >
             <button
@@ -1002,6 +1006,8 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             playingStation?.station_name?.trim() ||
             null
           }
+          saved={joinedReward}
+          onJoined={markJoined}
           onClose={() => setOfferOpen(false)}
         />
       ) : null}

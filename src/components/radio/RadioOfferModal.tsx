@@ -7,22 +7,25 @@
 
 import { useEffect, useState } from "react";
 import { cleanEmail } from "@/lib/radio/latigo-list";
-
-export const OFFER_CODE = "LT15-9KQD";
-export const OFFER_SHOP_URL =
-  "https://latigocowboy.com/discount/LT15-9KQD?redirect=/";
+import { offerRewardFrom, type OfferReward } from "@/lib/radio/offer-gate";
 
 export function RadioOfferModal({
   source,
+  saved,
+  onJoined,
   onClose,
 }: {
   source: string | null;
+  /** Already signed up on this browser. The card shows the code, not the form. */
+  saved: OfferReward | null;
+  onJoined: (reward: OfferReward) => void;
   onClose: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [reward, setReward] = useState<OfferReward | null>(null);
+  const showing = saved ?? reward;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -34,7 +37,7 @@ export function RadioOfferModal({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (busy || done) return;
+    if (busy || showing) return;
     const clean = cleanEmail(email);
     if (!clean) {
       setError("That email doesn't look right. Mind checking it?");
@@ -51,13 +54,17 @@ export function RadioOfferModal({
       const body = (await response.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        code?: unknown;
+        shopUrl?: unknown;
       } | null;
-      if (!response.ok || !body?.ok) {
+      const next = response.ok && body?.ok ? offerRewardFrom(body) : null;
+      if (!next) {
         setError(body?.error ?? "The wire's down. Try that again in a minute.");
         setBusy(false);
         return;
       }
-      setDone(true);
+      onJoined(next);
+      setReward(next);
       setBusy(false);
     } catch {
       setError("The wire's down. Try that again in a minute.");
@@ -92,18 +99,18 @@ export function RadioOfferModal({
           ×
         </button>
 
-        {done ? (
+        {showing ? (
           <div className="radio-list-done" role="status">
             <h2 id="radio-offer-title" className="radio-list-title">
               Here&apos;s your code
             </h2>
-            <p className="radio-offer-code">{OFFER_CODE}</p>
+            <p className="radio-offer-code">{showing.code}</p>
             <p className="radio-list-sub">
-              Here&apos;s your code: {OFFER_CODE}. 15% off your first order.
+              Here&apos;s your code: {showing.code}. 15% off your first order.
             </p>
             <a
               className="radio-handle-install radio-list-go"
-              href={OFFER_SHOP_URL}
+              href={showing.shopUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -149,7 +156,7 @@ export function RadioOfferModal({
                 className="radio-handle-install radio-list-go"
                 disabled={busy}
               >
-                {busy ? "Saving…" : "Get My Code"}
+                {busy ? "Joining…" : "Join the Family"}
               </button>
             </form>
           </>

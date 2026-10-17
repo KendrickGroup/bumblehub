@@ -14,6 +14,10 @@ const WINDOW_MS = 60 * 60 * 1000;
 const MAX_PER_WINDOW = 8;
 const SOURCE_MAX = 80;
 
+/** Sent only after the address is stored. The radio page does not ship this. */
+const OFFER_CODE = "LT15-9KQD";
+const OFFER_SHOP_URL = "https://latigocowboy.com/discount/LT15-9KQD";
+
 const attempts = new Map<string, number[]>();
 
 function clientIp(request: Request): string {
@@ -72,5 +76,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    code: OFFER_CODE,
+    shopUrl: OFFER_SHOP_URL,
+  });
 }

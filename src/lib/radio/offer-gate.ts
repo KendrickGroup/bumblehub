@@ -12,7 +12,32 @@ import { useSyncExternalStore } from "react";
 
 export const OFFER_ASK_SECONDS = 300;
 const STORAGE_KEY = "latigo_radio_offer";
+/** "true" only after a real signup. Dismissing the card does not write this. */
+const JOINED_KEY = "latigo_joined";
+const JOINED_CODE_KEY = "latigo_joined_code";
+const JOINED_SHOP_KEY = "latigo_joined_shop";
 const TICK_MS = 5000;
+
+export type OfferReward = { code: string; shopUrl: string };
+
+/** A code the signup route handed back. Anything else is ignored. */
+export function offerRewardFrom(body: {
+  code?: unknown;
+  shopUrl?: unknown;
+} | null): OfferReward | null {
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  const shopUrl = typeof body?.shopUrl === "string" ? body.shopUrl.trim() : "";
+  if (!/^[A-Za-z0-9-]{4,32}$/.test(code)) return null;
+  let url: URL;
+  try {
+    url = new URL(shopUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.hostname !== "latigocowboy.com") return null;
+  if (!url.pathname.startsWith("/discount/")) return null;
+  return { code, shopUrl };
+}
 
 type OfferState = {
   listenedSeconds: number;
@@ -20,6 +45,9 @@ type OfferState = {
 };
 
 let state: OfferState | null = null;
+let joined: OfferReward | null = null;
+let joinedFlag = false;
+let joinedLoaded = false;
 let due = false;
 let playingSince: number | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -73,9 +101,31 @@ function accrue() {
   playingSince += seconds * 1000;
 }
 
+function loadJoined(): OfferReward | null {
+  if (joinedLoaded) return joined;
+  joinedLoaded = true;
+  joined = null;
+  joinedFlag = false;
+  if (typeof window === "undefined") return joined;
+  try {
+    joinedFlag = window.localStorage.getItem(JOINED_KEY) === "true";
+    if (!joinedFlag) return joined;
+    joined = offerRewardFrom({
+      code: window.localStorage.getItem(JOINED_CODE_KEY),
+      shopUrl: window.localStorage.getItem(JOINED_SHOP_KEY),
+    });
+  } catch {
+    joined = null;
+    joinedFlag = false;
+  }
+  return joined;
+}
+
 function checkDue() {
   const gate = load();
-  const next = !gate.seen && gate.listenedSeconds >= OFFER_ASK_SECONDS;
+  loadJoined();
+  const next =
+    !joinedFlag && !gate.seen && gate.listenedSeconds >= OFFER_ASK_SECONDS;
   if (next === due) return;
   due = next;
   notify();
@@ -140,6 +190,32 @@ export function markOfferSeen(): void {
  */
 export function markOfferSeenQuiet(): void {
   rememberSeen(false);
+}
+
+/** The email was saved. This browser is done asking. */
+export function markJoined(reward: OfferReward): void {
+  const clean = offerRewardFrom(reward);
+  if (!clean) return;
+  joined = clean;
+  joinedFlag = true;
+  joinedLoaded = true;
+  due = false;
+  try {
+    window.localStorage.setItem(JOINED_KEY, "true");
+    window.localStorage.setItem(JOINED_CODE_KEY, clean.code);
+    window.localStorage.setItem(JOINED_SHOP_KEY, clean.shopUrl);
+  } catch {
+    // The card can still show the code for this visit.
+  }
+  notify();
+}
+
+export function useJoinedReward(): OfferReward | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => loadJoined(),
+    () => null,
+  );
 }
 
 function subscribe(listener: () => void): () => void {

@@ -136,6 +136,7 @@ export function LatigoBanner({
   card = DEFAULT_BANNER_CARD,
   fallbackLine = BANNER_DEFAULT_LINE,
   onOffer,
+  offerLabel = "Get My 15% Off",
   children,
 }: {
   products: BannerProduct[];
@@ -146,6 +147,8 @@ export function LatigoBanner({
   fallbackLine?: string;
   /** The 15% offer. Same modal the five-minute ask uses. */
   onOffer: () => void;
+  /** "Get My 15% Off" until this browser has signed up. */
+  offerLabel?: string;
   children: ReactNode;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -240,8 +243,6 @@ export function LatigoBanner({
   const openProduct = openKey ? byImage.get(openKey) ?? null : null;
   const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
   const ariaLabel = name ? `${name}. See it closer` : BANNER_TITLE;
-  const offerLabel = "Get My 15% Off";
-
   // Mid-crossfade the strip is dimmed and the card sits over it, so neither
   // moment is something a listener actually saw.
   useBannerImpression(
@@ -324,15 +325,13 @@ export function LatigoBanner({
         >
           <BannerShot product={product} />
         </button>
-        <div className="radio-banner-offer-copy">
-          <p className="radio-banner-deal">
-            <span className="is-honey">15% OFF</span> YOUR FIRST ORDER
-          </p>
-          <p className="radio-banner-deal-sub">
-            Join free and we&apos;ll send your code. Knock out Christmas
-            shopping before the Black Friday rush.
-          </p>
-        </div>
+        <p className="radio-banner-deal">
+          <span className="is-honey">15% OFF</span> YOUR FIRST ORDER
+        </p>
+        <p className="radio-banner-deal-sub">
+          Join free and we&apos;ll send your code. Knock out Christmas shopping
+          before the Black Friday rush.
+        </p>
         <div className="radio-banner-offer-side">
           <button
             type="button"

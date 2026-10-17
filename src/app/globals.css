@@ -1781,11 +1781,10 @@ body {
   align-self: center;
   flex-shrink: 0;
 }
-.radio-banner-offer-copy {
-  grid-area: copy;
-  min-width: 0;
-}
 .radio-banner-deal {
+  grid-area: deal;
+  align-self: end;
+  min-width: 0;
   margin: 0;
   font-size: 13px;
   font-weight: 800;
@@ -1798,6 +1797,9 @@ body {
   color: #F4B400;
 }
 .radio-banner-deal-sub {
+  grid-area: sub;
+  align-self: start;
+  min-width: 0;
   margin: 3px 0 0;
   display: -webkit-box;
   overflow: hidden;
@@ -1812,6 +1814,7 @@ body {
 }
 .radio-banner-offer-side {
   grid-area: action;
+  align-self: center;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1866,7 +1869,9 @@ body {
 .radio-banner-stage {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr) auto;
-  grid-template-areas: "shot copy action";
+  grid-template-areas:
+    "shot deal action"
+    "shot sub action";
   align-items: center;
   column-gap: 8px;
   min-width: 0;
@@ -2739,32 +2744,54 @@ body {
     gap: 2px;
   }
   .radio-banner-stage {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
-    column-gap: 6px;
+    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-areas:
+      "shot deal"
+      "sub sub"
+      "action action";
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: center;
     height: auto;
-    min-height: 92px;
-    padding: 4px 54px 4px 2px;
+    min-height: 0;
+    padding: 8px 4px 8px 4px;
   }
   .radio-banner-deal {
-    font-size: 12px;
+    align-self: center;
+    padding-right: 58px;
+    font-size: 15px;
+    line-height: 1.2;
   }
   .radio-banner-deal-sub {
-    font-size: 10px;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+    overflow: visible;
+  }
+  .radio-banner-offer-side {
+    align-items: stretch;
+    gap: 4px;
   }
   .radio-banner-offer-go {
-    width: 92px;
-    min-height: 40px;
-    padding: 6px 6px;
-    font-size: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+  .radio-banner-offer-free {
+    text-align: center;
   }
   .radio-banner-shot {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
   }
   .radio-play {
+    top: 30px;
+    bottom: auto;
     width: 52px;
     height: auto;
-    top: 30px;
   }
   .radio-play-honey {
     width: 56px;
