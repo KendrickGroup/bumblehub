@@ -1745,11 +1745,50 @@ body {
 }
 .radio-banner-tier1 {
   min-width: 0;
+  width: 100%;
   padding: 6px 10px 5px;
   color: inherit;
+  font: inherit;
   text-align: center;
   text-decoration: none;
+  background: none;
+  border: none;
   border-bottom: 1.5px dashed rgba(217,201,168,.5);
+  cursor: pointer;
+}
+.radio-banner-plain:disabled {
+  cursor: default;
+}
+.radio-banner-plain:focus-visible,
+.radio-banner-shot-btn:focus-visible,
+.radio-banner-copy:focus-visible {
+  outline: 2px solid #d9c9a8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.radio-banner-shot-btn,
+.radio-banner-copy {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.radio-banner-shot-btn {
+  flex-shrink: 0;
+}
+.radio-banner-shot-btn:disabled,
+.radio-banner-copy:disabled {
+  cursor: default;
+}
+.radio-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 .radio-banner-stage {
   display: flex;
@@ -1779,6 +1818,7 @@ body {
   text-align: left;
 }
 .radio-banner-l1 {
+  display: block;
   overflow: hidden;
   font-size: 13px;
   font-weight: 800;
@@ -1818,17 +1858,22 @@ body {
   overflow: hidden;
   max-width: 100%;
   font-family: var(--font-elite), "Special Elite", cursive;
-  font-size: 10.5px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   line-height: 1.2;
   color: #4a3110;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
-  pointer-events: none;
+  cursor: pointer;
+  border: 1px solid #d4a000;
   border-radius: 3px;
   background: linear-gradient(180deg, #f8c85c, #e0a428);
+}
+.radio-banner-chip:focus-visible {
+  outline: 2px solid #f4b400;
+  outline-offset: 2px;
 }
 .radio-banner-shot {
   position: relative;
@@ -2192,6 +2237,30 @@ body {
 }
 .radio-list-go:disabled {
   opacity: 0.7;
+}
+.radio-offer-x {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #6b4f36;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.radio-offer-x:focus-visible {
+  outline: 2px solid #f4b400;
+  outline-offset: 2px;
+}
+.radio-offer-code {
+  margin: 8px 0 4px;
+  font-family: var(--font-elite), "Special Elite", cursive;
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  color: #3e2a1e;
 }
 .radio-list-dismiss {
   display: block;
@@ -2573,9 +2642,9 @@ body {
     letter-spacing: 0.2px;
   }
   .radio-banner-chip {
-    font-size: 9.5px;
-    padding: 2px 7px;
-    letter-spacing: 0.12em;
+    font-size: 8px;
+    padding: 2px 6px;
+    letter-spacing: 0.02em;
   }
   .radio-banner-txt {
     gap: 2px;

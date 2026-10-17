@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/api/radio/plays",
   "/api/radio/banner-events",
   "/api/radio/subscribe",
+  "/api/radio/signups",
 ];
 
 const EMBED_FRAME_ANCESTORS =
@@ -76,6 +77,12 @@ function isRadioHostAllowed(pathname: string): boolean {
   if (
     pathname === "/api/radio/subscribe" ||
     pathname.startsWith("/api/radio/subscribe/")
+  ) {
+    return true;
+  }
+  if (
+    pathname === "/api/radio/signups" ||
+    pathname.startsWith("/api/radio/signups/")
   ) {
     return true;
   }

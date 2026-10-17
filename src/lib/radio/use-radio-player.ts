@@ -7,6 +7,7 @@ import {
 } from "@/lib/music/source-exclusive";
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
 import { noteListening } from "./list-gate";
+import { noteOfferListening } from "./offer-gate";
 import { trackPlayerStatus } from "./play-log";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
@@ -129,6 +130,7 @@ function emit(next: RadioPlayerState) {
   // reconnects and stops without each call site remembering to say so.
   trackPlayerStatus(next, tuned);
   noteListening(next.status === "playing");
+  noteOfferListening(next.status === "playing");
   for (const listener of listeners) listener();
 }
 

@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  BANNER_CHIP,
   BANNER_DEFAULT_LINE,
   BANNER_FADE_MS,
   BANNER_HOLD_RESUME_MS,
@@ -98,6 +97,7 @@ export function LatigoBanner({
   rotateSeconds = BANNER_ROTATE_DEFAULT_SEC,
   card = DEFAULT_BANNER_CARD,
   fallbackLine = BANNER_DEFAULT_LINE,
+  onOffer,
   children,
 }: {
   products: BannerProduct[];
@@ -106,6 +106,8 @@ export function LatigoBanner({
   card?: BannerCardSettings;
   /** Shown until real lines arrive. The cabin keeps the ranch default. */
   fallbackLine?: string;
+  /** The 15% offer. Same modal the five-minute ask uses. */
+  onOffer: () => void;
   children: ReactNode;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -258,34 +260,64 @@ export function LatigoBanner({
     resumeSoon();
   };
 
+  const openHandlers = {
+    onPointerEnter: hold,
+    onPointerLeave: scheduleResume,
+    onFocus: hold,
+    onBlur: scheduleResume,
+    onTouchStart: hold,
+    onPointerDown,
+    onClick,
+  };
+
   return (
     <div className="radio-banner" ref={stripRef}>
       <button
         type="button"
-        className="radio-banner-hit"
+        className="radio-banner-tier1 radio-banner-plain"
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         disabled={!product}
-        onPointerEnter={hold}
-        onPointerLeave={scheduleResume}
-        onFocus={hold}
-        onBlur={scheduleResume}
-        onTouchStart={hold}
-        onPointerDown={onPointerDown}
-        onClick={onClick}
+        {...openHandlers}
       >
-        <div className="radio-banner-tier1" aria-hidden>
-          <div className="radio-banner-l1">{BANNER_TITLE}</div>
-        </div>
-        <div className={stageClass} aria-hidden>
-          <BannerShot product={product} />
-          <div className="radio-banner-txt">
-            <div className="radio-banner-name">{name}</div>
-            <div className="radio-banner-pitch">{pitch}</div>
-            <span className="radio-banner-chip">{BANNER_CHIP}</span>
-          </div>
-        </div>
+        <span className="radio-banner-l1">{BANNER_TITLE}</span>
       </button>
+      <div className={stageClass}>
+        <button
+          type="button"
+          className="radio-banner-shot-btn"
+          aria-label={ariaLabel}
+          aria-haspopup="dialog"
+          disabled={!product}
+          {...openHandlers}
+        >
+          <BannerShot product={product} />
+        </button>
+        <div className="radio-banner-txt">
+          <button
+            type="button"
+            className="radio-banner-copy"
+            aria-label={ariaLabel}
+            aria-haspopup="dialog"
+            disabled={!product}
+            {...openHandlers}
+          >
+            <span className="radio-banner-name">{name}</span>
+            <span className="radio-banner-pitch">{pitch}</span>
+          </button>
+          <button
+            type="button"
+            className="radio-banner-chip"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOffer();
+            }}
+          >
+            15% OFF - JOIN FREE
+          </button>
+        </div>
+      </div>
       {children}
       {openProduct ? (
         <BannerProductCard

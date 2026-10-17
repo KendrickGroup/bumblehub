@@ -62,6 +62,11 @@ import {
   markListJoined,
   useListAskDue,
 } from "@/lib/radio/list-gate";
+import {
+  markOfferSeen,
+  markOfferSeenQuiet,
+  useOfferDue,
+} from "@/lib/radio/offer-gate";
 import { LatigoBanner } from "@/components/radio/LatigoBanner";
 import { RadioShareButton } from "@/components/radio/RadioShareButton";
 import { bindInstallPrompt } from "@/lib/radio/install-prompt";
@@ -80,6 +85,13 @@ const ChartArtLightbox = dynamic(
   () =>
     import("@/components/radio/ChartArtLightbox").then(
       (mod) => mod.ChartArtLightbox,
+    ),
+  { ssr: false },
+);
+const RadioOfferModal = dynamic(
+  () =>
+    import("@/components/radio/RadioOfferModal").then(
+      (mod) => mod.RadioOfferModal,
     ),
   { ssr: false },
 );
@@ -124,7 +136,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const tunedId = useTunedStationId();
   const player = useRadioPlayer();
   const listAskDue = useListAskDue();
+  const offerDue = useOfferDue();
   const [listOpen, setListOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
   const [crackle, setCrackle] = useState(false);
   const [browseBand, setBrowseBand] = useState<RadioFaceBand>(DEFAULT_FACE_BAND);
   const [bandRestored, setBandRestored] = useState(false);
@@ -175,7 +189,17 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
     setListOpen(true);
   }
 
+  // Five minutes of real playback. The banner can open the same card sooner.
+  if (offerDue && !offerOpen && !listOpen) {
+    markOfferSeenQuiet();
+    setOfferOpen(true);
+  }
+
   const closeListAsk = useCallback(() => setListOpen(false), []);
+  const openOffer = useCallback(() => {
+    markOfferSeen();
+    setOfferOpen(true);
+  }, []);
   const dismissListAndClose = useCallback(() => {
     setListOpen(false);
     dismissListAsk();
@@ -903,6 +927,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             }
             rotateSeconds={bannerRotateSeconds}
             card={bannerCard}
+            onOffer={openOffer}
           >
             <button
               type="button"
@@ -967,6 +992,16 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
         open={handleOpen}
         onClose={() => setHandleOpen(false)}
       />
+      {offerOpen ? (
+        <RadioOfferModal
+          source={
+            playingStation?.call_sign?.trim() ||
+            playingStation?.station_name?.trim() ||
+            null
+          }
+          onClose={() => setOfferOpen(false)}
+        />
+      ) : null}
       {listOpen ? (
         <LatigoListModal
           stationCall={
