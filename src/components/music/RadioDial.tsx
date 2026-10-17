@@ -972,7 +972,10 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </button>
           </LatigoBanner>
         </div>
-        {publicMode && playGate === "blocked" && player.status !== "playing" ? (
+        {publicMode &&
+        playGate === "blocked" &&
+        player.status !== "playing" &&
+        player.status !== "buffering" ? (
           <button
             type="button"
             className="radio-listen-gate"

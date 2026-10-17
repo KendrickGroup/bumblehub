@@ -209,9 +209,17 @@ function clearAnalyserTimer() {
 
 function audioHasUrl(el: HTMLAudioElement, url: string): boolean {
   const attr = el.getAttribute("src");
-  if (!attr) return false;
+  // A media error needs a fresh fetch. A rejected play() does not: swapping
+  // the src here aborts the tap that was supposed to start the station.
+  if (!attr || el.error) return false;
   try {
-    return el.src === new URL(url, window.location.href).href;
+    const current = new URL(el.src);
+    const next = new URL(url, window.location.href);
+    current.searchParams.delete("_bh");
+    next.searchParams.delete("_bh");
+    current.hash = "";
+    next.hash = "";
+    return current.href === next.href;
   } catch {
     return el.src === url;
   }
