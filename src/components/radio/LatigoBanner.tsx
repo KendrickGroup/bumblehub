@@ -47,28 +47,66 @@ function pickLine(last: string, lines: string[], fallback: string): string {
   return next;
 }
 
+function productHandle(product: BannerProduct | null): string {
+  const handle = product?.handle?.trim();
+  if (handle) return handle;
+  const url = product?.url ?? "";
+  try {
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    return parts[parts.length - 1] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function BannerShot({ product }: { product: BannerProduct | null }) {
+  const stored = product?.image ?? null;
+  const [src, setSrc] = useState(stored);
   const [failed, setFailed] = useState(false);
   const [dpr, setDpr] = useState(2);
-  const src = product?.image ?? null;
+  const triedLive = useRef(false);
 
   useEffect(() => {
     setDpr(window.devicePixelRatio || 1);
   }, []);
 
   useEffect(() => {
+    setSrc(stored);
     setFailed(false);
-  }, [src]);
+    triedLive.current = false;
+  }, [stored]);
+
+  const onError = () => {
+    const handle = productHandle(product);
+    if (!triedLive.current && handle) {
+      triedLive.current = true;
+      void fetch(
+        `/api/radio/public/product-image?handle=${encodeURIComponent(handle)}`,
+      )
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body: { image?: unknown } | null) => {
+          const next = body?.image;
+          if (typeof next === "string" && next.startsWith("https://")) {
+            setSrc(next);
+            return;
+          }
+          setFailed(true);
+        })
+        .catch(() => setFailed(true));
+      return;
+    }
+    setFailed(true);
+  };
 
   if (!src || failed) {
     return (
       <span className="radio-banner-shot" aria-hidden>
-        <span className="radio-banner-concho" />
+        <span className="radio-banner-fallback">Latigo</span>
       </span>
     );
   }
 
-  const frame = product?.frame ?? null;
+  const frame = src === stored ? (product?.frame ?? null) : null;
   // The well is about 216 CSS pixels. Retina needs 2x or 3x that, and a
   // framed crop is blown up inside the well so the source has to match.
   const cssPx = frame ? Math.ceil(216 / Math.max(frame.w, 0.15)) : 216;
@@ -85,7 +123,7 @@ function BannerShot({ product }: { product: BannerProduct | null }) {
         loading="lazy"
         decoding="async"
         draggable={false}
-        onError={() => setFailed(true)}
+        onError={onError}
       />
     </span>
   );
@@ -115,7 +153,7 @@ export function LatigoBanner({
     shuffle(products.map((item) => item.image)),
   );
   const [index, setIndex] = useState(0);
-  const [line, setLine] = useState(fallbackLine);
+  const [, setLine] = useState(fallbackLine);
   const [fading, setFading] = useState(false);
   const lineRef = useRef(fallbackLine);
   const fallbackRef = useRef(fallbackLine);
@@ -198,11 +236,11 @@ export function LatigoBanner({
   }, [rotateSeconds]);
 
   const product = byImage.get(order[index] ?? "") ?? null;
-  const pitch = product?.pitch.trim() || line;
   const name = product?.name.trim() ?? "";
   const openProduct = openKey ? byImage.get(openKey) ?? null : null;
   const stageClass = `radio-banner-stage${fading ? " is-fading" : ""}`;
   const ariaLabel = name ? `${name}. See it closer` : BANNER_TITLE;
+  const offerLabel = "Get My 15% Off";
 
   // Mid-crossfade the strip is dimmed and the card sits over it, so neither
   // moment is something a listener actually saw.
@@ -272,16 +310,9 @@ export function LatigoBanner({
 
   return (
     <div className="radio-banner" ref={stripRef}>
-      <button
-        type="button"
-        className="radio-banner-tier1 radio-banner-plain"
-        aria-label={ariaLabel}
-        aria-haspopup="dialog"
-        disabled={!product}
-        {...openHandlers}
-      >
+      <div className="radio-banner-tier1">
         <span className="radio-banner-l1">{BANNER_TITLE}</span>
-      </button>
+      </div>
       <div className={stageClass}>
         <button
           type="button"
@@ -293,29 +324,28 @@ export function LatigoBanner({
         >
           <BannerShot product={product} />
         </button>
-        <div className="radio-banner-txt">
+        <div className="radio-banner-offer-copy">
+          <p className="radio-banner-deal">
+            <span className="is-honey">15% OFF</span> YOUR FIRST ORDER
+          </p>
+          <p className="radio-banner-deal-sub">
+            Join free and we&apos;ll send your code. Knock out Christmas
+            shopping before the Black Friday rush.
+          </p>
+        </div>
+        <div className="radio-banner-offer-side">
           <button
             type="button"
-            className="radio-banner-copy"
-            aria-label={ariaLabel}
-            aria-haspopup="dialog"
-            disabled={!product}
-            {...openHandlers}
-          >
-            <span className="radio-banner-name">{name}</span>
-            <span className="radio-banner-pitch">{pitch}</span>
-          </button>
-          <button
-            type="button"
-            className="radio-banner-chip"
+            className="radio-banner-offer-go"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               onOffer();
             }}
           >
-            15% OFF - JOIN FREE
+            {offerLabel}
           </button>
+          <p className="radio-banner-offer-free">Always free to listen</p>
         </div>
       </div>
       {children}

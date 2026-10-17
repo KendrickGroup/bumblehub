@@ -939,7 +939,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 if (parked || !selected) return;
                 onPlayToggle();
               }}
-              aria-label={live ? "Stop radio" : "Listen"}
+              aria-label={live ? "Stop radio" : "Play radio"}
               aria-pressed={live}
               className={`radio-play ${live ? "is-live" : ""}`}
             >
@@ -967,7 +967,7 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                 )}
               </span>
               <span className="radio-play-label">
-                {live ? "STOP" : "LISTEN"}
+                {live ? "STOP" : "PLAY"}
               </span>
             </button>
           </LatigoBanner>
