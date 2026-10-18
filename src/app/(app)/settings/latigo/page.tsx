@@ -11,7 +11,9 @@ import { PUBLIC_ROUNDUP_PLAYLIST_URL } from "@/lib/radio/ranch";
 import { fetchRoundupPlaylist } from "@/lib/radio/roundup-playlist";
 import { subscriberCount } from "@/lib/radio/subscriber-count";
 import { fetchSignupReport } from "@/lib/radio/signup-report";
+import { fetchPlayReport } from "@/lib/radio/play-report";
 import { RadioSignupsPanel } from "@/components/settings/RadioSignupsPanel";
+import { RadioPlaysPanel } from "@/components/settings/RadioPlaysPanel";
 import { ShopPicksPanel } from "../ShopPicksPanel";
 import { BannerPerformancePanel } from "@/components/settings/AnalyticsPanels";
 import { BannerRotateField } from "@/components/settings/BannerRotateField";
@@ -39,6 +41,7 @@ export default async function LatigoSettingsPage() {
 
   const subscribers = await subscriberCount();
   const signups = user ? await fetchSignupReport() : null;
+  const plays = user ? await fetchPlayReport() : null;
   const listId = klaviyoListId();
   const keySet = Boolean((process.env.KLAVIYO_PRIVATE_KEY ?? "").trim());
   const subscriberHint = !subscribers.available
@@ -50,6 +53,7 @@ export default async function LatigoSettingsPage() {
   return (
     <>
       {signups ? <RadioSignupsPanel report={signups} /> : null}
+      {plays ? <RadioPlaysPanel report={plays} /> : null}
 
       <SettingsGroup title="BANNER">
         <BannerRotateField

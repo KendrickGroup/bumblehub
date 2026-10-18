@@ -8,6 +8,7 @@ import {
 import { exclusiveRadio, registerRadioStop } from "./audio-exclusive";
 import { noteListening } from "./list-gate";
 import { noteOfferListening } from "./offer-gate";
+import { notePlayStart, playStationLabel } from "./play-start";
 import { trackPlayerStatus } from "./play-log";
 import type { RadioStation } from "./types";
 import { writeTunedStationId } from "./use-radio-stations";
@@ -45,6 +46,7 @@ type PlayableStation = Pick<
   station_type?: RadioStation["station_type"];
   /** Carried for the play log; every real dial row already has both. */
   call_sign?: RadioStation["call_sign"];
+  dial_label?: RadioStation["dial_label"];
   band?: RadioStation["band"];
 };
 
@@ -129,6 +131,7 @@ function emit(next: RadioPlayerState) {
   // Every status change funnels through here, so the play log sees switches,
   // reconnects and stops without each call site remembering to say so.
   trackPlayerStatus(next, tuned);
+  notePlayStart(next.status, next.stationId, playStationLabel(tuned));
   noteListening(next.status === "playing");
   noteOfferListening(next.status === "playing");
   for (const listener of listeners) listener();
