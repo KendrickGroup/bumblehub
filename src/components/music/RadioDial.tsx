@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -147,6 +147,9 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   const [bandRestored, setBandRestored] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
+  const [artOpen, setArtOpen] = useState(false);
+  const [artInset, setArtInset] = useState(0);
+  const caseRef = useRef<HTMLDivElement>(null);
   const [weather, setWeather] = useState<RanchWeather | null>(null);
   const [stationWx, setStationWx] = useState<StationWx | null>(null);
   const [lassoBusy, setLassoBusy] = useState(false);
@@ -527,10 +530,51 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
   if (!mapArtUrl && chartOpen) {
     setChartOpen(false);
   }
+  if (artOpen && !plaqueArt) {
+    setArtOpen(false);
+  }
+
+  useLayoutEffect(() => {
+    const caseEl = caseRef.current;
+    if (!caseEl) return;
+    const measure = () => {
+      const banner = caseEl.querySelector(".radio-banner");
+      if (!banner) return;
+      const caseBox = caseEl.getBoundingClientRect();
+      const bannerBox = banner.getBoundingClientRect();
+      const borderBottom =
+        parseFloat(getComputedStyle(caseEl).borderBottomWidth) || 0;
+      const next = Math.max(
+        0,
+        Math.round(caseBox.bottom - borderBottom - bannerBox.top),
+      );
+      setArtInset((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(caseEl);
+    const banner = caseEl.querySelector(".radio-banner");
+    if (banner) observer.observe(banner);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!artOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setArtOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [artOpen]);
 
   return (
     <section className={`radio-world mx-auto w-full max-w-[900px] max-sm:h-full max-sm:min-h-0 ${publicMode ? "h-full" : "app-radio"}`}>
       <div
+        ref={caseRef}
         className={`radio-case ${parked ? "pointer-events-none opacity-40" : ""}`}
       >
         <div className="radio-carry">
@@ -862,8 +906,19 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
                     WX
                   </span>
                 ) : plaqueArt ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={plaqueArt} alt="" className="radio-plaque-art" />
+                  <button
+                    type="button"
+                    className="radio-plaque-art radio-plaque-art-btn"
+                    aria-label={
+                      spinTitle
+                        ? `Enlarge album art for ${spinTitle}`
+                        : "Enlarge album art"
+                    }
+                    onClick={() => setArtOpen(true)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={plaqueArt} alt="" />
+                  </button>
                 ) : null}
                 <div className="radio-plaque-song">
                   <p className="radio-plaque-k">Now Spinning</p>
@@ -976,6 +1031,28 @@ export function RadioDial({ publicMode = false }: { publicMode?: boolean }) {
             </button>
           </LatigoBanner>
         </div>
+        {artOpen && plaqueArt ? (
+          <div
+            className="radio-art-stage"
+            role="dialog"
+            aria-label="Album art"
+            style={{ bottom: artInset }}
+            onClick={() => setArtOpen(false)}
+          >
+            <button
+              type="button"
+              className="radio-art-x"
+              aria-label="Close"
+              onClick={() => setArtOpen(false)}
+            >
+              ×
+            </button>
+            <div className="radio-art-frame">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={plaqueArt} alt="" className="radio-art-blow" />
+            </div>
+          </div>
+        ) : null}
         {publicMode &&
         playGate === "blocked" &&
         player.status !== "playing" &&
