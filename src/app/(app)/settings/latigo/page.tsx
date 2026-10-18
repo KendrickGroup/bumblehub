@@ -10,6 +10,8 @@ import { LATIGO_LIST_ENABLED } from "@/lib/radio/latigo-list";
 import { PUBLIC_ROUNDUP_PLAYLIST_URL } from "@/lib/radio/ranch";
 import { fetchRoundupPlaylist } from "@/lib/radio/roundup-playlist";
 import { subscriberCount } from "@/lib/radio/subscriber-count";
+import { fetchSignupReport } from "@/lib/radio/signup-report";
+import { RadioSignupsPanel } from "@/components/settings/RadioSignupsPanel";
 import { ShopPicksPanel } from "../ShopPicksPanel";
 import { BannerPerformancePanel } from "@/components/settings/AnalyticsPanels";
 import { BannerRotateField } from "@/components/settings/BannerRotateField";
@@ -21,8 +23,10 @@ export const metadata: Metadata = {
   title: "Latigo · Settings",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function LatigoSettingsPage() {
-  const { supabase, propertyId } = await settingsSession();
+  const { supabase, user, propertyId } = await settingsSession();
   let banner: Awaited<ReturnType<typeof ensureBannerLines>> | null = null;
 
   if (propertyId) {
@@ -34,6 +38,7 @@ export default async function LatigoSettingsPage() {
     : "";
 
   const subscribers = await subscriberCount();
+  const signups = user ? await fetchSignupReport() : null;
   const listId = klaviyoListId();
   const keySet = Boolean((process.env.KLAVIYO_PRIVATE_KEY ?? "").trim());
   const subscriberHint = !subscribers.available
@@ -44,6 +49,8 @@ export default async function LatigoSettingsPage() {
 
   return (
     <>
+      {signups ? <RadioSignupsPanel report={signups} /> : null}
+
       <SettingsGroup title="BANNER">
         <BannerRotateField
           hasProperty={!!propertyId}
